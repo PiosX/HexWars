@@ -6,6 +6,8 @@ const BG_PANEL = Color("121218")
 const BG_BOX = Color("1A1A28")
 const BORDER_COLOR = Color("2A2A40")
 const BORDER_HOVER = Color("2A2A40")
+const SETTINGS_BUTTON_COLOR = Color("2A2A40")
+const SETTINGS_BUTTON_HOVER = Color("3a3a50")
 
 const TEAM_COLORS = {
 	1: Color("#4D99FF"),  # Blue
@@ -42,6 +44,12 @@ var next_button: VBoxContainer
 var unit_buttons_container: HBoxContainer
 var unit_buttons: Dictionary = {}
 
+# Settings popup
+var settings_popup: Control
+var settings_overlay: ColorRect
+var sound_enabled: bool = true
+var music_enabled: bool = true
+
 # Icons paths
 const ICON_SETTINGS = "res://ui/settings.png"
 const ICON_TIME = "res://ui/time.png"
@@ -55,10 +63,20 @@ const ICON_KNIGHT = "res://ui/sword128.png"
 const ICON_CAVALRY = "res://ui/horse128.png"
 const ICON_WALL = "res://ui/shield128.png"
 
+# Settings icons
+const ICON_CLOSE = "res://ui/settings/close.png"
+const ICON_SOUND = "res://ui/settings/sound.png"
+const ICON_MUSIC = "res://ui/settings/music.png"
+const ICON_RESTART = "res://ui/settings/restart.png"
+const ICON_HOWTO = "res://ui/settings/howto.png"
+const ICON_STORE = "res://ui/settings/store.png"
+const ICON_HOME = "res://ui/settings/home.png"
+
 func _ready():
 	# Wait for hex_grid to be set
 	await get_tree().process_frame
 	setup_ui()
+	setup_settings_popup()
 
 func setup_ui():
 	# === TOP PANEL ===
@@ -82,6 +100,7 @@ func setup_ui():
 	settings_button = create_rounded_button("", ICON_SETTINGS)
 	settings_button.custom_minimum_size = Vector2(95, 95)
 	settings_button.add_theme_constant_override("icon_max_width", 45)
+	settings_button.pressed.connect(_on_settings_pressed)
 	top_content.add_child(settings_button)
 	
 	# Spacer
@@ -230,9 +249,338 @@ func setup_ui():
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
+func setup_settings_popup():
+	# Overlay (przyciemnione i zablurowane tło)
+	settings_overlay = ColorRect.new()
+	settings_overlay.name = "SettingsOverlay"
+	settings_overlay.color = Color(0, 0, 0, 0.6)
+	settings_overlay.visible = false
+	settings_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# NOWE - anchor do full screen
+	settings_overlay.anchor_left = 0
+	settings_overlay.anchor_top = 0
+	settings_overlay.anchor_right = 1
+	settings_overlay.anchor_bottom = 1
+	settings_overlay.offset_left = 0
+	settings_overlay.offset_top = 0
+	settings_overlay.offset_right = 0
+	settings_overlay.offset_bottom = 0
+	
+	add_child(settings_overlay)
+	
+	# Główny popup container
+	settings_popup = Control.new()
+	settings_popup.name = "SettingsPopup"
+	settings_popup.visible = false
+	settings_popup.mouse_filter = Control.MOUSE_FILTER_STOP
+	
+	# NOWE - full screen
+	settings_popup.anchor_left = 0
+	settings_popup.anchor_top = 0
+	settings_popup.anchor_right = 1
+	settings_popup.anchor_bottom = 1
+	
+	add_child(settings_popup)
+	
+	# Panel pionowy
+	var popup_panel = Panel.new()
+	popup_panel.name = "PopupPanel"
+	# ANCHOR do wyśrodkowania
+	popup_panel.anchor_left = 0.5
+	popup_panel.anchor_right = 0.5
+	popup_panel.anchor_top = 0.5
+	popup_panel.anchor_bottom = 0.5
+
+	# ROZMIAR - 90% szerokości ekranu, ale max 700px
+	popup_panel.custom_minimum_size = Vector2(600, 750)  # 1.5x większe (było 500x600)
+
+	# OFFSET - wyśrodkowanie z marginesami
+	popup_panel.offset_left = -300  # połowa szerokości
+	popup_panel.offset_right = 300
+	popup_panel.offset_top = -420  # połowa wysokości
+	popup_panel.offset_bottom = 420
+	
+	var panel_style = StyleBoxFlat.new()
+	panel_style.bg_color = BG_BOX
+	panel_style.border_width_left = 1
+	panel_style.border_width_right = 1
+	panel_style.border_width_top = 1
+	panel_style.border_width_bottom = 1
+	panel_style.border_color = BORDER_COLOR
+	panel_style.corner_radius_top_left = 16
+	panel_style.corner_radius_top_right = 16
+	panel_style.corner_radius_bottom_left = 16
+	panel_style.corner_radius_bottom_right = 16
+	panel_style.content_margin_left = 36
+	panel_style.content_margin_right = 36
+	panel_style.content_margin_top = 36
+	panel_style.content_margin_bottom = 36
+	popup_panel.add_theme_stylebox_override("panel", panel_style)
+	settings_popup.add_child(popup_panel)
+	
+	# VBox dla zawartości
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 30)
+	vbox.anchor_left = 0
+	vbox.anchor_right = 1
+	vbox.anchor_top = 0
+	vbox.anchor_bottom = 1
+	vbox.offset_left = 36
+	vbox.offset_right = -36
+	vbox.offset_top = 36
+	vbox.offset_bottom = -36
+	popup_panel.add_child(vbox)
+	
+	# === HEADER ===
+	var header = HBoxContainer.new()
+	header.custom_minimum_size = Vector2(0, 80)
+	vbox.add_child(header)
+	
+	# SETTINGS label
+	var settings_label = Label.new()
+	settings_label.text = "SETTINGS"
+	settings_label.add_theme_font_size_override("font_size", 48)
+	settings_label.add_theme_color_override("font_color", Color.WHITE)
+	settings_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	settings_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(settings_label)
+	
+	# Close button
+	var close_btn = Button.new()
+	close_btn.custom_minimum_size = Vector2(60, 60)
+	close_btn.focus_mode = Control.FOCUS_NONE
+	
+	var close_style = StyleBoxFlat.new()
+	close_style.bg_color = Color.TRANSPARENT
+	close_btn.add_theme_stylebox_override("normal", close_style)
+	close_btn.add_theme_stylebox_override("hover", close_style)
+	close_btn.add_theme_stylebox_override("pressed", close_style)
+	
+	var close_icon = load(ICON_CLOSE)
+	if close_icon:
+		close_btn.icon = close_icon
+		close_btn.add_theme_constant_override("icon_max_width", 48)
+	
+	close_btn.pressed.connect(_on_close_settings)
+	header.add_child(close_btn)
+	
+	# === TOGGLE PANEL ===
+	var toggle_panel = Panel.new()
+	toggle_panel.custom_minimum_size = Vector2(0, 200)
+	
+	var toggle_style = StyleBoxFlat.new()
+	toggle_style.bg_color = Color.TRANSPARENT
+	toggle_style.border_width_top = 1
+	toggle_style.border_width_bottom = 1
+	toggle_style.border_color = BORDER_COLOR
+	toggle_style.content_margin_top = 30
+	toggle_style.content_margin_bottom = 30
+	toggle_panel.add_theme_stylebox_override("panel", toggle_style)
+	vbox.add_child(toggle_panel)
+	
+	# HBox dla 2 kolumn
+	var toggles_hbox = HBoxContainer.new()
+	toggles_hbox.add_theme_constant_override("separation", 80)
+	toggles_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	toggles_hbox.anchor_left = 0
+	toggles_hbox.anchor_right = 1
+	toggles_hbox.anchor_top = 0
+	toggles_hbox.anchor_bottom = 1
+	toggle_panel.add_child(toggles_hbox)
+	
+	# Sound toggle
+	var sound_vbox = create_toggle_control("Sound", ICON_SOUND, true)
+	sound_vbox.set_meta("type", "sound")
+	toggles_hbox.add_child(sound_vbox)
+	
+	# Music toggle
+	var music_vbox = create_toggle_control("Music", ICON_MUSIC, true)
+	music_vbox.set_meta("type", "music")
+	toggles_hbox.add_child(music_vbox)
+	
+	# === BUTTONS ===
+	var buttons_vbox = VBoxContainer.new()
+	buttons_vbox.add_theme_constant_override("separation", 20)
+	buttons_vbox.custom_minimum_size = Vector2(0, 300)
+	buttons_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(buttons_vbox)
+	
+	# Restart button
+	var restart_btn = create_settings_button("Restart", ICON_RESTART)
+	restart_btn.pressed.connect(_on_restart_pressed)
+	buttons_vbox.add_child(restart_btn)
+	
+	# How to Play button
+	var howto_btn = create_settings_button("How to Play", ICON_HOWTO)
+	howto_btn.pressed.connect(_on_howto_pressed)
+	buttons_vbox.add_child(howto_btn)
+	
+	# Store button
+	var store_btn = create_settings_button("Store", ICON_STORE)
+	store_btn.pressed.connect(_on_store_pressed)
+	buttons_vbox.add_child(store_btn)
+	
+	# Home button
+	var home_btn = create_settings_button("Home", ICON_HOME)
+	home_btn.pressed.connect(_on_home_pressed)
+	buttons_vbox.add_child(home_btn)
+
+func create_toggle_control(label_text: String, icon_path: String, initial_state: bool) -> VBoxContainer:
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)  # było 16, zmniejszone
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	
+	# Icon + Label
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 12)
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	
+	var icon = TextureRect.new()
+	icon.custom_minimum_size = Vector2(32, 32)
+	icon.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = load(icon_path)
+	hbox.add_child(icon)
+	
+	var label = Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", 28)
+	label.add_theme_color_override("font_color", Color("D1D5DC"))
+	hbox.add_child(label)
+	
+	vbox.add_child(hbox)
+	
+	# Toggle switch container (większy obszar klikalny)
+	var switch_container = Control.new()
+	switch_container.custom_minimum_size = Vector2(100, 60)  # było 80, zwiększone dla lepszego paddingu
+	switch_container.name = "SwitchContainer"  # DODAJ nazwę dla łatwiejszego dostępu
+	
+	# Toggle switch button
+	var switch_btn = Button.new()
+	switch_btn.custom_minimum_size = Vector2(100, 50)
+	switch_btn.focus_mode = Control.FOCUS_NONE
+	switch_btn.set_meta("state", initial_state)
+	
+	# Wyśrodkowanie w kontenerze
+	switch_btn.anchor_left = 0.5
+	switch_btn.anchor_top = 0.5
+	switch_btn.offset_left = -50
+	switch_btn.offset_top = -25
+	switch_btn.offset_right = 50
+	switch_btn.offset_bottom = 25
+	
+	var switch_style = StyleBoxFlat.new()
+	switch_style.bg_color = Color("00BC7D") if initial_state else Color("3A3A50")
+	switch_style.corner_radius_top_left = 25
+	switch_style.corner_radius_top_right = 25
+	switch_style.corner_radius_bottom_left = 25
+	switch_style.corner_radius_bottom_right = 25
+	switch_btn.add_theme_stylebox_override("normal", switch_style)
+	switch_btn.add_theme_stylebox_override("hover", switch_style)
+	switch_btn.add_theme_stylebox_override("pressed", switch_style)
+	
+	# White circle indicator
+	var circle = Panel.new()
+	circle.name = "Circle"
+	circle.custom_minimum_size = Vector2(42, 42)
+	circle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	var circle_style = StyleBoxFlat.new()
+	circle_style.bg_color = Color.WHITE
+	circle_style.corner_radius_top_left = 21
+	circle_style.corner_radius_top_right = 21
+	circle_style.corner_radius_bottom_left = 21
+	circle_style.corner_radius_bottom_right = 21
+	circle.add_theme_stylebox_override("panel", circle_style)
+	
+	# Position circle based on state - POPRAWIONE pozycje
+	circle.position = Vector2(54, 4) if initial_state else Vector2(4, 4)
+	switch_btn.add_child(circle)
+	
+	switch_btn.pressed.connect(func(): _on_toggle_pressed(switch_btn, circle, label_text, vbox))
+	switch_container.add_child(switch_btn)
+	vbox.add_child(switch_container)
+	
+	# ON/OFF label
+	var state_label = Label.new()
+	state_label.name = "StateLabel"
+	state_label.text = "ON" if initial_state else "OFF"
+	state_label.add_theme_font_size_override("font_size", 24)
+	state_label.add_theme_color_override("font_color", Color("6A7282"))
+	state_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(state_label)
+	
+	return vbox
+
+func create_settings_button(label_text: String, icon_path: String) -> Button:
+	var btn = Button.new()
+	btn.custom_minimum_size = Vector2(540, 90)  # było 400x60
+	btn.focus_mode = Control.FOCUS_NONE
+	
+	var style_normal = StyleBoxFlat.new()
+	style_normal.bg_color = SETTINGS_BUTTON_COLOR
+	style_normal.corner_radius_top_left = 30
+	style_normal.corner_radius_top_right = 30
+	style_normal.corner_radius_bottom_left = 30
+	style_normal.corner_radius_bottom_right = 30
+	
+	# WIĘKSZE PADDINGI
+	style_normal.content_margin_left = 24
+	style_normal.content_margin_right = 24
+	style_normal.content_margin_top = 24
+	style_normal.content_margin_bottom = 24
+	
+	var style_hover = style_normal.duplicate()
+	style_hover.bg_color = SETTINGS_BUTTON_HOVER
+	
+	btn.add_theme_stylebox_override("normal", style_normal)
+	btn.add_theme_stylebox_override("hover", style_hover)
+	btn.add_theme_stylebox_override("pressed", style_hover)
+	
+	# HBox dla ikony i tekstu - WYRÓWNANIE DO LEWEJ
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 12)  # było 12
+	hbox.alignment = BoxContainer.ALIGNMENT_BEGIN  # ZMIANA: było CENTER
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.anchor_left = 0
+	hbox.anchor_right = 1
+	hbox.anchor_top = 0
+	hbox.anchor_bottom = 1
+	btn.add_child(hbox)
+	
+	var left_padding = MarginContainer.new()
+	left_padding.add_theme_constant_override("margin_left", 24)
+	left_padding.add_theme_constant_override("margin_right", 0)
+	left_padding.add_theme_constant_override("margin_top", 0)
+	left_padding.add_theme_constant_override("margin_bottom", 0)
+
+	hbox.add_child(left_padding)
+	
+	var icon = TextureRect.new()
+	icon.texture = load(icon_path)
+
+	icon.custom_minimum_size = Vector2(36, 36)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.add_child(icon)
+	
+	var label = Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", 33)  # było 22
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.add_child(label)
+	
+	return btn
+
 func create_rounded_button(text: String, icon_path: String = "") -> Button:
 	var btn = Button.new()
 	btn.text = text
+	btn.focus_mode = Control.FOCUS_NONE
 	
 	var style_normal = StyleBoxFlat.new()
 	style_normal.bg_color = BG_BOX
@@ -338,6 +686,7 @@ func create_action_button(text: String, icon_path: String) -> VBoxContainer:
 	
 	var btn = Button.new()
 	btn.custom_minimum_size = Vector2(90, 90)
+	btn.focus_mode = Control.FOCUS_NONE
 	
 	var style_normal = StyleBoxFlat.new()
 	style_normal.bg_color = BG_BOX
@@ -390,6 +739,7 @@ func create_unit_button(unit_data: Dictionary) -> VBoxContainer:
 	# Button with icon
 	var btn = Button.new()
 	btn.custom_minimum_size = Vector2(110, 110)
+	btn.focus_mode = Control.FOCUS_NONE
 	
 	var style_normal = StyleBoxFlat.new()
 	style_normal.bg_color = BG_BOX
@@ -491,6 +841,7 @@ func create_next_button() -> VBoxContainer:
 	
 	var btn = Button.new()
 	btn.custom_minimum_size = Vector2(90, 90)
+	btn.focus_mode = Control.FOCUS_NONE
 	
 	var style_normal = StyleBoxFlat.new()
 	style_normal.bg_color = Color("10B981")  # emerald-500
@@ -575,6 +926,17 @@ func _on_viewport_size_changed():
 	# Position NEXT button (NAD panelem po prawej)
 	if next_button:
 		next_button.position = Vector2(viewport_size.x - 106, viewport_size.y - bottom_height - 130)
+	
+	# Overlay covers whole screen
+	if settings_overlay:
+		settings_overlay.anchor_left = 0
+		settings_overlay.anchor_top = 0
+		settings_overlay.anchor_right = 1
+		settings_overlay.anchor_bottom = 1
+		settings_overlay.offset_left = 0
+		settings_overlay.offset_top = 0
+		settings_overlay.offset_right = 0
+		settings_overlay.offset_bottom = 0
 
 func update_ui_data():
 	"""Called by hex_grid to update all UI elements"""
@@ -703,7 +1065,62 @@ func _on_undo_pressed():
 func _on_next_pressed():
 	if hex_grid:
 		hex_grid._on_end_turn()
-		
+
+func _on_settings_pressed():
+	settings_overlay.visible = true
+	settings_popup.visible = true
+
+func _on_close_settings():
+	settings_overlay.visible = false
+	settings_popup.visible = false
+
+func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: VBoxContainer):
+	var current_state = btn.get_meta("state")
+	var new_state = !current_state
+	btn.set_meta("state", new_state)
+	
+	# Update switch color
+	var switch_style = btn.get_theme_stylebox("normal").duplicate()
+	switch_style.bg_color = Color("00BC7D") if new_state else Color("3A3A50")
+	btn.add_theme_stylebox_override("normal", switch_style)
+	btn.add_theme_stylebox_override("hover", switch_style)
+	btn.add_theme_stylebox_override("pressed", switch_style)
+	
+	# Animate circle position - POPRAWIONE POZYCJE
+	var tween = create_tween()
+	tween.tween_property(circle, "position", Vector2(54, 4) if new_state else Vector2(4, 4), 0.2)
+	
+	# Update state label - POPRAWKA: szukaj w parent_vbox zamiast btn.get_parent()
+	var state_label = parent_vbox.get_node("StateLabel")
+	if state_label:
+		state_label.text = "ON" if new_state else "OFF"
+	
+	# Update actual sound/music settings
+	if type == "Sound":
+		sound_enabled = new_state
+	elif type == "Music":
+		music_enabled = new_state
+
+func _on_restart_pressed():
+	print("Restart pressed")
+	# TODO: Implement restart logic
+	_on_close_settings()
+
+func _on_howto_pressed():
+	print("How to Play pressed")
+	# TODO: Implement how to play logic
+	_on_close_settings()
+
+func _on_store_pressed():
+	print("Store pressed")
+	# TODO: Implement store logic
+	_on_close_settings()
+
+func _on_home_pressed():
+	print("Home pressed")
+	# TODO: Implement home logic
+	_on_close_settings()
+			
 func reset_wall_button():
 	"""Resetuje przycisk murów do stanu początkowego"""
 	if "wall" in unit_buttons and unit_buttons["wall"].has_meta("button"):
