@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3 uid="uid://durtgw8fh8yvg"]
+
+[ext_resource type="Script" uid="uid://dsrf8rvhhjrnn" path="res://hex.gd" id="1_khich"]
+[ext_resource type="Texture2D" uid="uid://ykdmc2bdf4be" path="res://hexagon1.png" id="2_khich"]
+
+[node name="Hex" type="Area2D"]
+script = ExtResource("1_khich")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture = ExtResource("2_khich")
+
+[node name="Collision" type="CollisionPolygon2D" parent="."]
+polygon = PackedVector2Array(3, -32, -3, -32, -29, -16, -29, 16, -3, 32, 3, 32, 29, 16, 29, -16)
