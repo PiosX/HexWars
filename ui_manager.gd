@@ -1,6 +1,7 @@
 extends CanvasLayer
 class_name UIManager
 
+signal ui_ready
 # --- COLORS ---
 const BG_PANEL = Color("121218")
 const BG_BOX = Color("1A1A28")
@@ -248,6 +249,7 @@ func setup_ui():
 	# Initial layout
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	ui_ready.emit()
 
 func setup_settings_popup():
 	# Overlay (przyciemnione i zablurowane tło)
@@ -1069,10 +1071,32 @@ func _on_next_pressed():
 func _on_settings_pressed():
 	settings_overlay.visible = true
 	settings_popup.visible = true
+	settings_popup.modulate = Color(1, 1, 1, 0)  # Przezroczysty
+	
+	var popup_panel = settings_popup.get_node("PopupPanel")
+	popup_panel.scale = Vector2(0.8, 0.8)
+	
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(settings_popup, "modulate", Color.WHITE, 0.3)
+	tween.tween_property(popup_panel, "scale", Vector2.ONE, 0.3)
 
 func _on_close_settings():
-	settings_overlay.visible = false
-	settings_popup.visible = false
+	var popup_panel = settings_popup.get_node("PopupPanel")
+	
+	var tween = create_tween()
+	tween.set_parallel(true)
+	tween.set_ease(Tween.EASE_IN)
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(settings_popup, "modulate", Color(1, 1, 1, 0), 0.25)
+	tween.tween_property(popup_panel, "scale", Vector2(0.8, 0.8), 0.25)
+	
+	tween.finished.connect(func():
+		settings_overlay.visible = false
+		settings_popup.visible = false
+	)
 
 func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: VBoxContainer):
 	var current_state = btn.get_meta("state")

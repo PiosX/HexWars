@@ -43,3 +43,4 @@ tile_set = SubResource("TileSet_o3jxj")
 [node name="HexGrid" type="Node2D" parent="."]
 position = Vector2(100, 100)
 script = ExtResource("4_d5x1h")
+editor_mode = true

@@ -32,6 +32,11 @@ const TEAM_COLORS = {
 	4: Color("#FFD645")   # Zolty
 }
 
+var camera_drag_enabled: bool = true
+var camera_dragging: bool = false
+var drag_start_position: Vector2
+var initial_camera_position: Vector2
+
 const NEUTRAL_COLOR = Color("#2b2b2b")
 const MERCENARY_COLOR = Color("#1a1a1a")
 const CAMP_COLOR = Color("#4a3520")
@@ -60,7 +65,7 @@ var unit_pulse_tweens: Dictionary = {}
 var current_team: int = 1
 var selected_unit = null
 var highlighted_hexes: Array[Hex] = []
-var game_mode: bool = false
+var game_mode: bool = true
 var units_moved_this_turn: Array = []
 var current_round: int = 1
 var bandits_need_camp: Array[Vector2i] = []  # Jednostki bandytów bez obozu
@@ -99,15 +104,29 @@ var merge_mode: bool = false
 var turn_history: TurnHistory
 
 func _ready():
+	var victory_popup = preload("res://victory_popup.gd").new()
+	add_child(victory_popup)
+	victory_popup.home_pressed.connect(_on_victory_home)
+	victory_popup.next_pressed.connect(_on_victory_next)
+	set_meta("victory_popup", victory_popup)
+	
 	turn_history = TurnHistory.new()
 	add_child(turn_history)  
 	
 	hex_horiz_spacing = hex_width * 0.866 * (1.0 + hex_gap)
 	hex_vert_spacing = hex_height * 0.75 * (1.0 + hex_gap)
 	
+	var camera = Camera2D.new()
+	camera.name = "GameCamera"
+	camera.zoom = Vector2(1.5, 1.5)
+	camera.enabled = true
+	add_child(camera)
+	set_meta("game_camera", camera)
+	
 	ui_manager = UIManager.new()
 	ui_manager.hex_grid = self
 	add_child(ui_manager)
+	await ui_manager.ui_ready
 	
 	if not load_layout():
 		create_rectangle_grid(8, 8)
@@ -128,11 +147,19 @@ func _ready():
 	print("==================")
 	
 	if game_mode:
+		pulse_available_units()
 		turn_history.save_turn_snapshot(self)
 
 func update_ui():
 	if ui_manager:
 		ui_manager.update_ui_data()
+		
+func _on_victory_home():
+	print("Victory Home pressed")
+	# Tu możesz wrócić do menu głównego
+
+func _on_victory_next():
+	print("Victory Next pressed")
 
 func calculate_income(team: int) -> int:
 	if team == 5 or team == BANDIT_TEAM:
@@ -421,6 +448,31 @@ func _input(event):
 						update_hex_color(hex_coords)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			remove_all_at(hex_coords)
+			
+func _unhandled_input(event):
+	if not camera_drag_enabled:
+		return
+	
+	var camera = get_meta("game_camera") if has_meta("game_camera") else null
+	if not camera:
+		return
+	
+	# Start/stop dragging z ŚRODKOWYM przyciskiem myszy
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
+		if event.pressed:
+			camera_dragging = true
+			drag_start_position = event.position
+			initial_camera_position = camera.offset
+		else:
+			camera_dragging = false
+		get_viewport().set_input_as_handled()
+		return
+	
+	# Dragging w trakcie ruchu myszy
+	if event is InputEventMouseMotion and camera_dragging:
+		var delta = event.position - drag_start_position
+		camera.offset = initial_camera_position - delta
+		get_viewport().set_input_as_handled()
 
 func handle_wall_placement(hex_coords: Vector2i):
 	"""Obsluguje zaznaczanie hexow do murow"""
@@ -1270,6 +1322,8 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 					if territory_map.get(coords, 0) == old_team:
 						territory_map.erase(coords)
 						update_hex_color(coords)
+						
+				check_victory()
 		else:
 			if target.team == cavalry.team:
 				print("Nie można atakować własnej jednostki!")
@@ -1535,6 +1589,8 @@ func move_spearman(from: Vector2i, to: Vector2i):
 					if territory_map.get(coords, 0) == old_team:
 						territory_map.erase(coords)
 						update_hex_color(coords)
+						
+				check_victory()
 	
 	# DODAJ: Obsługa ataku na wrogie jednostki
 	if to_hex.occupied_object != null:
@@ -1858,6 +1914,7 @@ func move_knight(from: Vector2i, to: Vector2i):
 						territory_map.erase(coords)
 						update_hex_color(coords)
 				
+				check_victory()
 				print("Zniszczono zamek druzyny ", old_team, "!")
 	
 	# Usun wroga jednostke jesli jest
@@ -2407,6 +2464,7 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 			territory_map.erase(coords)
 			update_hex_color(coords)
 	
+	check_victory()
 	print("=== KONIEC PRZEJECIA ZAMKU ===")
 
 func get_nearest_hexes(center: Vector2i, count: int, old_team: int, new_team: int) -> Array:
@@ -3989,3 +4047,20 @@ func clear_selected_unit_highlight():
 	# Przywróć sprite jednostki do normalnego rozmiaru
 	if selected_unit.has_method("set_selected"):
 		selected_unit.set_selected(false)
+		
+func check_victory():
+	"""Sprawdza czy gracz wygral (przejal wszystkie wrogie zamki)"""
+	if not game_mode:
+		return
+	
+	var enemy_castles = 0
+	for coords in castle_map:
+		var castle = castle_map[coords]
+		if castle.team != current_team and castle.team > 0 and castle.team <= 4:
+			enemy_castles += 1
+	
+	if enemy_castles == 0:
+		# Wygrana!
+		if has_meta("victory_popup"):
+			var victory_popup = get_meta("victory_popup")
+			victory_popup.show_victory(current_round)
