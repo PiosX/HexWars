@@ -175,7 +175,7 @@ func setup_ui():
 	content.anchor_right = 1
 	content.anchor_top = 0
 	content.anchor_bottom = 1
-	content.offset_left = 40
+	content.offset_left = 32
 	content.offset_right = -40
 	content.offset_top = 60
 	content.offset_bottom = -40

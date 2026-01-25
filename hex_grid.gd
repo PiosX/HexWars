@@ -110,6 +110,12 @@ func _ready():
 	victory_popup.next_pressed.connect(_on_victory_next)
 	set_meta("victory_popup", victory_popup)
 	
+	var defeat_popup = preload("res://defeat_popup.gd").new()
+	add_child(defeat_popup)
+	defeat_popup.home_pressed.connect(_on_defeat_home)
+	defeat_popup.retry_pressed.connect(_on_defeat_retry)
+	set_meta("defeat_popup", defeat_popup)
+	
 	turn_history = TurnHistory.new()
 	add_child(turn_history)  
 	
@@ -160,6 +166,12 @@ func _on_victory_home():
 
 func _on_victory_next():
 	print("Victory Next pressed")
+	
+func _on_defeat_home():
+	print("Defeat Home pressed")
+
+func _on_defeat_retry():
+	print("Defeat Retry pressed")
 
 func calculate_income(team: int) -> int:
 	if team == 5 or team == BANDIT_TEAM:
@@ -1303,6 +1315,11 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 			elif target.team != cavalry.team and target.team > 0 and target.team <= 4:
 				var old_team = target.team
 				
+				if old_team == 1:
+					if has_meta("defeat_popup"):
+						var defeat_popup = get_meta("defeat_popup")
+						defeat_popup.show_defeat(current_round)
+				
 				remove_castle_at(to)
 				
 				var old_team_territories = []
@@ -1518,6 +1535,11 @@ func move_spearman(from: Vector2i, to: Vector2i):
 		var target_castle = castle_map[to]
 		if target_castle.team != spearman.team:
 			var old_team = target_castle.team
+			
+			if old_team == 1:
+				if has_meta("defeat_popup"):
+					var defeat_popup = get_meta("defeat_popup")
+					defeat_popup.show_defeat(current_round)
 			
 			if old_team == -1:
 				print("=== SPEARMAN PRZEJMUJE OBÓZ BANDYTÓW ===")
@@ -1846,7 +1868,11 @@ func move_knight(from: Vector2i, to: Vector2i):
 		if target_castle.team != knight.team:
 			var old_team = target_castle.team
 			
-			# SPECJALNA OBSLUGA: Przejecie obozu bandytow
+			if old_team == 1:
+				if has_meta("defeat_popup"):
+					var defeat_popup = get_meta("defeat_popup")
+					defeat_popup.show_defeat(current_round)
+			
 			if old_team == -1:
 				print("=== PRZEJECIE OBOZU BANDYTOW ===")
 				
@@ -2369,6 +2395,8 @@ func convert_isolated_region(region: Array, original_team: int):
 			units_positions.append(coords)
 		elif farmer_map.has(coords):
 			units_positions.append(coords)
+		elif cavalry_map.has(coords):
+			units_positions.append(coords)
 	
 	print("Jednostek do konwersji: ", units_positions.size())
 	
@@ -2385,6 +2413,9 @@ func convert_isolated_region(region: Array, original_team: int):
 			place_farmer_at(coords, -1)
 		elif spearman_map.has(coords):
 			remove_spearman_at(coords)
+			place_farmer_at(coords, -1)
+		elif cavalry_map.has(coords):  
+			remove_cavalry_at(coords)
 			place_farmer_at(coords, -1)
 		elif farmer_map.has(coords):
 			var farmer = farmer_map[coords]
@@ -2580,6 +2611,10 @@ func convert_to_mercenary(hex_coords: Vector2i):
 			units_positions.append(coords)
 		elif farmer_map.has(coords):
 			units_positions.append(coords)
+		elif spearman_map.has(coords):  
+			units_positions.append(coords)
+		elif cavalry_map.has(coords):  
+			units_positions.append(coords)
 	
 	print("Jednostek do konwersji: ", units_positions.size())
 	
@@ -2592,6 +2627,12 @@ func convert_to_mercenary(hex_coords: Vector2i):
 	for coords in units_positions:
 		if knight_map.has(coords):
 			remove_knight_at(coords)
+			place_farmer_at(coords, -1)
+		elif spearman_map.has(coords):
+			remove_spearman_at(coords)
+			place_farmer_at(coords, -1)
+		elif cavalry_map.has(coords):
+			remove_cavalry_at(coords)
 			place_farmer_at(coords, -1)
 		elif farmer_map.has(coords):
 			var farmer = farmer_map[coords]
