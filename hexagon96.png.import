@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://l754752fvk6i"
-path="res://.godot/imported/castle1.png-46dd3fbf5f6d8b6dabb466822a56aab4.ctex"
+uid="uid://b7pb0731syjj0"
+path="res://.godot/imported/hexagon96.png-b550bd3922ec4cd7255f52b76987838c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://castle1.png"
-dest_files=["res://.godot/imported/castle1.png-46dd3fbf5f6d8b6dabb466822a56aab4.ctex"]
+source_file="res://hexagon96.png"
+dest_files=["res://.godot/imported/hexagon96.png-b550bd3922ec4cd7255f52b76987838c.ctex"]
 
 [params]
 

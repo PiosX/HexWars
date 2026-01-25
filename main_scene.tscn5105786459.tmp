@@ -1,0 +1,45 @@
+[gd_scene load_steps=8 format=4 uid="uid://4ky2admtw8a0"]
+
+[ext_resource type="Script" uid="uid://n0dnci1o62mv" path="res://main_scene.gd" id="1_2c62f"]
+[ext_resource type="Texture2D" uid="uid://bx7c3m7vcgccm" path="res://hexagon.png" id="2_d5x1h"]
+[ext_resource type="PackedScene" uid="uid://c6g8ekjbs2q28" path="res://castle.tscn" id="2_gyfs4"]
+[ext_resource type="Script" uid="uid://k6y3hxmuglk0" path="res://hex_grid.gd" id="4_d5x1h"]
+
+[sub_resource type="Environment" id="Environment_gyfs4"]
+background_mode = 1
+background_color = Color(0.101961, 0.101961, 0.101961, 1)
+
+[sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_8mm7a"]
+texture = ExtResource("2_d5x1h")
+texture_region_size = Vector2i(64, 64)
+0:0/0 = 0
+
+[sub_resource type="TileSet" id="TileSet_o3jxj"]
+tile_shape = 3
+tile_layout = 5
+tile_size = Vector2i(56, 64)
+sources/1 = SubResource("TileSetAtlasSource_8mm7a")
+
+[node name="MainScene" type="Node2D"]
+script = ExtResource("1_2c62f")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_gyfs4")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+anchor_mode = 0
+drag_horizontal_enabled = true
+drag_vertical_enabled = true
+
+[node name="TileMap" type="TileMapLayer" parent="."]
+visible = false
+tile_map_data = PackedByteArray("AAD//wAAAAABAAAAAAD+/wEAAAABAAAAAAD+/wAABAAAAAAAADD9/wEAAAABAAAAAAD9/wAAAAABAAAAAAD+////AAABAAAAAAD+//7/AAABAAAAAAD9////AAABAAAAAAD9//7/AAABAAAAAAD+//3/AQAAAAAAAAABAP//AAABAAAAAAAAAAAAAAABAAAAAAD//wEAAAABAAAAAAAAAAEAAAABAAAAAAD//wIAAQAAAAAAAAABAAAAAAABAAAAAAD+/wIAAAABAAAAAAD9/wIAAAABAAAAAAD8/wIAAAABAAAAAAD8/wEAAAABAAAAAAD8/wAAAAABAAAAAAD8////AAABAAAAAAABAP3/AQAAAAAAAAAAAP3/AQAAAAAAAAD///7/AQAAAAAAAAAAAP7/AQAAAAAAAAD/////AQAAAAAAAAD///3/AQAAAAAAAAAAAPz/AQAAAAAAAAABAPz/AQAAAAAAAAACAPz/AQAAAAAAAAA=")
+tile_set = SubResource("TileSet_o3jxj")
+
+[node name="Castle1" parent="TileMap" instance=ExtResource("2_gyfs4")]
+
+[node name="Castle2" parent="TileMap" instance=ExtResource("2_gyfs4")]
+
+[node name="HexGrid" type="Node2D" parent="."]
+position = Vector2(100, 100)
+script = ExtResource("4_d5x1h")

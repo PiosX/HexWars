@@ -20,8 +20,8 @@ const TURN_HISTORY_SCENE = preload("res://turn_history.gd")
 const SAVE_PATH = "user://hex_layout.json"
 var ui_manager: UIManager
 
-@export var hex_width: float = 64.0
-@export var hex_height: float = 64.0
+@export var hex_width: float = 96.0
+@export var hex_height: float = 96.0
 @export var hex_gap: float = 0.1
 
 # Kolory teamow
@@ -456,13 +456,38 @@ func _unhandled_input(event):
 	var camera = get_meta("game_camera") if has_meta("game_camera") else null
 	if not camera:
 		return
+		
+	# Obsługa TOUCH na telefonie/tablecie
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			camera_dragging = true
+			drag_start_position = event.position
+			initial_camera_position = self.position
+		else:
+			camera_dragging = false
+		get_viewport().set_input_as_handled()
+		return
 	
+	if event is InputEventScreenDrag and camera_dragging:
+		var delta = event.position - drag_start_position
+		var new_position = initial_camera_position + delta / camera.zoom
+		
+		# Oblicz granice mapy
+		var bounds = calculate_map_bounds()
+		
+		# Ogranicz pozycję - margines 500px
+		new_position.x = clamp(new_position.x, -bounds.end.x, -bounds.position.x)
+		new_position.y = clamp(new_position.y, -bounds.end.y, -bounds.position.y)
+		
+		self.position = new_position
+		get_viewport().set_input_as_handled()
+		return
 	# Start/stop dragging z ŚRODKOWYM przyciskiem myszy
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
 		if event.pressed:
 			camera_dragging = true
 			drag_start_position = event.position
-			initial_camera_position = camera.offset
+			initial_camera_position = self.position
 		else:
 			camera_dragging = false
 		get_viewport().set_input_as_handled()
@@ -471,7 +496,16 @@ func _unhandled_input(event):
 	# Dragging w trakcie ruchu myszy
 	if event is InputEventMouseMotion and camera_dragging:
 		var delta = event.position - drag_start_position
-		camera.offset = initial_camera_position - delta
+		var new_position = initial_camera_position + delta / camera.zoom
+		
+		# Oblicz granice mapy
+		var bounds = calculate_map_bounds()
+		
+		# Ogranicz pozycję - margines 500px
+		new_position.x = clamp(new_position.x, -bounds.end.x, -bounds.position.x)
+		new_position.y = clamp(new_position.y, -bounds.end.y, -bounds.position.y)
+		
+		self.position = new_position
 		get_viewport().set_input_as_handled()
 
 func handle_wall_placement(hex_coords: Vector2i):
@@ -543,7 +577,7 @@ func draw_hex_outline(hex_coords: Vector2i, color: Color):
 		var end = vertices[(i + 1) % vertices.size()]
 		
 		var wall_line = WallLine.new()
-		wall_line.setup(start, end, Color.WHITE, 2.0, false)  # Taki sam styl jak walle
+		wall_line.setup(start, end, Color.WHITE, 3.75, false)  # Taki sam styl jak walle
 		outline_container.add_child(wall_line)
 	
 	if not has_meta("hex_outlines"):
@@ -4064,3 +4098,31 @@ func check_victory():
 		if has_meta("victory_popup"):
 			var victory_popup = get_meta("victory_popup")
 			victory_popup.show_victory(current_round)
+			
+func calculate_map_bounds() -> Rect2:
+	"""Oblicza granice mapy na podstawie pozycji hexów"""
+	if hex_map.is_empty():
+		return Rect2(0, 0, 1000, 1000)
+	
+	var min_x = INF
+	var max_x = -INF
+	var min_y = INF
+	var max_y = -INF
+	
+	for coords in hex_map.keys():
+		var hex = hex_map[coords]
+		var pos = hex.position
+		min_x = min(min_x, pos.x)
+		max_x = max(max_x, pos.x)
+		min_y = min(min_y, pos.y)
+		max_y = max(max_y, pos.y)
+	
+	# Dodaj margines
+	var margin_left = 300.0
+	var margin_top = 400.0
+	var margin_right = 150.0
+	var margin_bottom = 200.0 
+	
+	return Rect2(min_x - margin_left, min_y - margin_top, 
+				 max_x - min_x + margin_left - 2*margin_right,
+				 max_y - min_y - 2*margin_bottom)

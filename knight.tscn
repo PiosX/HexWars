@@ -1,10 +1,10 @@
 [gd_scene load_steps=4 format=3 uid="uid://dv73o77jro16n"]
 
 [ext_resource type="Script" uid="uid://yxlti05keei" path="res://knight.gd" id="1_nsuie"]
-[ext_resource type="Texture2D" uid="uid://bpnl43uy0x3j1" path="res://knight.png" id="1_owtlo"]
+[ext_resource type="Texture2D" uid="uid://84cy47bwn762" path="res://knight.png" id="1_owtlo"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_nsuie"]
-radius = 23.0868
+radius = 34.5
 
 [node name="Knight" type="Node2D"]
 script = ExtResource("1_nsuie")
