@@ -143,6 +143,7 @@ func setup_top_panel():
 	settings_menu.add_theme_constant_override("separation", 8)
 	settings_menu.position = Vector2(12, 127)
 	settings_menu.visible = false
+	settings_menu.z_index = 100
 	add_child(settings_menu)
 	
 	# Sound button
@@ -376,29 +377,21 @@ func setup_bottom_nav():
 	
 	# Home button
 	var home_btn = create_nav_button("HOME", ICON_H1, HOME_BORDER, HOME_ACTIVE)
-	var home_button = home_btn.get_meta("button")  # ← Pobierz właściwy przycisk
-	home_button.pressed.connect(func(): _on_nav_pressed("home"))
 	nav_buttons["home"] = home_btn
 	nav_container.add_child(home_btn)
 	
 	# Levels button
 	var levels_btn = create_nav_button("LEVELS", ICON_H2, LEVELS_BORDER, LEVELS_ACTIVE)
-	var levels_button = levels_btn.get_meta("button")
-	levels_button.pressed.connect(func(): _on_nav_pressed("levels"))
 	nav_buttons["levels"] = levels_btn
 	nav_container.add_child(levels_btn)
 	
 	# Shop button (with badge)
 	var shop_btn = create_nav_button("SHOP", ICON_H3, SHOP_BORDER, SHOP_ACTIVE, true)
-	var shop_button = shop_btn.get_meta("button")
-	shop_button.pressed.connect(func(): _on_nav_pressed("shop"))
 	nav_buttons["shop"] = shop_btn
 	nav_container.add_child(shop_btn)
 	
 	# How to button
 	var howto_btn = create_nav_button("HOW TO", ICON_H4, HOWTO_BORDER, HOWTO_ACTIVE)
-	var howto_button = howto_btn.get_meta("button")
-	howto_button.pressed.connect(func(): _on_nav_pressed("howto"))
 	nav_buttons["howto"] = howto_btn
 	nav_container.add_child(howto_btn)
 	
@@ -438,16 +431,29 @@ func create_icon_button(icon_path: String, size: Vector2) -> Button:
 	
 	return btn
 
-func create_nav_button(label_text: String, icon_path: String, border_color: Color, active_color: Color, has_badge: bool = false) -> VBoxContainer:
-	"""Creates navigation button with icon and label"""
-	var container = VBoxContainer.new()
-	container.add_theme_constant_override("separation", 12)
-	container.alignment = BoxContainer.ALIGNMENT_CENTER
-	container.custom_minimum_size = Vector2(140, 170)
+func create_nav_button(label_text: String, icon_path: String, border_color: Color, active_color: Color, has_badge: bool = false) -> Button:
+	var btn = Button.new()
+	btn.custom_minimum_size = Vector2(140, 170)
+	btn.flat = true
+	btn.focus_mode = Control.FOCUS_NONE
 	
-	# Button panel
+	var transparent_style = StyleBoxFlat.new()
+	transparent_style.bg_color = Color.TRANSPARENT
+	btn.add_theme_stylebox_override("normal", transparent_style)
+	btn.add_theme_stylebox_override("hover", transparent_style)
+	btn.add_theme_stylebox_override("pressed", transparent_style)
+	
+	var visual_container = VBoxContainer.new()
+	visual_container.add_theme_constant_override("separation", 12)
+	visual_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	visual_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual_container.anchor_right = 1.0
+	visual_container.anchor_bottom = 1.0
+	btn.add_child(visual_container)
+	
 	var panel = Panel.new()
 	panel.custom_minimum_size = Vector2(140, 140)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	
 	var style_normal = create_nav_button_style(border_color, NAV_GRADIENT_BOTTOM)
 	var style_hover = create_nav_button_style(active_color, NAV_GRADIENT_BOTTOM)
@@ -458,11 +464,10 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 	panel.add_theme_stylebox_override("panel", style_normal)
 	panel.set_meta("style_normal", style_normal)
 	panel.set_meta("style_hover", style_hover)
-	panel.set_meta("style_active", style_hover)  # Active uses same as hover
+	panel.set_meta("style_active", style_hover)
 	panel.set_meta("border_color", border_color)
 	panel.set_meta("active_color", active_color)
 	
-	# Icon
 	var icon_container = Control.new()
 	icon_container.anchor_left = 0.5
 	icon_container.anchor_top = 0.5
@@ -482,15 +487,15 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.anchor_right = 1.0
 	icon.anchor_bottom = 1.0
-	icon.pivot_offset = Vector2(40, 40)  # Center pivot for scaling animation
+	icon.pivot_offset = Vector2(40, 40)
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	icon_container.add_child(icon)
 	
-	# Badge (only for shop)
 	if has_badge:
 		var badge = Panel.new()
 		badge.custom_minimum_size = Vector2(70, 28)
 		badge.position = Vector2(70, -10)
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
 		var badge_style = StyleBoxFlat.new()
 		badge_style.bg_color = BADGE_BG
@@ -508,36 +513,28 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		badge_label.anchor_right = 1.0
 		badge_label.anchor_bottom = 1.0
+		badge_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		badge.add_child(badge_label)
 		
 		panel.add_child(badge)
 	
-	# Make clickable
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	panel.mouse_entered.connect(func(): _on_nav_hover(panel, true))
-	panel.mouse_exited.connect(func(): _on_nav_hover(panel, false))
+	visual_container.add_child(panel)
+	btn.set_meta("panel", panel)
 	
-	container.add_child(panel)
-	container.set_meta("panel", panel)
-	
-	# Label
 	var label = Label.new()
 	label.text = label_text
 	label.add_theme_font_size_override("font_size", 16)
 	label.add_theme_color_override("font_color", TEXT_NAV)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	container.add_child(label)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	visual_container.add_child(label)
 	
-	# Button functionality
-	var btn = Button.new()
-	btn.anchor_right = 1.0
-	btn.anchor_bottom = 1.0
-	btn.flat = true
-	btn.focus_mode = Control.FOCUS_NONE
-	container.add_child(btn)
-	container.set_meta("button", btn)
-	
-	return container
+	# DODAJ TE LINIE:
+	btn.mouse_entered.connect(func(): _on_nav_hover(panel, true))
+	btn.mouse_exited.connect(func(): _on_nav_hover(panel, false))
+	btn.pressed.connect(func(): _on_nav_pressed(label_text.to_lower().replace(" ", "")))
+
+	return btn
 
 func create_nav_button_style(border_color: Color, gradient_bottom: Color) -> StyleBoxFlat:
 	"""Creates gradient style for nav button"""
@@ -587,14 +584,12 @@ func _on_nav_pressed(tab_name: String):
 	tab_changed.emit(tab_name)
 
 func update_active_tab(tab_name: String):
-	"""Updates active state of navigation buttons"""
 	active_tab = tab_name
 	
 	for key in nav_buttons.keys():
-		var container = nav_buttons[key]
-		var panel = container.get_meta("panel")
+		var btn = nav_buttons[key]
+		var panel = btn.get_meta("panel")
 		
-		# Find icon container (first child of panel, before badge if exists)
 		var icon_container = null
 		for child in panel.get_children():
 			if child is Control and child.get_child_count() > 0:
@@ -604,13 +599,11 @@ func update_active_tab(tab_name: String):
 					break
 		
 		if key == tab_name:
-			# Active state
 			panel.set_meta("is_active", true)
 			panel.add_theme_stylebox_override("panel", panel.get_meta("style_active"))
 			if icon_container:
 				icon_container.scale = Vector2(1.15, 1.15)
 		else:
-			# Normal state
 			panel.set_meta("is_active", false)
 			panel.add_theme_stylebox_override("panel", panel.get_meta("style_normal"))
 			if icon_container:
@@ -665,7 +658,9 @@ func _on_viewport_size_changed():
 			child.position = Vector2(viewport_size.x / 2 - child.custom_minimum_size.x / 2, 20)
 		
 		if child.has_meta("right_top"):
-			child.position = Vector2(viewport_size.x - child.custom_minimum_size.x - 20, 20)
+			var shop_center_y = 20 + 96 / 2
+			var currency_center_y = child.custom_minimum_size.y / 2
+			child.position = Vector2(viewport_size.x - child.custom_minimum_size.x - 20, shop_center_y - currency_center_y)
 		
 		if child.has_meta("center_middle"):
 			child.position = Vector2(viewport_size.x / 2, viewport_size.y / 2 - 100)

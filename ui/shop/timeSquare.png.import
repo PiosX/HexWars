@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cbr8ho3itt53m"
-path="res://.godot/imported/time2.png-8db0bd7e9459e4f1b12ec1a43b9e11a6.ctex"
+uid="uid://b3np5o53bcfaf"
+path="res://.godot/imported/timeSquare.png-6527be7cbbdf9f49cbd7a4546c9e83c4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://ui/time2.png"
-dest_files=["res://.godot/imported/time2.png-8db0bd7e9459e4f1b12ec1a43b9e11a6.ctex"]
+source_file="res://ui/shop/timeSquare.png"
+dest_files=["res://.godot/imported/timeSquare.png-6527be7cbbdf9f49cbd7a4546c9e83c4.ctex"]
 
 [params]
 

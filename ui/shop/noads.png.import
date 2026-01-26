@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cbr8ho3itt53m"
-path="res://.godot/imported/time2.png-8db0bd7e9459e4f1b12ec1a43b9e11a6.ctex"
+uid="uid://3hjvslkm84g4"
+path="res://.godot/imported/noads.png-31284ac8c4291fc41370cccab5073cae.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://ui/time2.png"
-dest_files=["res://.godot/imported/time2.png-8db0bd7e9459e4f1b12ec1a43b9e11a6.ctex"]
+source_file="res://ui/shop/noads.png"
+dest_files=["res://.godot/imported/noads.png-31284ac8c4291fc41370cccab5073cae.ctex"]
 
 [params]
 

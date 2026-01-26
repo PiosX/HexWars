@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://drwobtk0q7h1n"]
+
+[ext_resource type="Script" uid="uid://bkt2r34yb7bs5" path="res://shop_menu.gd" id="1_viryw"]
+
+[node name="Node2D" type="CanvasLayer"]
+script = ExtResource("1_viryw")
