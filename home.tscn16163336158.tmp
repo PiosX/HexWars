@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://borpgkpyeqnci"]
+
+[ext_resource type="Script" uid="uid://bv825xuikavia" path="res://main_menu.gd" id="1_tt30a"]
+
+[node name="Node2D" type="CanvasLayer"]
+script = ExtResource("1_tt30a")
