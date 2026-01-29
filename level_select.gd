@@ -57,13 +57,15 @@ const ICON_H4 = "res://ui/h4.png"
 
 # === EDITOR MODE ===
 var editor_mode: bool = false
-var edit_stage: int = 0  # 0 = place hexes, 1 = assign numbers, 2 = assign difficulty
+var edit_stage: int = 0  # 0 = place hexes, 1 = assign numbers, 2 = assign difficulty, 3 = assign level files
 var number_counter: int = 1
 var mouse_button_mode: int = 0  # 0 = left (increment), 1 = right (decrement)
 
 # === LEVEL DATA ===
-const SAVE_PATH = "user://level_select_data.json"
-var level_data: Dictionary = {}  # {Vector2i: {level: int, difficulty: int, completed: bool, is_current: bool}}
+const SAVE_PATH = "res://levels/level_select_data.json"
+const PROGRESS_PATH = "res://levels/level_progress.json"
+var level_data: Dictionary = {}  # {Vector2i: {level: int, difficulty: int, level_file: String}}
+var progress_data: Dictionary = {}  # {level_number: {completed: bool}}
 
 # === REFS ===
 var background: ColorRect
@@ -108,15 +110,17 @@ var selected_level_coords: Vector2i = Vector2i.MAX
 var selected_hex: Node = null
 
 signal tab_changed(tab_name: String)
-signal level_selected(level: int, difficulty: int)
+signal level_selected(level_file: String, difficulty: int)
 
 # === LEVEL HEX CLASS ===
 class LevelHex extends Area2D:
 	var grid_position: Vector2i = Vector2i.ZERO
 	var level_number: int = 0
 	var difficulty: int = 0  # 1=sk1, 2=sk2, 3=sk3
+	var level_file: String = ""
 	var completed: bool = false
 	var is_current: bool = false
+	var is_locked: bool = true
 	
 	var sprite: Sprite2D
 	var label: Label
@@ -140,6 +144,7 @@ class LevelHex extends Area2D:
 		input_event.connect(_on_input_event)
 		mouse_entered.connect(_on_mouse_entered)
 		mouse_exited.connect(_on_mouse_exited)
+		
 	
 	func setup_visuals():
 		# Use actual hexagon96.png texture
@@ -183,11 +188,13 @@ class LevelHex extends Area2D:
 		# IMPORTANT: Set z_index to be above background
 		z_index = 1
 	
-	func set_level_data(level: int, diff: int, comp: bool, curr: bool):
+	func set_level_data(level: int, diff: int, file: String, comp: bool, curr: bool, locked: bool):
 		level_number = level
 		difficulty = diff
+		level_file = file
 		completed = comp
 		is_current = curr
+		is_locked = locked
 		update_appearance()
 	
 	func update_appearance():
@@ -196,6 +203,7 @@ class LevelHex extends Area2D:
 			label.visible = true
 			
 			if completed:
+				# Ukończony poziom - niebieski z koroną
 				current_color = HEX_COMPLETED_BG
 				sprite.modulate = current_color
 				label.add_theme_color_override("font_color", HEX_ACTIVE_NUMBER_COLOR)  # Białe
@@ -203,6 +211,7 @@ class LevelHex extends Area2D:
 				icon.visible = true
 				icon.modulate = Color.WHITE  # Kolorowe crown
 			elif is_current:
+				# Aktualny odblokowany poziom - zielony
 				current_color = HEX_CURRENT_BG
 				sprite.modulate = current_color
 				label.add_theme_color_override("font_color", HEX_ACTIVE_NUMBER_COLOR)  # Białe
@@ -213,7 +222,18 @@ class LevelHex extends Area2D:
 					icon.modulate = Color.WHITE  # Białe sk (domyślnie)
 				# Add pulsing animation for current level
 				add_pulse_animation()
+			elif is_locked:
+				# Zablokowany poziom - ciemny szary
+				current_color = Color("2A2A40", 0.4)
+				sprite.modulate = current_color
+				label.add_theme_color_override("font_color", Color("4A5565"))  # Ciemniejsze
+				if difficulty > 0:
+					var diff_icon = [ICON_SK1, ICON_SK2, ICON_SK3][difficulty - 1]
+					icon.texture = load(diff_icon)
+					icon.visible = true
+					icon.modulate = Color("4A5565", 0.4)  # Bardzo wyszarzone
 			else:
+				# Nieprzypisany poziom (w edytorze)
 				current_color = HEX_DEFAULT_BG
 				sprite.modulate = current_color
 				label.add_theme_color_override("font_color", HEX_NUMBER_COLOR)  # Szare
@@ -238,8 +258,8 @@ class LevelHex extends Area2D:
 		tween.tween_property(sprite, "modulate:a", 1.0, 0.8)
 	
 	func _on_mouse_entered():
-		# Only respond to hover on active hexes (current or completed)
-		if is_current or completed:
+		# Only respond to hover on active hexes (current or completed, not locked)
+		if (is_current or completed) and not is_locked:
 			animate_scale(original_scale * 1.08, 0.15)
 			# Lighter color on hover (less bright)
 			sprite.modulate = current_color.lightened(0.1)  # Było 0.2, teraz 0.1
@@ -271,7 +291,7 @@ class LevelHex extends Area2D:
 						if level_select.level_data.has(grid_position):
 							var data = level_select.level_data[grid_position]
 							data.level += 1
-							set_level_data(data.level, data.difficulty, data.completed, data.is_current)
+							level_select.update_all_hexes_from_progress()
 							print("Increased to ", data.level)
 						else:
 							level_select.on_hex_clicked(self)
@@ -280,7 +300,7 @@ class LevelHex extends Area2D:
 						if level_select.level_data.has(grid_position):
 							var data = level_select.level_data[grid_position]
 							data.level = max(1, data.level - 1)  # Don't go below 1
-							set_level_data(data.level, data.difficulty, data.completed, data.is_current)
+							level_select.update_all_hexes_from_progress()
 							print("Decreased to ", data.level)
 				elif event.button_index == MOUSE_BUTTON_LEFT:
 					# Normal click handling
@@ -312,7 +332,11 @@ func _ready():
 	setup_hex_grid()
 	setup_bottom_nav()
 	
+	# Load progress first, then level data
+	load_progress_data()
 	load_level_data()
+	# Update hexes based on progress
+	update_all_hexes_from_progress()
 	
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -320,9 +344,15 @@ func _ready():
 	print("=== LEVEL SELECT CONTROLS ===")
 	print("EDITOR MODE: Press 'E' to toggle")
 	print("PLAY MODE: Click levels to select, click PLAY to start")
-	print("EDITOR: Stage 1 - Place hexes | Stage 2 - Assign numbers (LMB=next, RMB=prev) | Stage 3 - Assign difficulty")
+	print("EDITOR: Stage 1 - Place hexes | Stage 2 - Assign numbers (LMB=next, RMB=prev) | Stage 3 - Assign difficulty | Stage 4 - Assign level files")
 	print("Middle mouse or touch - drag map")
 	print("S = Save | L = Load")
+	await get_tree().process_frame
+	var editor_ui = get_node_or_null("LevelEditorUI")
+	if editor_ui:
+		print("Wywołuję setup_for_level_select...")
+		editor_ui.setup_for_level_select(self)  # ← WAŻNE!
+		print("Mode ustawiony na: ", editor_ui.mode)
 
 func setup_background():
 	background = ColorRect.new()
@@ -804,11 +834,10 @@ func handle_editor_click(hex: LevelHex):
 				level_data[hex.grid_position] = {
 					"level": number_counter,
 					"difficulty": 0,
-					"completed": false,
-					"is_current": false
+					"level_file": ""
 				}
 				print("Assigned number ", number_counter, " to hex at ", hex.grid_position)
-				hex.set_level_data(number_counter, 0, false, false)
+				update_all_hexes_from_progress()
 				number_counter += 1
 			else:
 				# Hex already has a number - allow changing it
@@ -818,9 +847,12 @@ func handle_editor_click(hex: LevelHex):
 				var data = level_data[hex.grid_position]
 				data.difficulty = (data.difficulty % 3) + 1
 				print("Set difficulty to ", data.difficulty, " for hex at ", hex.grid_position)
-				hex.set_level_data(data.level, data.difficulty, data.completed, data.is_current)
+				update_all_hexes_from_progress()
 			else:
 				print("Hex has no level number yet!")
+		3:  # Assign level files
+			print("Stage 3 - Use console to assign level files")
+			print("Example: get_node('/root/Main/LevelSelect').assign_level_file_to_level(1, 'hex_layout_level1.json')")
 
 func handle_play_click(hex: LevelHex):
 	print("handle_play_click called - Level: ", hex.level_number, " Current: ", hex.is_current, " Completed: ", hex.completed)
@@ -1094,22 +1126,26 @@ func _on_close_selection():
 func _on_play_level():
 	if selected_hex and is_instance_valid(selected_hex):
 		var hex_data = level_data.get(selected_hex.grid_position, {})
-		var level = hex_data.get("level", 0)
+		var level_file = hex_data.get("level_file", "")
 		var difficulty = hex_data.get("difficulty", 1)
 		
-		print("Starting level: ", level, " difficulty: ", difficulty)
-		level_selected.emit(level, difficulty)
+		if level_file.is_empty():
+			print("ERROR: No level file assigned to this level!")
+			return
+		
+		print("Starting level file: ", level_file, " difficulty: ", difficulty)
+		level_selected.emit(level_file, difficulty)
 
 # === INPUT HANDLING ===
 func _unhandled_input(event):
-	# Camera dragging with middle mouse button - move hex_container instead of camera
+	# Camera dragging with middle mouse button OR touch - move hex_container
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_MIDDLE:
 			if event.pressed:
 				camera_dragging = true
 				drag_start_position = get_viewport().get_mouse_position()
 				initial_camera_position = hex_container.position
-				get_viewport().set_input_as_handled()  # Prevent other inputs
+				get_viewport().set_input_as_handled()
 			else:
 				camera_dragging = false
 		
@@ -1124,13 +1160,32 @@ func _unhandled_input(event):
 				remove_hex_at_mouse(mouse_pos)
 				get_viewport().set_input_as_handled()
 	
+	# TOUCH - przytrzymaj i przesuń mapę
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			# Rozpocznij dragging
+			camera_dragging = true
+			drag_start_position = event.position
+			initial_camera_position = hex_container.position
+			get_viewport().set_input_as_handled()
+		else:
+			# Zakończ dragging
+			camera_dragging = false
+	
+	# TOUCH DRAG - przesuwanie palcem
+	elif event is InputEventScreenDrag:
+		if camera_dragging:
+			var delta = event.position - drag_start_position
+			var new_pos = initial_camera_position + delta
+			hex_container.position = clamp_to_bounds(new_pos)
+			get_viewport().set_input_as_handled()
+	
+	# MOUSE MOTION - dragging myszką
 	elif event is InputEventMouseMotion:
 		if camera_dragging:
 			var current_mouse_pos = get_viewport().get_mouse_position()
 			var delta = current_mouse_pos - drag_start_position
 			var new_pos = initial_camera_position + delta
-			
-			# Apply drag limits
 			hex_container.position = clamp_to_bounds(new_pos)
 			get_viewport().set_input_as_handled()
 
@@ -1141,7 +1196,8 @@ func _input(event):
 			KEY_E:
 				toggle_editor_mode()
 			KEY_S:
-				save_level_data()
+				if editor_mode:
+					save_level_data()
 			KEY_L:
 				load_level_data()
 			KEY_1:
@@ -1153,6 +1209,9 @@ func _input(event):
 			KEY_3:
 				if editor_mode:
 					set_edit_stage(2)
+			KEY_4:
+				if editor_mode:
+					set_edit_stage(3)
 
 # ===== OGRANICZENIA DRAGOWANIA =====
 func clamp_to_bounds(pos: Vector2) -> Vector2:
@@ -1202,12 +1261,14 @@ func toggle_editor_mode():
 
 func set_edit_stage(stage: int):
 	edit_stage = stage
-	var stage_names = ["PLACE HEXES", "ASSIGN NUMBERS", "ASSIGN DIFFICULTY"]
+	var stage_names = ["PLACE HEXES", "ASSIGN NUMBERS", "ASSIGN DIFFICULTY", "ASSIGN LEVEL FILES"]
 	print("Edit stage: ", stage_names[stage])
 	title_label.text = stage_names[stage]
 	
 	if stage == 1:
 		number_counter = 1
+	elif stage == 3:
+		print_available_level_files()
 
 func place_hex_at_mouse(screen_pos: Vector2):
 	# Convert screen position to hex_container local position
@@ -1302,10 +1363,6 @@ func load_level_data() -> bool:
 		var grid_pos = Vector2i(int(parts[0]), int(parts[1]))
 		var data = save_dict.level_data[key]
 		level_data[grid_pos] = data
-		
-		var hex = get_hex_at(grid_pos)
-		if hex:
-			hex.set_level_data(data.level, data.difficulty, data.completed, data.is_current)
 	
 	center_camera_on_hexes()
 	print("Level data loaded from ", SAVE_PATH)
@@ -1325,23 +1382,158 @@ func create_default_levels():
 	for i in range(layout.size()):
 		var pos = layout[i]
 		var grid_pos = Vector2i(pos[0], pos[1])
-		var hex = create_hex_at(grid_pos)
+		create_hex_at(grid_pos)
 		
 		var level_num = i + 1
-		var is_completed = level_num < 9
-		var is_current = level_num == 9
 		var diff = 1 if level_num <= 8 else (2 if level_num <= 16 else 3)
 		
 		level_data[grid_pos] = {
 			"level": level_num,
 			"difficulty": diff,
-			"completed": is_completed,
-			"is_current": is_current
+			"level_file": ""  # Not assigned yet
 		}
-		
-		hex.set_level_data(level_num, diff, is_completed, is_current)
 	
 	center_camera_on_hexes()
+	update_all_hexes_from_progress()
+
+# ===== PROGRESS SYSTEM =====
+func is_level_unlocked(level_num: int) -> bool:
+	# Level 1 is always unlocked
+	if level_num == 1:
+		return true
+	
+	# Check if previous level is completed
+	var prev_completed = progress_data.get(str(level_num - 1), {}).get("completed", false)
+	return prev_completed
+
+func mark_level_completed(level_num: int):
+	"""Called when a level is completed (from victory popup)"""
+	if not progress_data.has(str(level_num)):
+		progress_data[str(level_num)] = {}
+	
+	progress_data[str(level_num)]["completed"] = true
+	save_progress_data()
+	
+	# Update all hexes
+	update_all_hexes_from_progress()
+	
+	print("Level ", level_num, " marked as completed!")
+
+func update_all_hexes_from_progress():
+	"""Updates all hex visuals based on current progress"""
+	for grid_pos in level_data.keys():
+		var data = level_data[grid_pos]
+		var hex = get_hex_at(grid_pos)
+		if not hex:
+			continue
+		
+		var level_num = data.level
+		var is_completed = progress_data.get(str(level_num), {}).get("completed", false)
+		var is_unlocked = is_level_unlocked(level_num)
+		var is_current = is_unlocked and not is_completed
+		var is_locked = not is_unlocked and not is_completed
+		
+		hex.set_level_data(
+			data.level,
+			data.difficulty,
+			data.get("level_file", ""),
+			is_completed,
+			is_current,
+			is_locked
+		)
+
+func save_progress_data():
+	var file = FileAccess.open(PROGRESS_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(progress_data, "\t"))
+		file.close()
+		print("Progress saved to ", PROGRESS_PATH)
+	else:
+		print("Failed to save progress")
+
+func load_progress_data():
+	if not FileAccess.file_exists(PROGRESS_PATH):
+		print("No saved progress found - starting fresh")
+		progress_data = {}
+		return
+	
+	var file = FileAccess.open(PROGRESS_PATH, FileAccess.READ)
+	if not file:
+		print("Failed to open progress file")
+		return
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var parse_result = json.parse(json_string)
+	if parse_result != OK:
+		print("Failed to parse progress JSON")
+		return
+	
+	progress_data = json.data
+	print("Progress loaded from ", PROGRESS_PATH)
+
+func print_available_level_files():
+	"""Prints all available level files in res://levels/ directory"""
+	print("=== AVAILABLE LEVEL FILES ===")
+	var dir = DirAccess.open("res://levels/")
+	if dir:
+		dir.list_dir_begin()
+		var file_name = dir.get_next()
+		var level_files = []
+		
+		while file_name != "":
+			if not dir.current_is_dir() and file_name.ends_with(".json") and file_name.begins_with("hex_layout"):
+				level_files.append(file_name)
+			file_name = dir.get_next()
+		
+		dir.list_dir_end()
+		
+		print("Found ", level_files.size(), " level files:")
+		for file in level_files:
+			print("  - ", file)
+		
+		# Print unassigned levels
+		print("\n=== LEVEL ASSIGNMENTS ===")
+		var assigned_files = {}
+		for grid_pos in level_data.keys():
+			var data = level_data[grid_pos]
+			if data.has("level_file") and not data.level_file.is_empty():
+				assigned_files[data.level_file] = data.level
+		
+		print("Assigned:")
+		for file in assigned_files.keys():
+			print("  Level ", assigned_files[file], " -> ", file)
+		
+		print("\nUnassigned:")
+		for file in level_files:
+			if not assigned_files.has(file):
+				print("  ", file)
+	else:
+		print("ERROR: Could not open res://levels/ directory")
+
+func assign_level_file_to_level(level_num: int, file_name: String):
+	"""Assigns a level file to a specific level number (call from console)"""
+	for grid_pos in level_data.keys():
+		var data = level_data[grid_pos]
+		if data.level == level_num:
+			data["level_file"] = file_name
+			print("Assigned ", file_name, " to level ", level_num)
+			save_level_data()
+			return
+	
+	print("ERROR: No hex with level number ", level_num)
+
+func get_selected_level_number() -> int:
+	"""Returns the currently selected level number"""
+	if selected_level_coords == Vector2i.MAX:
+		return 0
+	
+	if not level_data.has(selected_level_coords):
+		return 0
+	
+	return level_data[selected_level_coords].level
 
 # === SETTINGS ===
 func _on_settings_pressed():

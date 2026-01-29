@@ -24,12 +24,16 @@ const RELIC_PATH = "res://ui/victory/relic.png"
 const HOME_ICON = "res://ui/settings/home.png"
 const NEXT_ICON = "res://ui/victory/next.png"
 
+# Progress tracking
+const PROGRESS_PATH = "user://level_progress.json"
+
 # Refs
 var overlay: ColorRect
 var popup_container: Control
 var shadow: TextureRect
 var main_panel: Panel
 var confetti_particles: Array = []
+var current_level: int = 0
 
 signal home_pressed
 signal next_pressed
@@ -154,7 +158,7 @@ func setup_ui():
 	
 	popup_container.add_child(main_panel)
 	
-	# === TOP LINE (AFTER main_panel is added, positioned at top with margin to respect border radius) ===
+	# === TOP LINE ===
 	var top_line = ColorRect.new()
 	top_line.name = "TopLine"
 	top_line.color = TOP_LINE_COLOR
@@ -162,8 +166,8 @@ func setup_ui():
 	top_line.anchor_right = 1
 	top_line.anchor_top = 0
 	top_line.anchor_bottom = 0
-	top_line.offset_left = 32  # Same as corner radius
-	top_line.offset_right = -32  # Same as corner radius
+	top_line.offset_left = 32
+	top_line.offset_right = -32
 	top_line.offset_bottom = 6
 	top_line.z_index = 10
 	main_panel.add_child(top_line)
@@ -183,7 +187,7 @@ func setup_ui():
 	content.alignment = BoxContainer.ALIGNMENT_CENTER
 	main_panel.add_child(content)
 	
-	# Crown icon (with negative margins to reduce whitespace)
+	# Crown icon
 	var crown_container = MarginContainer.new()
 	crown_container.name = "CrownContainer"
 	crown_container.add_theme_constant_override("margin_top", -80)
@@ -218,7 +222,6 @@ func setup_ui():
 	level_label.add_theme_color_override("font_color", LEVEL_COLOR)
 	level_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	
-	# Add bold font
 	var font_variation = FontVariation.new()
 	font_variation.set_variation_embolden(0.5)
 	level_label.add_theme_font_override("font", font_variation)
@@ -242,27 +245,24 @@ func setup_ui():
 	# === REWARD PANEL ===
 	var reward_panel = Panel.new()
 	reward_panel.name = "RewardPanel"
-	reward_panel.custom_minimum_size = Vector2(360, 220)
+	reward_panel.custom_minimum_size = Vector2(360, 240)
+	reward_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	
 	var reward_style = StyleBoxFlat.new()
 	reward_style.bg_color = REWARD_BG
-	reward_style.border_width_left = 1
-	reward_style.border_width_right = 1
-	reward_style.border_width_top = 1
-	reward_style.border_width_bottom = 1
+	reward_style.border_width_left = 2
+	reward_style.border_width_right = 2
+	reward_style.border_width_top = 2
+	reward_style.border_width_bottom = 2
 	reward_style.border_color = REWARD_BORDER
-	reward_style.corner_radius_top_left = 16
-	reward_style.corner_radius_top_right = 16
-	reward_style.corner_radius_bottom_left = 16
-	reward_style.corner_radius_bottom_right = 16
-	reward_style.content_margin_left = 24
-	reward_style.content_margin_right = 24
-	reward_style.content_margin_top = 24
-	reward_style.content_margin_bottom = 24
+	reward_style.corner_radius_top_left = 20
+	reward_style.corner_radius_top_right = 20
+	reward_style.corner_radius_bottom_left = 20
+	reward_style.corner_radius_bottom_right = 20
 	reward_panel.add_theme_stylebox_override("panel", reward_style)
+	
 	content.add_child(reward_panel)
 	
-	# Reward content
 	var reward_vbox = VBoxContainer.new()
 	reward_vbox.anchor_left = 0
 	reward_vbox.anchor_right = 1
@@ -286,7 +286,7 @@ func setup_ui():
 	relics_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	reward_vbox.add_child(relics_hbox)
 	
-	# 3 relics (bigger and closer together)
+	# 3 relics
 	for i in range(3):
 		var relic_margin = MarginContainer.new()
 		relic_margin.add_theme_constant_override("margin_top", -20)
@@ -370,11 +370,10 @@ func create_button(text: String, icon_path: String, bg_color: Color, hover_color
 	hbox.offset_right = -28
 	btn.add_child(hbox)
 	
-	# Icon size depends on button type (Next has smaller icon on right)
 	var is_next = (text == "Next")
 	
 	if not is_next:
-		# Home button - icon on left (normal size)
+		# Home button - icon on left
 		var icon = TextureRect.new()
 		icon.texture = load(icon_path)
 		icon.custom_minimum_size = Vector2(36, 36)
@@ -390,7 +389,7 @@ func create_button(text: String, icon_path: String, bg_color: Color, hover_color
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hbox.add_child(label)
 	else:
-		# Next button - text first, then smaller icon on right
+		# Next button - text first, then smaller icon
 		var label = Label.new()
 		label.text = text
 		label.add_theme_font_size_override("font_size", 30)
@@ -409,11 +408,16 @@ func create_button(text: String, icon_path: String, bg_color: Color, hover_color
 	return btn
 
 func show_victory(level: int):
-	"""Shows victory popup with animation and confetti"""
+	"""Shows victory popup and marks level as completed"""
+	current_level = level
+	
 	# Update level text
 	var level_label = main_panel.get_node("Content/LevelLabel")
 	if level_label:
 		level_label.text = "Level %d" % level
+	
+	# IMPORTANT: Mark level as completed
+	mark_level_completed(level)
 	
 	# Show overlay and container
 	overlay.visible = true
@@ -431,7 +435,7 @@ func show_victory(level: int):
 	tween.set_trans(Tween.TRANS_BACK)
 	tween.tween_property(popup_container, "scale", Vector2.ONE, 0.6)
 	
-	# Animate crown bounce (subtle scale pulse)
+	# Animate crown bounce
 	var crown_container = main_panel.get_node("Content/CrownContainer")
 	if crown_container:
 		var crown = crown_container.get_node("Crown")
@@ -441,6 +445,46 @@ func show_victory(level: int):
 			crown_tween.set_ease(Tween.EASE_OUT)
 			crown_tween.set_trans(Tween.TRANS_BOUNCE)
 			crown_tween.tween_property(crown, "scale", Vector2(1.0, 1.0), 0.8).set_delay(0.4)
+
+func mark_level_completed(level_num: int):
+	"""Marks a level as completed in progress data"""
+	var progress_data = load_progress_data()
+	
+	if not progress_data.has(str(level_num)):
+		progress_data[str(level_num)] = {}
+	
+	progress_data[str(level_num)]["completed"] = true
+	
+	save_progress_data(progress_data)
+	print("Level ", level_num, " marked as completed and saved!")
+
+func load_progress_data() -> Dictionary:
+	"""Loads progress data from file"""
+	if not FileAccess.file_exists(PROGRESS_PATH):
+		return {}
+	
+	var file = FileAccess.open(PROGRESS_PATH, FileAccess.READ)
+	if not file:
+		return {}
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var parse_result = json.parse(json_string)
+	if parse_result != OK:
+		return {}
+	
+	return json.data
+
+func save_progress_data(data: Dictionary):
+	"""Saves progress data to file"""
+	var file = FileAccess.open(PROGRESS_PATH, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(data, "\t"))
+		file.close()
+	else:
+		print("ERROR: Failed to save progress data")
 
 func spawn_confetti():
 	"""Spawns confetti particles falling from top"""

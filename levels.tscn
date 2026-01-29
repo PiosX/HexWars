@@ -1,6 +1,10 @@
-[gd_scene load_steps=2 format=3 uid="uid://vqkq4lvp22ii"]
+[gd_scene load_steps=3 format=3 uid="uid://vqkq4lvp22ii"]
 
 [ext_resource type="Script" uid="uid://cf1rhc826d4ym" path="res://level_select.gd" id="1_48rmr"]
+[ext_resource type="Script" uid="uid://c0ftetoin8fl5" path="res://level_editor_ui.gd" id="2_5k54k"]
 
 [node name="Node2D" type="CanvasLayer"]
 script = ExtResource("1_48rmr")
+
+[node name="LevelEditorUI" type="CanvasLayer" parent="."]
+script = ExtResource("2_5k54k")

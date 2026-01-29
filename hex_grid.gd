@@ -18,6 +18,8 @@ const CAVALRY_SCENE = preload("res://cavalry.tscn")
 const FARMER_SCENE = preload("res://farmer.tscn")
 const TURN_HISTORY_SCENE = preload("res://turn_history.gd")
 const SAVE_PATH = "user://hex_layout.json"
+var current_level_file: String = ""  # Currently loaded level file
+var current_level_number: int = 0  # Current level number for victory tracking
 var ui_manager: UIManager
 
 @export var hex_width: float = 96.0
@@ -146,7 +148,8 @@ func _ready():
 	print("Y = Farmer Bandyta | U = Oboz Bandytow")
 	print("0 = Tryb murow (kliknij dwa hexy aby polaczyc)")
 	print("LPM = Postaw | PPM = Usun | Shift+LPM = Oznacz teren")
-	print("S = Zapisz | L = Wczytaj | C = Wyczysc")
+	print("S = Zapisz (domyślny) | L = Wczytaj | C = Wyczysc")
+	print("F1-F10 = Zapisz jako Level 1-10 (hex_layout_level1.json...)")
 	print("== GRA ==")
 	print("X = Zmien druzyne | SPACE = Zakoncz ture")
 	print("Kliknij jednostke = Wybierz | Przycisk 'Polacz' = Tryb laczenia")
@@ -155,6 +158,12 @@ func _ready():
 	if game_mode:
 		pulse_available_units()
 		turn_history.save_turn_snapshot(self)
+		
+	await get_tree().process_frame
+	var editor_ui = get_parent().get_node_or_null("LevelEditorUI")
+	if editor_ui:
+		editor_ui.setup_for_hex_grid(self)
+		print("✓ Panel połączony z HexGrid!")
 
 func update_ui():
 	if ui_manager:
@@ -375,6 +384,47 @@ func _input(event):
 			KEY_C:
 				if not game_mode:
 					clear_grid()
+			# QUICK SAVE SHORTCUTS - F1 to F10 save as level 1-10
+			KEY_F1:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level1.json")
+					print("✓ Saved as Level 1")
+			KEY_F2:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level2.json")
+					print("✓ Saved as Level 2")
+			KEY_F3:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level3.json")
+					print("✓ Saved as Level 3")
+			KEY_F4:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level4.json")
+					print("✓ Saved as Level 4")
+			KEY_F5:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level5.json")
+					print("✓ Saved as Level 5")
+			KEY_F6:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level6.json")
+					print("✓ Saved as Level 6")
+			KEY_F7:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level7.json")
+					print("✓ Saved as Level 7")
+			KEY_F8:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level8.json")
+					print("✓ Saved as Level 8")
+			KEY_F9:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level9.json")
+					print("✓ Saved as Level 9")
+			KEY_F10:
+				if not game_mode:
+					save_layout_to_file("hex_layout_level10.json")
+					print("✓ Saved as Level 10")
 			KEY_ESCAPE:
 				if wall_placement_mode or buy_mode != "":
 					wall_placement_mode = false
@@ -3671,6 +3721,81 @@ func save_layout():
 		file.close()
 		print("✓ Zapisano uklad")
 
+func save_layout_to_file(file_name: String):
+	"""Saves layout to a specific file (for level editor)"""
+	var data = {
+		"hexes": [],
+		"castles": [],
+		"knights": [],
+		"cavalry": [],
+		"spearmen": [],
+		"farmers": [],
+		"territories": [],
+		"walls": []
+	}
+	
+	for coords in hex_map.keys():
+		data["hexes"].append({"x": coords.x, "y": coords.y})
+	
+	for coords in castle_map.keys():
+		var castle = castle_map[coords]
+		data["castles"].append({
+			"x": coords.x,
+			"y": coords.y,
+			"team": castle.team
+		})
+	
+	for coords in knight_map.keys():
+		var knight = knight_map[coords]
+		data["knights"].append({
+			"x": coords.x,
+			"y": coords.y,
+			"team": knight.team
+		})
+		
+	for coords in cavalry_map.keys():
+		var cavalry = cavalry_map[coords]
+		data["cavalry"].append({
+			"x": coords.x,
+			"y": coords.y,
+			"team": cavalry.team
+		})
+		
+	for coords in spearman_map.keys():
+		var spearman = spearman_map[coords]
+		data["spearmen"].append({
+			"x": coords.x,
+			"y": coords.y,
+			"team": spearman.team
+		})
+	
+	for coords in farmer_map.keys():
+		var farmer = farmer_map[coords]
+		data["farmers"].append({
+			"x": coords.x,
+			"y": coords.y,
+			"team": farmer.team
+		})
+	
+	for coords in territory_map.keys():
+		data["territories"].append({
+			"x": coords.x,
+			"y": coords.y,
+			"team": territory_map[coords]
+		})
+	
+	for key in wall_map.keys():
+		data["walls"].append(key)
+	
+	var full_path = "res://levels/" + file_name
+	var file = FileAccess.open(full_path, FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(data, "\t"))
+		file.close()
+		print("✓ Zapisano uklad do: ", full_path)
+	else:
+		print("✗ Błąd zapisu do: ", full_path)
+
 func load_layout() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return false
@@ -3740,6 +3865,91 @@ func load_layout() -> bool:
 	print("✓ Wczytano uklad")
 	if turn_history:
 		turn_history.reset_rewinds()
+	return true
+
+func load_layout_from_file(file_name: String) -> bool:
+	"""Loads layout from a specific file (for level loading)"""
+	var full_path = "res://levels/" + file_name
+	
+	var file = FileAccess.open(full_path, FileAccess.READ)
+	if not file:
+		print("✗ Nie można otworzyć pliku: ", full_path)
+		print("Błąd FileAccess: ", FileAccess.get_open_error())
+		return false
+	
+	var json_text = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	if json.parse(json_text) != OK:
+		print("✗ Błąd parsowania JSON: ", full_path)
+		return false
+	
+	var data = json.data
+	clear_grid()
+	
+	# Load hexes
+	for hex_data in data["hexes"]:
+		var coords = Vector2i(hex_data["x"], hex_data["y"])
+		add_hex_at(coords)
+	
+	# Load territories
+	if data.has("territories"):
+		for territory_data in data["territories"]:
+			var coords = Vector2i(territory_data["x"], territory_data["y"])
+			territory_map[coords] = territory_data["team"]
+			update_hex_color(coords)
+	
+	# Load castles
+	for castle_data in data["castles"]:
+		var coords = Vector2i(castle_data["x"], castle_data["y"])
+		place_castle_at(coords, castle_data["team"])
+	
+	# Load knights
+	if data.has("knights"):
+		for knight_data in data["knights"]:
+			var coords = Vector2i(knight_data["x"], knight_data["y"])
+			place_knight_at(coords, knight_data["team"])
+			
+	# Load spearmen
+	if data.has("spearmen"):
+		for spearman_data in data["spearmen"]:
+			var coords = Vector2i(spearman_data["x"], spearman_data["y"])
+			place_spearman_at(coords, spearman_data["team"])
+			
+	# Load cavalry
+	if data.has("cavalry"):
+		for cavalry_data in data["cavalry"]:
+			var coords = Vector2i(cavalry_data["x"], cavalry_data["y"])
+			place_cavalry_at(coords, cavalry_data["team"])
+	
+	# Load farmers
+	if data.has("farmers"):
+		for farmer_data in data["farmers"]:
+			var coords = Vector2i(farmer_data["x"], farmer_data["y"])
+			place_farmer_at(coords, farmer_data["team"])
+	
+	# Load walls
+	if data.has("walls"):
+		for wall_key in data["walls"]:
+			wall_map[wall_key] = true
+	
+	# Store the current level file
+	current_level_file = file_name
+	set_meta("current_level_file", file_name)
+	
+	# Reset game state
+	current_round = 1
+	units_moved_this_turn.clear()
+	cavalry_moves_this_turn.clear()
+	
+	update_ui()
+	print("✓ Wczytano poziom z: ", full_path)
+	
+	if turn_history:
+		turn_history.reset_rewinds()
+		turn_history.save_turn_snapshot(self)
+	
 	return true
 
 func _on_buy_farmer():
@@ -4138,7 +4348,9 @@ func check_victory():
 		# Wygrana!
 		if has_meta("victory_popup"):
 			var victory_popup = get_meta("victory_popup")
-			victory_popup.show_victory(current_round)
+			# Pass the current level number (if available)
+			var level_to_show = current_level_number if current_level_number > 0 else current_round
+			victory_popup.show_victory(level_to_show)
 			
 func calculate_map_bounds() -> Rect2:
 	"""Oblicza granice mapy na podstawie pozycji hexów"""

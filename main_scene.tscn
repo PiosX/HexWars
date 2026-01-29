@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=4 uid="uid://4ky2admtw8a0"]
+[gd_scene load_steps=9 format=4 uid="uid://4ky2admtw8a0"]
 
 [ext_resource type="Script" uid="uid://n0dnci1o62mv" path="res://main_scene.gd" id="1_2c62f"]
 [ext_resource type="Texture2D" uid="uid://bx7c3m7vcgccm" path="res://hexagon.png" id="2_d5x1h"]
 [ext_resource type="PackedScene" uid="uid://c6g8ekjbs2q28" path="res://castle.tscn" id="2_gyfs4"]
 [ext_resource type="Script" uid="uid://k6y3hxmuglk0" path="res://hex_grid.gd" id="4_d5x1h"]
+[ext_resource type="Script" uid="uid://c0ftetoin8fl5" path="res://level_editor_ui.gd" id="5_8mm7a"]
 
 [sub_resource type="Environment" id="Environment_gyfs4"]
 background_mode = 1
@@ -43,3 +44,6 @@ tile_set = SubResource("TileSet_o3jxj")
 [node name="HexGrid" type="Node2D" parent="."]
 position = Vector2(100, 100)
 script = ExtResource("4_d5x1h")
+
+[node name="LevelEditorUI" type="CanvasLayer" parent="."]
+script = ExtResource("5_8mm7a")
