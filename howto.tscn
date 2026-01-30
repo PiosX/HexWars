@@ -1,0 +1,1770 @@
+[gd_scene load_steps=36 format=3 uid="uid://ch5agd5eh56rf"]
+
+[ext_resource type="Script" uid="uid://ym1sevs1o2m3" path="res://how_to_play.gd" id="1_22vny"]
+[ext_resource type="Texture2D" uid="uid://cpgjegtmqjyi" path="res://ui/how/t1.png" id="2_0i51p"]
+[ext_resource type="Texture2D" uid="uid://cacocpf0ks3v3" path="res://ui/how/t2.png" id="2_875cv"]
+[ext_resource type="Texture2D" uid="uid://cvypp0k6e6r1h" path="res://ui/how/u1.png" id="3_875cv"]
+[ext_resource type="Texture2D" uid="uid://cpg0i4jfwthkr" path="res://ui/how/t3.png" id="4_adjnm"]
+[ext_resource type="Texture2D" uid="uid://obmqv1vr6vu7" path="res://ui/how/u2.png" id="5_xfmgg"]
+[ext_resource type="Texture2D" uid="uid://dpp4mxmpklsx5" path="res://ui/how/t4.png" id="6_dfif3"]
+[ext_resource type="Texture2D" uid="uid://5rg5odino3xq" path="res://ui/how/kng1.png" id="7_gbc8u"]
+[ext_resource type="Texture2D" uid="uid://cee0pjqxpc62q" path="res://ui/how/kng2.png" id="8_1lvbf"]
+[ext_resource type="Texture2D" uid="uid://be6qi4f42b4bt" path="res://ui/how/kng3.png" id="9_yppm4"]
+[ext_resource type="Texture2D" uid="uid://dqfdebrp27hor" path="res://ui/how/kng4.png" id="10_ad482"]
+[ext_resource type="Texture2D" uid="uid://ckot20al6cs4f" path="res://ui/how/t5.png" id="11_ad482"]
+[ext_resource type="Texture2D" uid="uid://dfkla85pp28ve" path="res://ui/how/u3.png" id="12_k23va"]
+[ext_resource type="Texture2D" uid="uid://18adawmm8wbp" path="res://ui/how/u4.png" id="13_286ss"]
+[ext_resource type="Texture2D" uid="uid://ct74jdc6fhiad" path="res://ui/how/t6.png" id="14_286ss"]
+[ext_resource type="Texture2D" uid="uid://cspnde6mkgbsq" path="res://ui/how/unit1.png" id="15_hxv08"]
+[ext_resource type="Texture2D" uid="uid://bpb5ndj7u3val" path="res://ui/how/unit2.png" id="16_hxv08"]
+[ext_resource type="Texture2D" uid="uid://ghh2ga5v8dyy" path="res://ui/how/unit3.png" id="17_oev7c"]
+[ext_resource type="Texture2D" uid="uid://dynyqps5rl05" path="res://ui/how/unit4.png" id="18_qb7ub"]
+[ext_resource type="Texture2D" uid="uid://dyg45avt7pdmi" path="res://ui/how/unit5.png" id="19_8bjk1"]
+[ext_resource type="Texture2D" uid="uid://caok8gnvf3iu8" path="res://ui/how/t7.png" id="20_8k0vu"]
+[ext_resource type="Texture2D" uid="uid://c8mxosbn0vr1d" path="res://ui/how/t8.png" id="21_rvg7r"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wcxuv"]
+bg_color = Color(0.0784314, 0.0784314, 0.121569, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.164706, 0.164706, 0.25098, 1)
+corner_radius_top_left = 32
+corner_radius_top_right = 32
+corner_radius_bottom_right = 32
+corner_radius_bottom_left = 32
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_875cv"]
+content_margin_left = 24.0
+content_margin_top = 12.0
+content_margin_right = 24.0
+content_margin_bottom = 12.0
+bg_color = Color(0.101961, 0.101961, 0.156863, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.8, 0.8, 0.8, 0)
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_0i51p"]
+bg_color = Color(0.168627, 0.498039, 1, 0.2)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.169, 0.498, 1, 0.3)
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_adjnm"]
+bg_color = Color(0.984, 0.173, 0.212, 0.1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.984, 0.173, 0.212, 0.2)
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dfif3"]
+bg_color = Color(0.101961, 0.101961, 0.156863, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.164706, 0.164706, 0.25098, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_ad482"]
+bg_color = Color(0.984, 0.173, 0.212, 0.1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.984, 0.173, 0.212, 0.2)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_qb7ub"]
+content_margin_left = 16.0
+content_margin_right = 16.0
+bg_color = Color(0.984, 0.173, 0.212, 0.2)
+corner_radius_top_left = 999
+corner_radius_top_right = 999
+corner_radius_bottom_right = 999
+corner_radius_bottom_left = 999
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8k0vu"]
+bg_color = Color(0.101961, 0.101961, 0.156863, 1)
+border_width_left = 6
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0, 0.737255, 0.490196, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rvg7r"]
+bg_color = Color(0.101961, 0.101961, 0.156863, 1)
+border_width_left = 6
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.317647, 0.635294, 1, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_22vny"]
+bg_color = Color(0.101961, 0.101961, 0.156863, 1)
+border_width_left = 6
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.760784, 0.478431, 1, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_sf7wl"]
+bg_color = Color(0.101961, 0.101961, 0.156863, 1)
+border_width_left = 6
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 0.392157, 0.403922, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2nq1u"]
+bg_color = Color(0.101961, 0.101961, 0.156863, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.164706, 0.164706, 0.25098, 1)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_rq4q8"]
+bg_color = Color(0, 0.737, 0.49, 0.1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0, 0.737, 0.49, 0.2)
+corner_radius_top_left = 30
+corner_radius_top_right = 30
+corner_radius_bottom_right = 30
+corner_radius_bottom_left = 30
+
+[node name="Node2D" type="CanvasLayer"]
+script = ExtResource("1_22vny")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.0705882, 0.0705882, 0.0941176, 1)
+
+[node name="ContentWrapper" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+theme_override_constants/margin_top = 136
+theme_override_constants/margin_bottom = 200
+
+[node name="ContentScroll" type="ScrollContainer" parent="ContentWrapper"]
+layout_mode = 2
+mouse_filter = 0
+mouse_force_pass_scroll_events = false
+horizontal_scroll_mode = 0
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="MainContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+theme_override_constants/separation = 24
+
+[node name="ContentsPanel" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 240)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="ContentsLayout" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("2_0i51p")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Contents"
+
+[node name="Divider" type="ColorRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout"]
+custom_minimum_size = Vector2(0, 1)
+layout_mode = 2
+size_flags_vertical = 2
+color = Color(0.164706, 0.164706, 0.25098, 1)
+
+[node name="ButtonGrid" type="HFlowContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+
+[node name="ButtonRow1" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+text = "1. Your Goal"
+
+[node name="ButtonRow2" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+text = "2. Overview"
+
+[node name="ButtonRow3" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+text = "3. Kingdoms
+"
+
+[node name="ButtonRow4" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+text = "4. Economy
+"
+
+[node name="ButtonRow5" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+text = "5. Units"
+
+[node name="ButtonRow6" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+text = "6. Rules"
+
+[node name="ButtonRow7" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+focus_mode = 0
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 20
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+text = "7. Bandits"
+
+[node name="SectionGoal" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 250)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("2_875cv")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Your Goal"
+
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "Your mission is to [b][color=#FF6467]eliminate all enemy kingdoms[/color][/b] by capturing and destroying their castles."
+fit_content = true
+
+[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_adjnm")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("3_875cv")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Capture all enemy castles to win!"
+
+[node name="SectionGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 370)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("4_adjnm")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Game Overview"
+
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "Welcome to [b][color=\"#FFFFFF\"]HexWars[/color][/b] - a turn-based strategy game where
+you battle for dominance across hexagonal battlefields."
+fit_content = true
+
+[node name="GoalDescription2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "Each level presents a unique map with up to [b][color=\"#FFFFFF\"]4 kingdoms[/color][/b]
+competing for territory. Kingdoms take turns one after
+another."
+fit_content = true
+
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 70)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+size_flags_vertical = 0
+texture = ExtResource("5_xfmgg")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/font_size = 18
+text = "Every level is procedurally generated - starting territories
+and gold vary each time. Adapt your strategy!"
+
+[node name="SectionKingdoms" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 360)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("6_dfif3")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "The Four Kingdoms"
+
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "Each battle can have up to 4 kingdoms fighting for control:"
+fit_content = true
+
+[node name="GridContainer" type="GridContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 16
+columns = 2
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+custom_minimum_size = Vector2(312, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+texture = ExtResource("7_gbc8u")
+expand_mode = 5
+
+[node name="TextureRect2" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+custom_minimum_size = Vector2(312, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+texture = ExtResource("8_1lvbf")
+expand_mode = 5
+
+[node name="TextureRect3" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+custom_minimum_size = Vector2(312, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+texture = ExtResource("9_yppm4")
+expand_mode = 5
+
+[node name="TextureRect4" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+custom_minimum_size = Vector2(312, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+texture = ExtResource("10_ad482")
+expand_mode = 5
+
+[node name="GoalDescription2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 20
+theme_override_font_sizes/bold_font_size = 18
+bbcode_enabled = true
+text = "Each kingdom starts with different territory and [b][color=\"FFB900\"]10 coins.[/color][/b]"
+fit_content = true
+
+[node name="Economy" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 415)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("11_ad482")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Economy & Resources"
+
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "Gold is the lifeblood of your kingdom. Every kingdom starts
+with [b][color=\"FFB900\"]10 coins.[/color][/b]"
+fit_content = true
+
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 0
+texture = ExtResource("12_k23va")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "+2 coins per hex"
+
+[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/font_size = 18
+text = "Each controlled hex generates income every turn"
+
+[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_ad482")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("13_286ss")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Watch your upkeep!"
+
+[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/font_size = 18
+text = "Units require maintenance costs each turn. If expenses exceed
+income, all your units will rebel and become bandits!"
+
+[node name="Units" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 670)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("14_286ss")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Military Units"
+
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "Build your army with these unit types:"
+fit_content = true
+
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 0
+texture = ExtResource("15_hxv08")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Farmer"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "[color=\"FFB900\"]10[/color] cost   |   [color=\"FF6467\"]2[/color] /turn"
+fit_content = true
+
+[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 0
+texture = ExtResource("16_hxv08")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Spearman"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "[color=\"FFB900\"]20[/color] cost   |   [color=\"FF6467\"]6[/color] /turn"
+fit_content = true
+
+[node name="TipBoxGame3" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 0
+texture = ExtResource("17_oev7c")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Knight"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "[color=\"FFB900\"]40[/color] cost   |   [color=\"FF6467\"]18[/color] /turn"
+fit_content = true
+
+[node name="TipBoxGame4" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 0
+texture = ExtResource("18_qb7ub")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="HBoxContainer" type="HFlowContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+theme_override_constants/h_separation = 16
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Cavalry"
+
+[node name="Panel" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_qb7ub")
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer/Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.392157, 0.403922, 1)
+theme_override_font_sizes/font_size = 16
+text = "2 moves/turn"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "[color=\"FFB900\"]80[/color] cost   |   [color=\"FF6467\"]50[/color] /turn"
+fit_content = true
+
+[node name="TipBoxGame5" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 90)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+size_flags_vertical = 0
+texture = ExtResource("19_8bjk1")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Walls"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "[color=\"FFB900\"]3[/color] cost   |   [color=\"00D492\"]0[/color] upkeep"
+fit_content = true
+
+[node name="Rules" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 870)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("20_8k0vu")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Combat Rules"
+
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "[b][color=#FF6467]Capturing the enemy castle[/color][/b] is the key to defeating them!
+Each unit has specific rules:"
+fit_content = true
+
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_8k0vu")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0, 0.831373, 0.572549, 1)
+theme_override_font_sizes/font_size = 22
+text = "Farmer"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Cannot attack any enemy units"
+fit_content = true
+
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Can only capture neutral or undefended hexes"
+fit_content = true
+
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Cannot capture hexes with walls"
+fit_content = true
+
+[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 180)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_rvg7r")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Spearman"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Can attack Farmers and other Spearmen"
+fit_content = true
+
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Can capture hexes with walls (if undefended or weaker units)"
+fit_content = true
+
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Can capture castles and bandit camps"
+fit_content = true
+
+[node name="Label5" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Cannot attack if hex has Spearman+ in walls"
+fit_content = true
+
+[node name="TipBoxGame3" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_22vny")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.760784, 0.478431, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Knight"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Everything Spearman can do"
+fit_content = true
+
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Can capture walled hexes with Farmers or Spearmen inside"
+fit_content = true
+
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Cannot attack if hex has Knight/Cavalry in walls"
+fit_content = true
+
+[node name="TipBoxGame4" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_sf7wl")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 0.392157, 0.403922, 1)
+theme_override_font_sizes/font_size = 22
+text = "Cavalry"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Can capture any walled hex (except other Cavalry)"
+fit_content = true
+
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Has 2 moves per turn"
+fit_content = true
+
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Most powerful offensive unit"
+fit_content = true
+
+[node name="Bandits" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+custom_minimum_size = Vector2(0, 670)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer"]
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/HeaderRow"]
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+texture = ExtResource("21_rvg7r")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/HeaderRow"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 32
+text = "Bandits & Rebels"
+
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/normal_font_size = 22
+theme_override_font_sizes/bold_font_size = 20
+bbcode_enabled = true
+text = "Bandits can appear on the map at the start or spawn during
+gameplay:"
+fit_content = true
+
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 145)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_2nq1u")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "How bandits spawn:"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "When you cut off enemy units from their kingdom (disconnect
+their hexes), those units automatically become [color=\"FF8904\"]rebels[/color] and a
+[color=\"FF8904\"]bandit camp[/color] appears nearby."
+fit_content = true
+
+[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 150)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_2nq1u")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "Bandit behavior:"
+
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Capture empty hexes (with or without owners)"
+fit_content = true
+
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Cannot attack hexes with walls"
+fit_content = true
+
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
+theme_override_font_sizes/normal_font_size = 18
+bbcode_enabled = true
+text = "- Do not attack any units"
+fit_content = true
+
+[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+custom_minimum_size = Vector2(0, 130)
+layout_mode = 2
+size_flags_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_rq4q8")
+
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
+
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+custom_minimum_size = Vector2(36, 36)
+layout_mode = 2
+texture = ExtResource("11_ad482")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 22
+text = "+10 coins reward!"
+
+[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
+theme_override_font_sizes/font_size = 18
+text = "Destroy a bandit camp with a Spearman or stronger unit to
+eliminate them and earn bonus gold."

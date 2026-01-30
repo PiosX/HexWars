@@ -5,6 +5,7 @@ const MAIN_MENU = preload("res://home.tscn")
 const SHOP_MENU = preload("res://shop.tscn")
 const LEVEL_SELECT = preload("res://levels.tscn")
 const HEX_GRID_SCENE = preload("res://main_scene.tscn")
+const HOWTO_MENU = preload("res://howto.tscn")
 
 var current_scene = null
 var current_level_number: int = 0
@@ -34,6 +35,8 @@ func _on_tab_changed(tab_name: String):
 			change_scene(SHOP_MENU)
 		"levels":
 			change_scene(LEVEL_SELECT)
+		"howto":
+			change_scene(HOWTO_MENU)
 
 func _on_level_selected(level_file: String, difficulty: int):
 	if current_scene and current_scene.has_method("get_selected_level_number"):
