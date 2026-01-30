@@ -199,7 +199,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
 theme_override_constants/margin_top = 136
-theme_override_constants/margin_bottom = 200
+theme_override_constants/margin_bottom = 220
 
 [node name="ContentScroll" type="ScrollContainer" parent="ContentWrapper"]
 layout_mode = 2
@@ -1768,3 +1768,9 @@ theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
 theme_override_font_sizes/font_size = 18
 text = "Destroy a bandit camp with a Spearman or stronger unit to
 eliminate them and earn bonus gold."
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+visible = false
+custom_minimum_size = Vector2(0, 16)
+layout_mode = 2
+size_flags_vertical = 3

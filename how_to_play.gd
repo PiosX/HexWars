@@ -42,6 +42,8 @@ const SHOP_BORDER = Color("00BC7D", 0.3)
 const SHOP_ACTIVE = Color("00BC7D")
 const HOWTO_BORDER = Color("FE9A00", 0.2)
 const HOWTO_ACTIVE = Color("FE9A00")
+const BOTTOM_PANEL_HEIGHT = 200.0
+var bottom_panel_bg: ColorRect
 
 # === PATHS ===
 const ICON_SETTINGS = "res://ui/settings.png"
@@ -75,6 +77,7 @@ var active_tab: String = "howto"
 signal tab_changed(tab_name: String)
 
 func _ready():
+	setup_panel_backgrounds()
 	setup_top_panel()
 	setup_bottom_nav()
 	
@@ -210,6 +213,20 @@ func setup_top_panel():
 	
 	currency_hbox.add_child(icon_container)
 	currency_panel.set_meta("right_top", true)
+	
+func setup_panel_backgrounds():
+	# Bottom panel background
+	bottom_panel_bg = ColorRect.new()
+	bottom_panel_bg.name = "BottomPanelBG"
+	bottom_panel_bg.color = BG_COLOR
+	bottom_panel_bg.anchor_left = 0.0
+	bottom_panel_bg.anchor_right = 1.0
+	bottom_panel_bg.anchor_top = 1.0
+	bottom_panel_bg.anchor_bottom = 1.0
+	bottom_panel_bg.offset_top = -(BOTTOM_PANEL_HEIGHT + 20)
+	bottom_panel_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bottom_panel_bg.z_index = 10
+	add_child(bottom_panel_bg)
 
 func setup_bottom_nav():
 	"""Creates bottom navigation with 4 tabs"""
@@ -217,6 +234,7 @@ func setup_bottom_nav():
 	nav_container.name = "NavContainer"
 	nav_container.add_theme_constant_override("separation", 24)
 	nav_container.alignment = BoxContainer.ALIGNMENT_CENTER
+	nav_container.z_index = 100
 	nav_container.set_meta("bottom_center", true)
 	add_child(nav_container)
 	
