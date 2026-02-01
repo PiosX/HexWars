@@ -2,6 +2,7 @@ extends CanvasLayer
 class_name UIManager
 
 signal ui_ready
+signal tab_changed(tab_name: String)
 # --- COLORS ---
 const BG_PANEL = Color("121218")
 const BG_BOX = Color("1A1A28")
@@ -53,7 +54,7 @@ var music_enabled: bool = true
 
 # Icons paths
 const ICON_SETTINGS = "res://ui/settings.png"
-const ICON_TIME = "res://ui/time.png"
+const ICON_TIME = "res://ui/time2.png"
 const ICON_TURN = "res://turn.svg"
 const ICON_COINS = "res://ui/coins.png"
 const ICON_RETURN = "res://ui/return.png"
@@ -111,7 +112,7 @@ func setup_ui():
 	
 	# Turn label (center) - wewnątrz rounded boxa
 	var turn_container = Panel.new()
-	turn_container.custom_minimum_size = Vector2(160, 96)
+	turn_container.custom_minimum_size = Vector2(200, 96)
 	
 	var turn_style = StyleBoxFlat.new()
 	turn_style.bg_color = BG_BOX
@@ -135,11 +136,12 @@ func setup_ui():
 	turn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	turn_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	turn_label.position = Vector2(0, 0)
-	turn_label.size = Vector2(160, 96)
+	turn_label.size = Vector2(200, 96)
 	turn_label.add_theme_font_size_override("font_size", 28)
 	turn_label.add_theme_color_override("font_color", Color.WHITE)
 	turn_container.add_child(turn_label)
-	top_content.add_child(turn_container)
+	turn_container.set_meta("center_top", true)
+	add_child(turn_container)
 	
 	# Spacer
 	var spacer2 = Control.new()
@@ -147,28 +149,67 @@ func setup_ui():
 	top_content.add_child(spacer2)
 	
 	# Rewind counter (right) - BEZ BOXA, tylko ikona + tekst
+	var rewind_panel = Panel.new()
+	rewind_panel.name = "RewindPanel"
+	rewind_panel.custom_minimum_size = Vector2(160, 60)  # Jak currency w innych
+
+	var rewind_style = StyleBoxFlat.new()
+	rewind_style.bg_color = Color(BG_BOX, 0.9)
+	rewind_style.border_width_left = 1
+	rewind_style.border_width_right = 1
+	rewind_style.border_width_top = 1
+	rewind_style.border_width_bottom = 1
+	rewind_style.border_color = BORDER_COLOR
+	rewind_style.corner_radius_top_left = 999
+	rewind_style.corner_radius_top_right = 999
+	rewind_style.corner_radius_bottom_left = 999
+	rewind_style.corner_radius_bottom_right = 999
+	rewind_panel.add_theme_stylebox_override("panel", rewind_style)
+
+	# HBox wewnątrz panelu
 	rewind_counter = HBoxContainer.new()
-	rewind_counter.alignment = BoxContainer.ALIGNMENT_CENTER
-	rewind_counter.add_theme_constant_override("separation", 8)
-	rewind_counter.custom_minimum_size = Vector2(90, 96)
-	
-	var rewind_icon = TextureRect.new()
-	rewind_icon.custom_minimum_size = Vector2(32, 32)
-	rewind_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	rewind_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	rewind_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rewind_icon.texture = load(ICON_TIME)
-	rewind_counter.add_child(rewind_icon)
-	
+	rewind_counter.add_theme_constant_override("separation", 4)
+	rewind_counter.alignment = BoxContainer.ALIGNMENT_END
+	rewind_counter.anchor_left = 0.0
+	rewind_counter.anchor_right = 1.0
+	rewind_counter.anchor_top = 0.0
+	rewind_counter.anchor_bottom = 1.0
+	rewind_counter.offset_left = 10
+	rewind_counter.offset_right = -10
+	rewind_panel.add_child(rewind_counter)
+
 	var rewind_label = Label.new()
 	rewind_label.name = "RewindLabel"
 	rewind_label.text = "3"
-	rewind_label.add_theme_font_size_override("font_size", 30)
+	rewind_label.add_theme_font_size_override("font_size", 24)  # Zmienione z 30 na 24
 	rewind_label.add_theme_color_override("font_color", Color.WHITE)
+	rewind_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	rewind_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	rewind_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rewind_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var font_var = FontVariation.new()
+	font_var.set_variation_embolden(0.5)
+	rewind_label.add_theme_font_override("font", font_var)
 	rewind_counter.add_child(rewind_label)
-	
-	top_content.add_child(rewind_counter)
+
+	var icon_container = Control.new()
+	icon_container.custom_minimum_size = Vector2(54, 44)
+	icon_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon_container.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+
+	var rewind_icon = TextureRect.new()
+	rewind_icon.texture = load(ICON_TIME)
+	rewind_icon.custom_minimum_size = Vector2(60, 60)  # Zmienione z 32 na 60
+	rewind_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rewind_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	rewind_icon.anchor_right = 1.0
+	rewind_icon.anchor_top = 0.0
+	rewind_icon.anchor_bottom = 1.0
+	icon_container.add_child(rewind_icon)
+
+	rewind_counter.add_child(icon_container)
+	rewind_panel.set_meta("right_top", true)
+	add_child(rewind_panel)
 	
 	# === DOMINANCE BAR ===
 	dominance_container = Panel.new()
@@ -882,6 +923,16 @@ func _on_viewport_size_changed():
 	var viewport_size = get_viewport().get_visible_rect().size
 	var safe_area = DisplayServer.get_display_safe_area()
 	
+	# Position elements with meta tags (like other tabs)
+	for child in get_children():
+		if child.has_meta("center_top"):
+			child.position = Vector2(viewport_size.x / 2 - child.custom_minimum_size.x / 2, 20)
+		
+		if child.has_meta("right_top"):
+			var title_center_y = 20 + 96 / 2
+			var currency_center_y = child.custom_minimum_size.y / 2
+			child.position = Vector2(viewport_size.x - child.custom_minimum_size.x - 20, title_center_y - currency_center_y)
+	
 	# Top panel - full width, at top with anchors (NO safe area offset)
 	top_panel.anchor_top = 0.0
 	top_panel.anchor_bottom = 0.0
@@ -1127,22 +1178,24 @@ func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: V
 
 func _on_restart_pressed():
 	print("Restart pressed")
-	# TODO: Implement restart logic
 	_on_close_settings()
 
+	if hex_grid and hex_grid.has_meta("current_level_file"):
+		var level_file = hex_grid.get_meta("current_level_file")
+		if not level_file.is_empty() and hex_grid.has_method("load_layout_from_file"):
+			hex_grid.load_layout_from_file(level_file)
+			print("Level restarted from settings: ", level_file)
+
 func _on_howto_pressed():
-	print("How to Play pressed")
-	# TODO: Implement how to play logic
+	tab_changed.emit("howto")
 	_on_close_settings()
 
 func _on_store_pressed():
-	print("Store pressed")
-	# TODO: Implement store logic
+	tab_changed.emit("shop")
 	_on_close_settings()
 
 func _on_home_pressed():
-	print("Home pressed")
-	# TODO: Implement home logic
+	tab_changed.emit("home")
 	_on_close_settings()
 			
 func reset_wall_button():
@@ -1187,7 +1240,7 @@ func set_wall_button_active(active: bool):
 				btn.add_theme_stylebox_override("normal", style_active)
 				
 				var style_hover = style_active.duplicate()
-				style_hover.bg_color = Color("#3D89EF")  # Trochę ciemniejszy niebieski
+				style_hover.bg_color = Color("#3D89EF")
 				btn.add_theme_stylebox_override("hover", style_hover)
 			else:
 				reset_wall_button()

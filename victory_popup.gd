@@ -20,7 +20,7 @@ const HOME_TEXT = Color("D1D5DC")
 const SHADOW_PATH = "res://ui/victory/shadowpanel.png"
 const CROWN_PATH = "res://ui/victory/crown.png"
 const VIC_PATH = "res://ui/victory/vic.png"
-const RELIC_PATH = "res://ui/victory/relic.png"
+const RELIC_PATH = "res://ui/shop/timeSquare.png"
 const HOME_ICON = "res://ui/settings/home.png"
 const NEXT_ICON = "res://ui/victory/next.png"
 
@@ -33,6 +33,7 @@ var popup_container: Control
 var shadow: TextureRect
 var main_panel: Panel
 var confetti_particles: Array = []
+var relic_textures: Array = []
 var current_level: int = 0
 
 signal home_pressed
@@ -82,11 +83,11 @@ func setup_ui():
 	# === MAIN PANEL ===
 	main_panel = Panel.new()
 	main_panel.name = "MainPanel"
-	main_panel.custom_minimum_size = Vector2(480, 780)
+	main_panel.custom_minimum_size = Vector2(480, 760)
 	main_panel.offset_left = -240
-	main_panel.offset_top = -390
+	main_panel.offset_top = -380
 	main_panel.offset_right = 240
-	main_panel.offset_bottom = 390
+	main_panel.offset_bottom = 380
 	main_panel.clip_contents = true
 	
 	# Panel style with gradient background
@@ -118,7 +119,7 @@ func setup_ui():
 	gradient_texture.fill_from = Vector2(0, 0)
 	gradient_texture.fill_to = Vector2(0, 1)
 	gradient_texture.width = 480
-	gradient_texture.height = 780
+	gradient_texture.height = 760
 	
 	var texture_rect = TextureRect.new()
 	texture_rect.texture = gradient_texture
@@ -245,7 +246,7 @@ func setup_ui():
 	# === REWARD PANEL ===
 	var reward_panel = Panel.new()
 	reward_panel.name = "RewardPanel"
-	reward_panel.custom_minimum_size = Vector2(360, 240)
+	reward_panel.custom_minimum_size = Vector2(360, 200)
 	reward_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	
 	var reward_style = StyleBoxFlat.new()
@@ -287,19 +288,24 @@ func setup_ui():
 	reward_vbox.add_child(relics_hbox)
 	
 	# 3 relics
+	relic_textures.clear()
 	for i in range(3):
-		var relic_margin = MarginContainer.new()
-		relic_margin.add_theme_constant_override("margin_top", -20)
-		relic_margin.add_theme_constant_override("margin_bottom", -20)
+		# Pivot control — animujemy scale/modulate tutaj
+		# height 80 = 120 - 40, żeby layout widział je tak samo jak MarginContainer z margin_bottom -40
+		var pivot = Control.new()
+		pivot.custom_minimum_size = Vector2(120, 80)
+		pivot.modulate.a = 0.0
+		pivot.clip_contents = false
 		
 		var relic = TextureRect.new()
 		relic.texture = load(RELIC_PATH)
-		relic.custom_minimum_size = Vector2(130, 130)
-		relic.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+		relic.custom_minimum_size = Vector2(120, 120)
+		relic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		relic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		relic_margin.add_child(relic)
+		pivot.add_child(relic)
 		
-		relics_hbox.add_child(relic_margin)
+		relics_hbox.add_child(pivot)
+		relic_textures.append(pivot)
 	
 	# Relic count label
 	var count_label = Label.new()
@@ -445,6 +451,22 @@ func show_victory(level: int):
 			crown_tween.set_ease(Tween.EASE_OUT)
 			crown_tween.set_trans(Tween.TRANS_BOUNCE)
 			crown_tween.tween_property(crown, "scale", Vector2(1.0, 1.0), 0.8).set_delay(0.4)
+	
+	# Relics — wchodzą jeden po drugim po popup animacji
+	for i in range(relic_textures.size()):
+		var pivot = relic_textures[i]
+		pivot.scale = Vector2.ZERO
+		pivot.modulate.a = 0.0
+		
+		var relic_tween = create_tween()
+		relic_tween.set_parallel(true)
+		# Scale z bounce
+		var scale_tw = relic_tween.tween_property(pivot, "scale", Vector2.ONE, 0.45).set_delay(0.6 + i * 0.18)
+		scale_tw.set_ease(Tween.EASE_OUT)
+		scale_tw.set_trans(Tween.TRANS_BOUNCE)
+		# Fade in szybko na początku
+		var fade_tw = relic_tween.tween_property(pivot, "modulate:a", 1.0, 0.15).set_delay(0.6 + i * 0.18)
+		fade_tw.set_ease(Tween.EASE_OUT)
 
 func mark_level_completed(level_num: int):
 	"""Marks a level as completed in progress data"""

@@ -108,18 +108,14 @@ var turn_history: TurnHistory
 func _ready():
 	var victory_popup = preload("res://victory_popup.gd").new()
 	add_child(victory_popup)
-	victory_popup.home_pressed.connect(_on_victory_home)
-	victory_popup.next_pressed.connect(_on_victory_next)
 	set_meta("victory_popup", victory_popup)
 	
 	var defeat_popup = preload("res://defeat_popup.gd").new()
 	add_child(defeat_popup)
-	defeat_popup.home_pressed.connect(_on_defeat_home)
-	defeat_popup.retry_pressed.connect(_on_defeat_retry)
 	set_meta("defeat_popup", defeat_popup)
 	
 	turn_history = TurnHistory.new()
-	add_child(turn_history)  
+	add_child(turn_history)
 	
 	hex_horiz_spacing = hex_width * 0.866 * (1.0 + hex_gap)
 	hex_vert_spacing = hex_height * 0.75 * (1.0 + hex_gap)
@@ -168,19 +164,6 @@ func _ready():
 func update_ui():
 	if ui_manager:
 		ui_manager.update_ui_data()
-		
-func _on_victory_home():
-	print("Victory Home pressed")
-	# Tu możesz wrócić do menu głównego
-
-func _on_victory_next():
-	print("Victory Next pressed")
-	
-func _on_defeat_home():
-	print("Defeat Home pressed")
-
-func _on_defeat_retry():
-	print("Defeat Retry pressed")
 
 func calculate_income(team: int) -> int:
 	if team == 5 or team == BANDIT_TEAM:
@@ -3357,7 +3340,8 @@ func get_territory_border(team: int) -> Array[Vector2i]:
 
 func clear_highlights():
 	for hex in highlighted_hexes:
-		hex.unhighlight()
+		if is_instance_valid(hex):
+			hex.unhighlight()
 	highlighted_hexes.clear()
 	
 	update_ui()

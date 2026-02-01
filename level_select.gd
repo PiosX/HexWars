@@ -444,7 +444,7 @@ func setup_top_panel():
 	title_label.text = "CHOOSE LEVEL"
 	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title_label.add_theme_font_size_override("font_size", 24)
+	title_label.add_theme_font_size_override("font_size", 28)
 	title_label.add_theme_color_override("font_color", Color.WHITE)
 	title_label.anchor_right = 1.0
 	title_label.anchor_bottom = 1.0

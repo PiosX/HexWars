@@ -113,7 +113,7 @@ func setup_top_panel():
 	# SHOP label (center)
 	var shop_container = Panel.new()
 	shop_container.name = "ShopContainer"
-	shop_container.custom_minimum_size = Vector2(200, 96)  # Taki sam jak w main_menu
+	shop_container.custom_minimum_size = Vector2(250, 96)  # Taki sam jak w main_menu
 	
 	var shop_style = StyleBoxFlat.new()
 	shop_style.bg_color = PANEL_BG

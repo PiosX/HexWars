@@ -164,7 +164,7 @@ func setup_top_panel():
 	# Level label (center)
 	var level_container = Panel.new()
 	level_container.name = "LevelContainer"
-	level_container.custom_minimum_size = Vector2(200, 96)
+	level_container.custom_minimum_size = Vector2(250, 96)
 	
 	var level_style = StyleBoxFlat.new()
 	level_style.bg_color = PANEL_BG
