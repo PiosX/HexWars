@@ -1116,21 +1116,29 @@ func remove_hex_at(hex_coords: Vector2i):
 func get_hex_at(hex_coords: Vector2i) -> Hex:
 	return hex_map.get(hex_coords, null)
 
-func update_hex_color(hex_coords: Vector2i):
+func update_hex_color(hex_coords: Vector2i, animate: bool = false):
 	var hex = get_hex_at(hex_coords)
 	if not hex:
 		return
 	
+	var new_color: Color
 	if territory_map.has(hex_coords):
 		var team = territory_map[hex_coords]
 		if team == -1:
-			hex.set_color(BANDIT_COLOR)  # Jasienszy czarny
+			new_color = BANDIT_COLOR
 		elif team == -2:
-			hex.set_color(BANDIT_CAMP_COLOR)  # Jeszcze jasienszy (stary oboz)
+			new_color = BANDIT_CAMP_COLOR
 		elif team > 0:
-			hex.set_color(TEAM_COLORS[int(team)])
+			new_color = TEAM_COLORS[int(team)]
+		else:
+			new_color = Color("#2b2b2b")
 	else:
-		hex.reset_color()
+		new_color = Color("#2b2b2b")
+	
+	if animate and hex.sprite:
+		hex.animate_capture(new_color)
+	else:
+		hex.set_color(new_color)
 
 func toggle_territory(hex_coords: Vector2i):
 	if not hex_map.has(hex_coords):
@@ -1421,8 +1429,11 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 	cavalry.hex_position = to
 	cavalry_map[to] = cavalry
 	to_hex.place_object(cavalry)
+	cavalry.sprite.scale = Vector2.ZERO
 	
 	cavalry.animate_slide_to(to_hex.position, 0.3)
+	var cavalry_pop = create_tween()
+	cavalry_pop.tween_property(cavalry.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
 	
 	var old_hex = get_hex_at(from)
 	if old_hex and old_hex.has_meta("is_unit_selected"):
@@ -1433,8 +1444,8 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 		cavalry_moves_this_turn[cavalry] = 0
 	cavalry_moves_this_turn[cavalry] += 1
 	
-	# Jeśli wykonał 2 ruchy - dodaj do units_moved_this_turn
-	await get_tree().create_timer(0.35).timeout
+	# Regalo capture po zakończeniu slide animacji
+	await get_tree().create_timer(0.15).timeout
 	capture_territory(to, cavalry.team)
 	
 	if cavalry_moves_this_turn[cavalry] >= 2:
@@ -1449,12 +1460,6 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 		if new_hex:
 			new_hex.set_selected_state(true)
 		highlight_unit_moves(cavalry.hex_position, cavalry.team)
-		return
-	
-	await get_tree().create_timer(0.35).timeout
-	capture_territory(to, cavalry.team)
-	clear_highlights()
-	pulse_available_units()
 
 func merge_knights_to_cavalry(knight1_pos: Vector2i, knight2_pos: Vector2i):
 	"""Łączy dwóch knightów w cavalry"""
@@ -1738,8 +1743,11 @@ func move_spearman(from: Vector2i, to: Vector2i):
 	spearman.hex_position = to
 	spearman_map[to] = spearman
 	to_hex.place_object(spearman)
+	spearman.sprite.scale = Vector2.ZERO
 	
 	spearman.animate_slide_to(to_hex.position, 0.3)
+	var spearman_pop = create_tween()
+	spearman_pop.tween_property(spearman.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
 	
 	units_moved_this_turn.append(spearman)
 	
@@ -1752,7 +1760,7 @@ func move_spearman(from: Vector2i, to: Vector2i):
 		spearman.set_selected(false)
 		selected_unit = null
 	
-	await get_tree().create_timer(0.35).timeout
+	await get_tree().create_timer(0.15).timeout
 	capture_territory(to, spearman.team)
 	clear_highlights()
 	pulse_available_units()
@@ -2041,8 +2049,11 @@ func move_knight(from: Vector2i, to: Vector2i):
 	knight.hex_position = to
 	knight_map[to] = knight
 	to_hex.place_object(knight)
+	knight.sprite.scale = Vector2.ZERO
 	
 	knight.animate_slide_to(to_hex.position, 0.3)
+	var knight_pop = create_tween()
+	knight_pop.tween_property(knight.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
 	
 	units_moved_this_turn.append(knight)
 	
@@ -2056,7 +2067,7 @@ func move_knight(from: Vector2i, to: Vector2i):
 			knight.set_selected(false)
 		selected_unit = null
 	
-	await get_tree().create_timer(0.35).timeout
+	await get_tree().create_timer(0.15).timeout
 	
 	# Przejmij terytorium
 	capture_territory(to, knight.team)
@@ -2181,8 +2192,11 @@ func move_farmer(from: Vector2i, to: Vector2i):
 	farmer.hex_position = to
 	farmer_map[to] = farmer
 	to_hex.place_object(farmer)
+	farmer.sprite.scale = Vector2.ZERO
 	
 	farmer.animate_slide_to(to_hex.position, 0.3)
+	var farmer_pop = create_tween()
+	farmer_pop.tween_property(farmer.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
 	
 	units_moved_this_turn.append(farmer)
 	
@@ -2197,7 +2211,7 @@ func move_farmer(from: Vector2i, to: Vector2i):
 		farmer.set_selected(false)
 		selected_unit = null
 	
-	await get_tree().create_timer(0.35).timeout
+	await get_tree().create_timer(0.15).timeout
 	if farmer.team == BANDIT_TEAM:
 		check_bandit_camp_after_move(from, to)
 	capture_territory(to, farmer.team)
@@ -2324,9 +2338,9 @@ func capture_territory(hex_coords: Vector2i, team: int):
 		remove_walls_around_captured_hex(hex_coords, old_owner)
 		purge_walls_connected_to(hex_coords)
 	
-	# Zmien wlasciciela
+	# Zmien wlasciciela — ANIMUJ tego hexa (jest to hex na który właśnie wylądowała jednostka)
 	territory_map[hex_coords] = team
-	update_hex_color(hex_coords)
+	update_hex_color(hex_coords, true)
 	
 	# Sprawdz czy przejelismy zamek
 	if castle_map.has(hex_coords):

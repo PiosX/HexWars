@@ -83,15 +83,34 @@ func animate_scale(target_scale: Vector2, duration: float):
 	tween.set_trans(Tween.TRANS_QUAD)
 	tween.tween_property(sprite, "scale", target_scale, duration)
 
-func animate_bounce():
-	"""Animacja bounce przy stawianiu obiektu"""
-	var tween = create_tween()
-	tween.set_ease(Tween.EASE_OUT)
-	tween.set_trans(Tween.TRANS_BOUNCE)
+func animate_capture(new_color: Color):
+	"""Animacja przejęcia pola — hex ugina się pod ciężarem jednostki i wraca"""
+	# Zabij każdy trwający tween na sprite żeby nie było konfliktów
+	if sprite.has_meta("capture_tween"):
+		var old = sprite.get_meta("capture_tween")
+		if is_instance_valid(old) and old.is_valid():
+			old.kill()
 	
-	sprite.scale = original_scale * 0.7
-	tween.tween_property(sprite, "scale", original_scale * 1.2, 0.15)
-	tween.tween_property(sprite, "scale", original_scale, 0.25)
+	# Kolor zmienia się NATYCHMIAST (synchronicznie) — tak żeby current_color
+	# był poprawny zanim pulse_available_units go odczyta
+	set_color(new_color)
+	
+	# Skalę ustawiam od razu na "uderzenie" (bez animowania w dół — to ma być snap)
+	sprite.scale = original_scale * Vector2(1.12, 0.78)
+	
+	# Jeden tween animuje powrót: odbicie w górę → osadzenie
+	var tween = create_tween()
+	sprite.set_meta("capture_tween", tween)
+	
+	# ODBICIE — sprężyna wypcha hex w górę z overshotem
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_CUBIC)
+	tween.tween_property(sprite, "scale", original_scale * Vector2(0.95, 1.06), 0.12)
+	
+	# OSADZENIE — drobne drganie i powrót do normy
+	tween.set_ease(Tween.EASE_OUT)
+	tween.set_trans(Tween.TRANS_QUAD)
+	tween.tween_property(sprite, "scale", original_scale, 0.1)
 
 func set_color(color: Color):
 	"""Ustawia kolor hexa"""
