@@ -997,6 +997,8 @@ func update_ui_data():
 	if not is_instance_valid(hex_grid) or not is_instance_valid(turn_label):
 		print("UI not ready yet")
 		return
+		
+	hex_grid.update_territory_counts()
 	
 	# Update turn label
 	turn_label.text = "Turn %d" % hex_grid.current_round
@@ -1012,23 +1014,41 @@ func update_ui_data():
 		var undo_btn = undo_button.get_meta("button")
 		if is_instance_valid(undo_btn):
 			undo_btn.disabled = not hex_grid.turn_history.can_rewind()
+			
+	var active_teams_count = 0
+	for team in [1, 2, 3, 4]:
+		if hex_grid.team_territory_count[team] > 0:
+			active_teams_count += 1
+
+	# Oblicz szerokość boxa
+	var available_width = team_boxes_container.size.x
+	var box_width = 120.0  # domyślna
+	if active_teams_count > 0:
+		box_width = (available_width - (active_teams_count - 1) * 8) / active_teams_count  # 8 = separation
 	
 	# Update team boxes - FIXED: jedna linia dla gold + upkeep
 	for i in range(4):
 		var team = i + 1
 		if i < team_boxes.size() and is_instance_valid(team_boxes[i]):
 			var box = team_boxes[i]
+			var has_territory = hex_grid.team_territory_count[team] > 0
 			
-			var hbox = box.get_node("HBoxContainer")
-			if is_instance_valid(hbox):
-				var rich_label = hbox.get_node("GoldUpkeepLabel")
+			# Ukryj/pokaż box w zależności od posiadania terytoriów
+			box.visible = has_territory
+			
+			if has_territory:
+				# Ustaw szerokość dynamicznie
+				box.custom_minimum_size.x = box_width
 				
-				if is_instance_valid(rich_label):
-					var gold = hex_grid.team_gold.get(team, 0)
-					var upkeep = hex_grid.calculate_upkeep(team)
+				var hbox = box.get_node("HBoxContainer")
+				if is_instance_valid(hbox):
+					var rich_label = hbox.get_node("GoldUpkeepLabel")
 					
-					# FIXED: jedna linia z białym złotem i czerwonym upkeep
-					rich_label.text = "[color=white]%d[/color] [color=#FF6467](-%d)[/color]" % [gold, upkeep]
+					if is_instance_valid(rich_label):
+						var gold = hex_grid.team_gold.get(team, 0)
+						var upkeep = hex_grid.calculate_upkeep(team)
+						
+						rich_label.text = "[color=white]%d[/color] [color=#FF6467](-%d)[/color]" % [gold, upkeep]
 	
 	# Update unit buttons availability
 	if hex_grid.current_team in hex_grid.team_gold:
@@ -1075,41 +1095,43 @@ func update_dominance_bar():
 	var bar_height = 18.0
 	var current_x = 0.0
 	
+	var active_teams = []
+	for team in [1, 2, 3, 4]:
+		if hex_grid.team_territory_count[team] > 0:
+			active_teams.append(team)
+
+	var team_index = 0
 	for team in [1, 2, 3, 4]:
 		var count = hex_grid.team_territory_count[team]
 		if count > 0:
 			var segment_width = (float(count) / total) * bar_width
 			
-			var segment = ColorRect.new()
-			segment.color = TEAM_COLORS[team]
-			segment.position = Vector2(current_x, 0)
-			segment.size = Vector2(segment_width, bar_height)
+			var is_first = (team_index == 0)
+			var is_last = (team_index == active_teams.size() - 1)
 			
-			# Rounded corners for first and last segments
-			if team == 1:
+			if is_first or is_last:
 				var style = StyleBoxFlat.new()
 				style.bg_color = TEAM_COLORS[team]
-				style.corner_radius_top_left = 999
-				style.corner_radius_bottom_left = 999
+				if is_first:
+					style.corner_radius_top_left = 999
+					style.corner_radius_bottom_left = 999
+				if is_last:
+					style.corner_radius_top_right = 999
+					style.corner_radius_bottom_right = 999
 				var panel = Panel.new()
 				panel.add_theme_stylebox_override("panel", style)
-				panel.position = segment.position
-				panel.size = segment.size
-				dominance_bar.add_child(panel)
-			elif team == 4 and hex_grid.team_territory_count.get(team, 0) > 0:
-				var style = StyleBoxFlat.new()
-				style.bg_color = TEAM_COLORS[team]
-				style.corner_radius_top_right = 999
-				style.corner_radius_bottom_right = 999
-				var panel = Panel.new()
-				panel.add_theme_stylebox_override("panel", style)
-				panel.position = segment.position
-				panel.size = segment.size
+				panel.position = Vector2(current_x, 0)
+				panel.size = Vector2(segment_width, bar_height)
 				dominance_bar.add_child(panel)
 			else:
+				var segment = ColorRect.new()
+				segment.color = TEAM_COLORS[team]
+				segment.position = Vector2(current_x, 0)
+				segment.size = Vector2(segment_width, bar_height)
 				dominance_bar.add_child(segment)
 			
 			current_x += segment_width
+			team_index += 1
 
 func _on_undo_pressed():
 	if hex_grid:
@@ -1227,12 +1249,12 @@ func set_wall_button_active(active: bool):
 			if active:
 				# POPRAWKA: Niebieski kolor (jak drużyna niebieska)
 				var style_active = StyleBoxFlat.new()
-				style_active.bg_color = Color("#4D99FF")  # Niebieski
+				style_active.bg_color = Color("2B7FFF", 0.2)  # Niebieski
 				style_active.border_width_left = 2
 				style_active.border_width_right = 2
 				style_active.border_width_top = 2
 				style_active.border_width_bottom = 2
-				style_active.border_color = Color.WHITE
+				style_active.border_color = Color("2B7FFF", 0.4)
 				style_active.corner_radius_top_left = 999
 				style_active.corner_radius_top_right = 999
 				style_active.corner_radius_bottom_left = 999
@@ -1240,7 +1262,7 @@ func set_wall_button_active(active: bool):
 				btn.add_theme_stylebox_override("normal", style_active)
 				
 				var style_hover = style_active.duplicate()
-				style_hover.bg_color = Color("#3D89EF")
+				style_hover.bg_color = Color("2B7FFF", 0.3)
 				btn.add_theme_stylebox_override("hover", style_hover)
 			else:
 				reset_wall_button()

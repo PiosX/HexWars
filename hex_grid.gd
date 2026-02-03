@@ -105,6 +105,10 @@ var merge_mode: bool = false
 # Historia tur (system cofania)
 var turn_history: TurnHistory
 
+var next_bandit_camp_id: int = 1
+var bandit_camp_ownership: Dictionary = {}
+var unit_to_camp: Dictionary = {}
+
 func _ready():
 	var victory_popup = preload("res://victory_popup.tscn").instantiate()
 	add_child(victory_popup)
@@ -1263,6 +1267,13 @@ func place_cavalry_at(hex_coords: Vector2i, team: int):
 		cavalry.sprite.scale = Vector2(1.0, 1.0)
 
 func remove_cavalry_at(hex_coords: Vector2i):
+	if unit_to_camp.has(hex_coords):
+		var camp_id = unit_to_camp[hex_coords]
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			camp_units.erase(hex_coords)
+		unit_to_camp.erase(hex_coords)
+	
 	if cavalry_map.has(hex_coords):
 		var cavalry = cavalry_map[hex_coords]
 		cavalry.queue_free()
@@ -1310,23 +1321,46 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 		elif target is Castle:
 			# Cavalry może przejąć obóz bandytów
 			if target.team == -1:
+				print("=== CAVALRY PRZEJMUJE OBÓZ BANDYTÓW ===")
+				
 				team_gold[cavalry.team] += BANDIT_CAMP_REWARD
-				remove_castle_at(to)
-
+				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
+				
+				# ===== NOWE: Znajdź ID obozu =====
+				var destroyed_camp = castle_map[to]
+				var camp_id = destroyed_camp.get_meta("camp_id", -1)
+				
+				if camp_id == -1:
+					print("BŁĄD: Obóz nie ma ID!")
+					remove_castle_at(to)
+					return
+				
+				print("Zniszczono obóz bandytów ID:", camp_id)
+				
+				# ===== NOWE: Znajdź TYLKO jednostki z tego obozu =====
 				var bandit_units = []
-				for coords in knight_map.keys():
-					if knight_map[coords].team == -1:
-						bandit_units.append(coords)
-				for coords in farmer_map.keys():
-					if farmer_map[coords].team == -1:
-						bandit_units.append(coords)
-				for coords in spearman_map.keys():
-					if spearman_map[coords].team == -1:
-						bandit_units.append(coords)
-				for coords in cavalry_map.keys():
-					if cavalry_map[coords].team == -1:
-						bandit_units.append(coords)
-
+				if bandit_camp_ownership.has(camp_id):
+					var camp_units = bandit_camp_ownership[camp_id]
+					
+					for coords in camp_units:
+						if knight_map.has(coords) and knight_map[coords].team == -1:
+							bandit_units.append(coords)
+						elif farmer_map.has(coords) and farmer_map[coords].team == -1:
+							bandit_units.append(coords)
+						elif spearman_map.has(coords) and spearman_map[coords].team == -1:
+							bandit_units.append(coords)
+						elif cavalry_map.has(coords) and cavalry_map[coords].team == -1:
+							bandit_units.append(coords)
+				
+				print("Znaleziono jednostek z tego obozu:", bandit_units.size())
+				
+				# Usuń obóz
+				remove_castle_at(to)
+				
+				# ===== NOWE: Usuń informacje o obozie =====
+				bandit_camp_ownership.erase(camp_id)
+				
+				# Usuń jednostki z tego obozu
 				for coords in bandit_units:
 					if knight_map.has(coords):
 						remove_knight_at(coords)
@@ -1336,22 +1370,39 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 						remove_spearman_at(coords)
 					elif cavalry_map.has(coords):
 						remove_cavalry_at(coords)
+					unit_to_camp.erase(coords)
 				
+				# Znajdź terytoria tego obozu
 				var bandit_territories = []
-				for coords in territory_map.keys():
-					var owner = territory_map[coords]
-					if owner == -1 or owner == -2:
-						bandit_territories.append(coords)
-
+				for coords in bandit_units:
+					if territory_map.get(coords, 0) == -1 or territory_map.get(coords, 0) == -2:
+						if coords not in bandit_territories:
+							bandit_territories.append(coords)
+					var neighbors = get_neighbors(coords)
+					for neighbor in neighbors:
+						var owner = territory_map.get(neighbor, 0)
+						if (owner == -1 or owner == -2) and neighbor not in bandit_territories:
+							bandit_territories.append(neighbor)
+				
+				# Dodaj pole obozu
+				if to not in bandit_territories:
+					bandit_territories.append(to)
+				
+				print("Znaleziono terytoriów tego obozu:", bandit_territories.size())
+				
+				# Usuń mury
 				for coords in bandit_territories:
 					var neighbors = get_neighbors(coords)
 					for neighbor in neighbors:
 						if has_wall_between(coords, neighbor):
 							remove_wall(coords, neighbor)
 				
+				# Resetuj pola
 				for coords in bandit_territories:
 					territory_map.erase(coords)
 					update_hex_color(coords)
+				
+				print("Obóz bandytów", camp_id, "przejęty przez cavalry!")
 
 			elif target.team != cavalry.team and target.team > 0 and target.team <= 4:
 				var old_team = target.team
@@ -1445,6 +1496,17 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 	if not cavalry_moves_this_turn.has(cavalry):
 		cavalry_moves_this_turn[cavalry] = 0
 	cavalry_moves_this_turn[cavalry] += 1
+	
+	if unit_to_camp.has(from):
+		var camp_id = unit_to_camp[from]
+		unit_to_camp.erase(from)
+		unit_to_camp[to] = camp_id
+		
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			var idx = camp_units.find(from)
+			if idx != -1:
+				camp_units[idx] = to
 	
 	# Regalo capture po zakończeniu slide animacji
 	await get_tree().create_timer(0.15).timeout
@@ -1548,6 +1610,13 @@ func place_spearman_at(hex_coords: Vector2i, team: int):
 		spearman.sprite.scale = Vector2(1.0, 1.0)
 
 func remove_spearman_at(hex_coords: Vector2i):
+	if unit_to_camp.has(hex_coords):
+		var camp_id = unit_to_camp[hex_coords]
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			camp_units.erase(hex_coords)
+		unit_to_camp.erase(hex_coords)
+	
 	if spearman_map.has(hex_coords):
 		var spearman = spearman_map[hex_coords]
 		spearman.queue_free()
@@ -1587,22 +1656,42 @@ func move_spearman(from: Vector2i, to: Vector2i):
 				
 				team_gold[spearman.team] += BANDIT_CAMP_REWARD
 				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
+				
+				# ===== NOWE: Znajdź ID obozu =====
+				var destroyed_camp = castle_map[to]
+				var camp_id = destroyed_camp.get_meta("camp_id", -1)
+				
+				if camp_id == -1:
+					print("BŁĄD: Obóz nie ma ID!")
+					remove_castle_at(to)
+					return
+				
+				print("Zniszczono obóz bandytów ID:", camp_id)
+				
+				# ===== NOWE: Znajdź TYLKO jednostki z tego obozu =====
+				var bandit_units = []
+				if bandit_camp_ownership.has(camp_id):
+					var camp_units = bandit_camp_ownership[camp_id]
+					
+					for coords in camp_units:
+						if knight_map.has(coords) and knight_map[coords].team == -1:
+							bandit_units.append(coords)
+						elif farmer_map.has(coords) and farmer_map[coords].team == -1:
+							bandit_units.append(coords)
+						elif spearman_map.has(coords) and spearman_map[coords].team == -1:
+							bandit_units.append(coords)
+						elif cavalry_map.has(coords) and cavalry_map[coords].team == -1:
+							bandit_units.append(coords)
+				
+				print("Znaleziono jednostek z tego obozu:", bandit_units.size())
+				
+				# Usuń obóz
 				remove_castle_at(to)
 				
-				var bandit_units = []
-				for coords in knight_map.keys():
-					if knight_map[coords].team == -1:
-						bandit_units.append(coords)
-				for coords in farmer_map.keys():
-					if farmer_map[coords].team == -1:
-						bandit_units.append(coords)
-				for coords in spearman_map.keys():
-					if spearman_map[coords].team == -1:
-						bandit_units.append(coords)
-				for coords in cavalry_map.keys():
-					if cavalry_map[coords].team == -1:
-						bandit_units.append(coords)
+				# ===== NOWE: Usuń informacje o obozie =====
+				bandit_camp_ownership.erase(camp_id)
 				
+				# Usuń jednostki z tego obozu
 				for coords in bandit_units:
 					if knight_map.has(coords):
 						remove_knight_at(coords)
@@ -1612,13 +1701,25 @@ func move_spearman(from: Vector2i, to: Vector2i):
 						remove_spearman_at(coords)
 					elif cavalry_map.has(coords):
 						remove_cavalry_at(coords)
+					unit_to_camp.erase(coords)
 				
-				# Usuń wszystkie terytoria bandytów
+				# Znajdź terytoria tego obozu
 				var bandit_territories = []
-				for coords in territory_map.keys():
-					var owner = territory_map[coords]
-					if owner == -1 or owner == -2:
-						bandit_territories.append(coords)
+				for coords in bandit_units:
+					if territory_map.get(coords, 0) == -1 or territory_map.get(coords, 0) == -2:
+						if coords not in bandit_territories:
+							bandit_territories.append(coords)
+					var neighbors = get_neighbors(coords)
+					for neighbor in neighbors:
+						var owner = territory_map.get(neighbor, 0)
+						if (owner == -1 or owner == -2) and neighbor not in bandit_territories:
+							bandit_territories.append(neighbor)
+				
+				# Dodaj pole obozu
+				if to not in bandit_territories:
+					bandit_territories.append(to)
+				
+				print("Znaleziono terytoriów tego obozu:", bandit_territories.size())
 				
 				# Usuń mury
 				for coords in bandit_territories:
@@ -1631,6 +1732,8 @@ func move_spearman(from: Vector2i, to: Vector2i):
 				for coords in bandit_territories:
 					territory_map.erase(coords)
 					update_hex_color(coords)
+				
+				print("Obóz bandytów", camp_id, "przejęty przez spearmana!")
 
 			elif old_team > 0 and old_team <= 4:
 				print("=== SPEARMAN PRZEJMUJE ZAMEK GRACZA ===")
@@ -1763,6 +1866,17 @@ func move_spearman(from: Vector2i, to: Vector2i):
 		clear_selected_unit_highlight()
 		spearman.set_selected(false)
 		selected_unit = null
+		
+	if unit_to_camp.has(from):
+		var camp_id = unit_to_camp[from]
+		unit_to_camp.erase(from)
+		unit_to_camp[to] = camp_id
+		
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			var idx = camp_units.find(from)
+			if idx != -1:
+				camp_units[idx] = to
 	
 	await get_tree().create_timer(0.15).timeout
 	capture_territory(to, spearman.team)
@@ -1878,6 +1992,13 @@ func place_knight_at(hex_coords: Vector2i, team: int):
 		knight.sprite.scale = Vector2(1.0, 1.0)
 
 func remove_knight_at(hex_coords: Vector2i):
+	if unit_to_camp.has(hex_coords):
+		var camp_id = unit_to_camp[hex_coords]
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			camp_units.erase(hex_coords)
+		unit_to_camp.erase(hex_coords)
+	
 	if knight_map.has(hex_coords):
 		var knight = knight_map[hex_coords]
 		knight.queue_free()
@@ -1924,48 +2045,77 @@ func move_knight(from: Vector2i, to: Vector2i):
 				
 				team_gold[knight.team] += BANDIT_CAMP_REWARD
 				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota za przejęcie obozu!")
+				
+				# ===== NOWE: Znajdź ID obozu =====
+				var destroyed_camp = castle_map[to]
+				var camp_id = destroyed_camp.get_meta("camp_id", -1)
+				
+				if camp_id == -1:
+					print("BŁĄD: Obóz nie ma ID!")
+					# Usun oboz
+					remove_castle_at(to)
+					return
+				
+				print("Zniszczono obóz bandytów ID:", camp_id)
+				
+				# ===== NOWE: Znajdź TYLKO jednostki z tego obozu =====
+				var bandit_units = []
+				if bandit_camp_ownership.has(camp_id):
+					var camp_units = bandit_camp_ownership[camp_id]
+					
+					for coords in camp_units:
+						if knight_map.has(coords) and knight_map[coords].team == -1:
+							bandit_units.append(coords)
+						elif farmer_map.has(coords) and farmer_map[coords].team == -1:
+							bandit_units.append(coords)
+				
+				print("Znaleziono jednostek z tego obozu:", bandit_units.size())
+				
 				# Usun oboz
 				remove_castle_at(to)
 				
-				# Znajdz WSZYSTKIE jednostki bandytow (team -1)
-				var bandit_units = []
-				for coords in knight_map.keys():
-					if knight_map[coords].team == -1:
-						bandit_units.append(coords)
-				for coords in farmer_map.keys():
-					if farmer_map[coords].team == -1:
-						bandit_units.append(coords)
+				# ===== NOWE: Usuń informacje o obozie =====
+				bandit_camp_ownership.erase(camp_id)
 				
-				print("Znaleziono jednostek bandytow: ", bandit_units.size())
-				
-				# Usun wszystkie jednostki bandytow
+				# Usun jednostki z tego obozu
 				for coords in bandit_units:
 					if knight_map.has(coords):
 						remove_knight_at(coords)
 					elif farmer_map.has(coords):
 						remove_farmer_at(coords)
+					unit_to_camp.erase(coords)
 				
-				# Znajdz wszystkie pola bandytow (team -1 i -2)
+				# Znajdz terytoria tego obozu
 				var bandit_territories = []
-				for coords in territory_map.keys():
-					var owner = territory_map[coords]
-					if owner == -1 or owner == -2:
-						bandit_territories.append(coords)
+				for coords in bandit_units:
+					if territory_map.get(coords, 0) == -1 or territory_map.get(coords, 0) == -2:
+						if coords not in bandit_territories:
+							bandit_territories.append(coords)
+					var neighbors = get_neighbors(coords)
+					for neighbor in neighbors:
+						var owner = territory_map.get(neighbor, 0)
+						if (owner == -1 or owner == -2) and neighbor not in bandit_territories:
+							bandit_territories.append(neighbor)
 				
-				print("Znaleziono terytoriow bandytow: ", bandit_territories.size())
+				# Dodaj pole obozu
+				if to not in bandit_territories:
+					bandit_territories.append(to)
 				
-				# Usun WSZYSTKIE mury miedzy polami bandytow
-				print("Usuwanie murow bandytow...")
+				print("Znaleziono terytoriow tego obozu:", bandit_territories.size())
+				
+				# Usun mury
 				for coords in bandit_territories:
 					var neighbors = get_neighbors(coords)
 					for neighbor in neighbors:
 						if has_wall_between(coords, neighbor):
 							remove_wall(coords, neighbor)
 				
-				# Resetuj wszystkie pola bandytow do neutralnych
+				# Resetuj pola
 				for coords in bandit_territories:
 					territory_map.erase(coords)
 					update_hex_color(coords)
+				
+				print("Oboz bandytow", camp_id, "przejety!")
 				
 				print("Oboz bandytow przejety! Jednostki i terytoria usuniete.")
 			else:
@@ -2072,6 +2222,17 @@ func move_knight(from: Vector2i, to: Vector2i):
 		if knight.has_method("set_selected"):
 			knight.set_selected(false)
 		selected_unit = null
+		
+	if unit_to_camp.has(from):
+		var camp_id = unit_to_camp[from]
+		unit_to_camp.erase(from)
+		unit_to_camp[to] = camp_id
+		
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			var idx = camp_units.find(from)
+			if idx != -1:
+				camp_units[idx] = to
 	
 	await get_tree().create_timer(0.15).timeout
 	
@@ -2131,6 +2292,13 @@ func place_farmer_at(hex_coords: Vector2i, team: int):
 	hex.place_object(farmer)
 
 func remove_farmer_at(hex_coords: Vector2i):
+	if unit_to_camp.has(hex_coords):
+		var camp_id = unit_to_camp[hex_coords]
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			camp_units.erase(hex_coords)
+		unit_to_camp.erase(hex_coords)
+	
 	if farmer_map.has(hex_coords):
 		var farmer = farmer_map[hex_coords]
 		farmer.queue_free()
@@ -2216,6 +2384,17 @@ func move_farmer(from: Vector2i, to: Vector2i):
 		clear_selected_unit_highlight()
 		farmer.set_selected(false)
 		selected_unit = null
+		
+	if unit_to_camp.has(from):
+		var camp_id = unit_to_camp[from]
+		unit_to_camp.erase(from)
+		unit_to_camp[to] = camp_id
+		
+		if bandit_camp_ownership.has(camp_id):
+			var camp_units = bandit_camp_ownership[camp_id]
+			var idx = camp_units.find(from)
+			if idx != -1:
+				camp_units[idx] = to
 	
 	await get_tree().create_timer(0.15).timeout
 	if farmer.team == BANDIT_TEAM:
@@ -2734,7 +2913,6 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 	
 	print("Dostepnych pol na oboz w regionie: ", adjacent_hexes.size())
 	
-	# Jesli nie ma miejsca w available_territories, szukaj neutralnych pol
 	if adjacent_hexes.is_empty():
 		print("Brak miejsca w regionie - szukam neutralnych pol...")
 		for unit_pos in units_positions:
@@ -2745,7 +2923,6 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 				var hex = get_hex_at(neighbor)
 				if not hex or hex.occupied_object != null:
 					continue
-				# Neutralne pole (bez wlasciciela)
 				if not territory_map.has(neighbor):
 					adjacent_hexes.append(neighbor)
 					break
@@ -2753,7 +2930,6 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 				break
 	
 	if adjacent_hexes.is_empty():
-		# Jesli nadal brak, znajdz DOWOLNE wolne pole w regionie
 		for coords in available_territories:
 			var hex = get_hex_at(coords)
 			if hex and hex.occupied_object == null:
@@ -2769,15 +2945,27 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 	castle.team = -1
 	castle.hex_position = camp_pos
 	castle.position = get_hex_at(camp_pos).position
+	
+	# ===== NOWE: Przypisz unikalne ID obozowi =====
+	var camp_id = next_bandit_camp_id
+	next_bandit_camp_id += 1
+	castle.set_meta("camp_id", camp_id)
+	
 	add_child(castle)
 	
 	castle_map[camp_pos] = castle
 	get_hex_at(camp_pos).place_object(castle)
 	
-	territory_map[camp_pos] = -2  # Oznacz jako oboz
+	territory_map[camp_pos] = -2
 	update_hex_color(camp_pos)
 	
-	print("Utworzono oboz bandytow na: ", camp_pos)
+	# ===== NOWE: Zapisz jednostki należące do tego obozu =====
+	bandit_camp_ownership[camp_id] = units_positions.duplicate()
+	for unit_pos in units_positions:
+		unit_to_camp[unit_pos] = camp_id
+	
+	print("Utworzono oboz bandytow ID:", camp_id, " na:", camp_pos)
+	print("Przypisano ", units_positions.size(), " jednostek do obozu")
 	return true
 
 func get_isolated_region(start_pos: Vector2i, team: int) -> Array:
@@ -3941,6 +4129,25 @@ func load_layout_from_file(file_name: String) -> bool:
 	# Store the current level file
 	current_level_file = file_name
 	set_meta("current_level_file", file_name)
+	
+	current_round = 1
+	current_team = 1
+	units_moved_this_turn.clear()
+	cavalry_moves_this_turn.clear()
+	
+	team_gold = {1: 10, 2: 10, 3: 10, 4: 10, 5: 0}
+	team_territory_count = {1: 0, 2: 0, 3: 0, 4: 0}
+	
+	if selected_unit:
+		clear_selected_unit_highlight()
+		selected_unit = null
+	buy_mode = ""
+	merge_mode = false
+	wall_placement_mode = false
+	wall_hexes_selected.clear()
+	clear_highlights()
+	
+	update_territory_counts()
 	
 	# Reset game state
 	current_round = 1
