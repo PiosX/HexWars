@@ -37,6 +37,9 @@ const ICON_H2 = "res://ui/h2.png"
 const ICON_H3 = "res://ui/h3.png"
 const ICON_H4 = "res://ui/h4.png"
 
+const PROGRESS_PATH = "res://levels/level_progress.json"
+const LEVEL_DATA_PATH = "res://levels/level_select_data.json"
+
 # === REFS ===
 var background: ColorRect
 var hex_animation_container: Node2D
@@ -59,8 +62,12 @@ var settings_expanded: bool = false
 var sound_enabled: bool = true
 var music_enabled: bool = true
 
+var current_level_number: int = 1
+var current_level_file: String = ""
+var current_level_difficulty: int = 1
+
 signal tab_changed(tab_name: String)
-signal play_pressed()
+signal play_pressed(level_file: String, difficulty: int, level_number: int)
 
 func _ready():
 	setup_background()
@@ -68,6 +75,9 @@ func _ready():
 	setup_top_panel()
 	setup_center_content()
 	setup_bottom_nav()
+	
+	load_current_level()
+	update_level_display()
 	
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -643,10 +653,12 @@ func _on_info_pressed():
 	print("Info pressed")
 
 func _on_cta_clicked(event: InputEvent):
-	"""Handles CTA button click"""
+	"""Handles CTA button click - starts current level"""
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		play_pressed.emit()
-		get_tree().change_scene_to_file("res://main_scene.tscn")
+		if not current_level_file.is_empty():
+			play_pressed.emit(current_level_file, current_level_difficulty, current_level_number)
+		else:
+			print("WARNING: No level file assigned to current level!")
 
 func _on_viewport_size_changed():
 	"""Handles responsive layout"""
@@ -683,3 +695,91 @@ func set_level(level: int):
 	"""Updates level display"""
 	if level_label:
 		level_label.text = "LEVEL %02d" % level
+
+func load_current_level():
+	"""Loads current level from progress data"""
+	var progress_data = load_progress_data()
+	var level_data = load_level_data()
+	
+	if level_data.is_empty():
+		print("WARNING: No level data found, defaulting to level 1")
+		current_level_number = 1
+		return
+	
+	# Find first uncompleted level
+	var all_levels = []
+	for data in level_data.values():
+		if data.has("level"):
+			all_levels.append(int(data.level))
+	all_levels.sort()
+	
+	# Find first uncompleted
+	current_level_number = 1
+	for level_num in all_levels:
+		var is_completed = progress_data.get(str(level_num), {}).get("completed", false)
+		if not is_completed:
+			current_level_number = level_num
+			break
+	
+	# Get level file and difficulty for current level
+	for data in level_data.values():
+		if int(data.get("level", 0)) == current_level_number:
+			current_level_file = data.get("level_file", "")
+			current_level_difficulty = int(data.get("difficulty", 1))
+			break
+	
+	print("Current level: ", current_level_number, " file: ", current_level_file, " difficulty: ", current_level_difficulty)
+
+func load_progress_data() -> Dictionary:
+	"""Loads progress data from file"""
+	if not FileAccess.file_exists(PROGRESS_PATH):
+		return {}
+	
+	var file = FileAccess.open(PROGRESS_PATH, FileAccess.READ)
+	if not file:
+		return {}
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var parse_result = json.parse(json_string)
+	if parse_result != OK:
+		return {}
+	
+	return json.data
+
+func load_level_data() -> Dictionary:
+	"""Loads level data from file"""
+	if not FileAccess.file_exists(LEVEL_DATA_PATH):
+		return {}
+	
+	var file = FileAccess.open(LEVEL_DATA_PATH, FileAccess.READ)
+	if not file:
+		return {}
+	
+	var json_string = file.get_as_text()
+	file.close()
+	
+	var json = JSON.new()
+	var parse_result = json.parse(json_string)
+	if parse_result != OK:
+		return {}
+	
+	var save_dict = json.data
+	if not save_dict.has("level_data"):
+		return {}
+	
+	# Convert to simple dictionary
+	var result = {}
+	for key in save_dict.level_data.keys():
+		var data = save_dict.level_data[key]
+		if data.has("level"):
+			data["level"] = int(data["level"])
+		result[key] = data
+	
+	return result
+
+func update_level_display():
+	"""Updates the level label with current level"""
+	set_level(current_level_number)

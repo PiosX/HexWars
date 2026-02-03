@@ -106,7 +106,7 @@ var merge_mode: bool = false
 var turn_history: TurnHistory
 
 func _ready():
-	var victory_popup = preload("res://victory_popup.gd").new()
+	var victory_popup = preload("res://victory_popup.tscn").instantiate()
 	add_child(victory_popup)
 	set_meta("victory_popup", victory_popup)
 	
@@ -1359,6 +1359,7 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 				if old_team == 1:
 					if has_meta("defeat_popup"):
 						var defeat_popup = get_meta("defeat_popup")
+						await get_tree().create_timer(0.4).timeout
 						defeat_popup.show_defeat(current_round)
 				
 				remove_castle_at(to)
@@ -1415,7 +1416,8 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 						territory_map.erase(coords)
 						update_hex_color(coords)
 						
-				check_victory()
+				if old_team != 1:
+					check_victory()
 		else:
 			if target.team == cavalry.team:
 				print("Nie można atakować własnej jednostki!")
@@ -1577,6 +1579,7 @@ func move_spearman(from: Vector2i, to: Vector2i):
 			if old_team == 1:
 				if has_meta("defeat_popup"):
 					var defeat_popup = get_meta("defeat_popup")
+					await get_tree().create_timer(0.4).timeout
 					defeat_popup.show_defeat(current_round)
 			
 			if old_team == -1:
@@ -1684,7 +1687,8 @@ func move_spearman(from: Vector2i, to: Vector2i):
 						territory_map.erase(coords)
 						update_hex_color(coords)
 						
-				check_victory()
+				if old_team != 1:
+					check_victory()
 	
 	# DODAJ: Obsługa ataku na wrogie jednostki
 	if to_hex.occupied_object != null:
@@ -1912,6 +1916,7 @@ func move_knight(from: Vector2i, to: Vector2i):
 			if old_team == 1:
 				if has_meta("defeat_popup"):
 					var defeat_popup = get_meta("defeat_popup")
+					await get_tree().create_timer(0.4).timeout
 					defeat_popup.show_defeat(current_round)
 			
 			if old_team == -1:
@@ -2015,7 +2020,8 @@ func move_knight(from: Vector2i, to: Vector2i):
 						territory_map.erase(coords)
 						update_hex_color(coords)
 				
-				check_victory()
+				if old_team != 1:
+					check_victory()
 				print("Zniszczono zamek druzyny ", old_team, "!")
 	
 	# Usun wroga jednostke jesli jest
@@ -4348,6 +4354,7 @@ func check_victory():
 			var victory_popup = get_meta("victory_popup")
 			# Pass the current level number (if available)
 			var level_to_show = current_level_number if current_level_number > 0 else current_round
+			await get_tree().create_timer(0.4).timeout
 			victory_popup.show_victory(level_to_show)
 			
 func calculate_map_bounds() -> Rect2:

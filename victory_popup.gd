@@ -25,7 +25,7 @@ const HOME_ICON = "res://ui/settings/home.png"
 const NEXT_ICON = "res://ui/victory/next.png"
 
 # Progress tracking
-const PROGRESS_PATH = "user://level_progress.json"
+const PROGRESS_PATH = "res://levels/level_progress.json"
 
 # Refs
 var overlay: ColorRect

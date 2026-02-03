@@ -25,6 +25,9 @@ func change_scene(scene_resource):
 	
 	if new_scene.has_signal("level_selected"):
 		new_scene.level_selected.connect(_on_level_selected)
+	
+	if new_scene.has_signal("play_pressed"):
+		new_scene.play_pressed.connect(_on_play_pressed)
 
 func _on_tab_changed(tab_name: String):
 	match tab_name:
@@ -42,6 +45,11 @@ func _on_level_selected(level_file: String, difficulty: int):
 		current_level_number = current_scene.get_selected_level_number()
 	
 	load_game_level(level_file, difficulty, current_level_number)
+
+func _on_play_pressed(level_file: String, difficulty: int, level_num: int):
+	"""Handles play button press from main menu"""
+	current_level_number = level_num
+	load_game_level(level_file, difficulty, level_num)
 
 func load_game_level(level_file: String, difficulty: int, level_num: int = 0):
 	if current_scene:

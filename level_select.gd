@@ -327,32 +327,22 @@ class LevelHex extends Area2D:
 
 func _ready():
 	setup_background()
-	setup_panel_backgrounds()  # NOWE - dodajemy tła dla paneli
+	setup_panel_backgrounds()
 	setup_top_panel()
 	setup_hex_grid()
 	setup_bottom_nav()
 	
-	# Load progress first, then level data
 	load_progress_data()
 	load_level_data()
-	# Update hexes based on progress
 	update_all_hexes_from_progress()
 	
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	
-	print("=== LEVEL SELECT CONTROLS ===")
-	print("EDITOR MODE: Press 'E' to toggle")
-	print("PLAY MODE: Click levels to select, click PLAY to start")
-	print("EDITOR: Stage 1 - Place hexes | Stage 2 - Assign numbers (LMB=next, RMB=prev) | Stage 3 - Assign difficulty | Stage 4 - Assign level files")
-	print("Middle mouse or touch - drag map")
-	print("S = Save | L = Load")
 	await get_tree().process_frame
 	var editor_ui = get_node_or_null("LevelEditorUI")
 	if editor_ui:
-		print("Wywołuję setup_for_level_select...")
-		editor_ui.setup_for_level_select(self)  # ← WAŻNE!
-		print("Mode ustawiony na: ", editor_ui.mode)
+		editor_ui.setup_for_level_select(self)
 
 func setup_background():
 	background = ColorRect.new()
@@ -360,22 +350,19 @@ func setup_background():
 	background.color = BG_COLOR
 	background.anchor_right = 1.0
 	background.anchor_bottom = 1.0
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE  # CRITICAL: Don't block hex clicks
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(background)
 
-# NOWA FUNKCJA - tła dla top i bottom panelu
 func setup_panel_backgrounds():
-	# Top panel background - blokuje hexagony
 	top_panel_bg = ColorRect.new()
 	top_panel_bg.name = "TopPanelBG"
 	top_panel_bg.color = BG_COLOR
 	top_panel_bg.anchor_right = 1.0
 	top_panel_bg.size = Vector2(0, TOP_PANEL_HEIGHT + 20)
 	top_panel_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	top_panel_bg.z_index = 10  # Nad hexami (1) ale pod UI (100)
+	top_panel_bg.z_index = 10
 	add_child(top_panel_bg)
 	
-	# Bottom panel background - blokuje hexagony
 	bottom_panel_bg = ColorRect.new()
 	bottom_panel_bg.name = "BottomPanelBG"
 	bottom_panel_bg.color = BG_COLOR
@@ -385,7 +372,7 @@ func setup_panel_backgrounds():
 	bottom_panel_bg.anchor_bottom = 1.0
 	bottom_panel_bg.offset_top = -(BOTTOM_PANEL_HEIGHT + 20)
 	bottom_panel_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bottom_panel_bg.z_index = 10  # Nad hexami (1) ale pod UI (100)
+	bottom_panel_bg.z_index = 10
 	add_child(bottom_panel_bg)
 
 func setup_top_panel():
@@ -1200,6 +1187,9 @@ func _input(event):
 					save_level_data()
 			KEY_L:
 				load_level_data()
+			KEY_R:
+				if editor_mode:
+					reset_progress()
 			KEY_1:
 				if editor_mode:
 					set_edit_stage(0)
@@ -1255,6 +1245,15 @@ func toggle_editor_mode():
 	if editor_mode:
 		title_label.text = "EDITOR MODE"
 		set_edit_stage(0)
+		print("=== EDITOR CONTROLS ===")
+		print("E - Toggle editor mode")
+		print("S - Save level data")
+		print("L - Load level data")
+		print("R - Reset progress (clears all completed levels)")
+		print("1 - Stage 0: Place hexes")
+		print("2 - Stage 1: Assign numbers")
+		print("3 - Stage 2: Assign difficulty")
+		print("4 - Stage 3: Assign level files")
 	else:
 		title_label.text = "CHOOSE LEVEL"
 		edit_stage = 0
@@ -1362,6 +1361,11 @@ func load_level_data() -> bool:
 		var parts = key.split(",")
 		var grid_pos = Vector2i(int(parts[0]), int(parts[1]))
 		var data = save_dict.level_data[key]
+		
+		# Ensure level is stored as int, not float (JSON can convert numbers to float)
+		if data.has("level"):
+			data["level"] = int(data["level"])
+		
 		level_data[grid_pos] = data
 	
 	center_camera_on_hexes()
@@ -1394,15 +1398,13 @@ func create_default_levels():
 		}
 	
 	center_camera_on_hexes()
-	update_all_hexes_from_progress()
+	# Don't call update_all_hexes_from_progress() here - it will be called in _ready() after progress is loaded
 
 # ===== PROGRESS SYSTEM =====
 func is_level_unlocked(level_num: int) -> bool:
-	# Level 1 is always unlocked
 	if level_num == 1:
 		return true
 	
-	# Check if previous level is completed
 	var prev_completed = progress_data.get(str(level_num - 1), {}).get("completed", false)
 	return prev_completed
 
@@ -1421,20 +1423,36 @@ func mark_level_completed(level_num: int):
 
 func update_all_hexes_from_progress():
 	"""Updates all hex visuals based on current progress"""
+	# Find the first uncompleted level to mark as current
+	var first_uncompleted = -1
+	var all_levels = []
+	for grid_pos in level_data.keys():
+		var data = level_data[grid_pos]
+		var level_int = int(data.level)
+		all_levels.append(level_int)
+	all_levels.sort()
+	
+	for level_num in all_levels:
+		var is_completed = progress_data.get(str(level_num), {}).get("completed", false)
+		if not is_completed:
+			first_uncompleted = level_num
+			break
+	
+	# Update each hex
 	for grid_pos in level_data.keys():
 		var data = level_data[grid_pos]
 		var hex = get_hex_at(grid_pos)
 		if not hex:
 			continue
 		
-		var level_num = data.level
+		var level_num = int(data.level)
 		var is_completed = progress_data.get(str(level_num), {}).get("completed", false)
 		var is_unlocked = is_level_unlocked(level_num)
-		var is_current = is_unlocked and not is_completed
-		var is_locked = not is_unlocked and not is_completed
+		var is_current = (level_num == first_uncompleted) and is_unlocked and not is_completed
+		var is_locked = not is_unlocked
 		
 		hex.set_level_data(
-			data.level,
+			level_num,
 			data.difficulty,
 			data.get("level_file", ""),
 			is_completed,
@@ -1534,6 +1552,29 @@ func get_selected_level_number() -> int:
 		return 0
 	
 	return level_data[selected_level_coords].level
+
+func reset_progress():
+	"""Resets all level progress (only in editor mode)"""
+	if not editor_mode:
+		print("ERROR: Can only reset progress in editor mode!")
+		return
+	
+	# Clear progress data
+	progress_data.clear()
+	
+	# Delete progress file if it exists
+	if FileAccess.file_exists(PROGRESS_PATH):
+		DirAccess.remove_absolute(PROGRESS_PATH)
+		print("Progress file deleted: ", PROGRESS_PATH)
+	
+	# Save empty progress
+	save_progress_data()
+	
+	# Update all hexes to reflect reset state
+	update_all_hexes_from_progress()
+	
+	print("=== PROGRESS RESET COMPLETE ===")
+	print("All levels are now locked except Level 1")
 
 # === SETTINGS ===
 func _on_settings_pressed():
