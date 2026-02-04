@@ -708,16 +708,16 @@ func create_team_box(team: int) -> Panel:
 	coin_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hbox.add_child(coin_icon)
 	
-	# FIXED: Gold + upkeep w JEDNEJ linii za pomocą RichTextLabel
+	# FIXED: Gold + net income w JEDNEJ linii za pomocą RichTextLabel
 	var rich_label = RichTextLabel.new()
 	rich_label.name = "GoldUpkeepLabel"
 	rich_label.bbcode_enabled = true
 	rich_label.fit_content = true
 	rich_label.scroll_active = false
-	rich_label.custom_minimum_size = Vector2(80, 32)
+	rich_label.custom_minimum_size = Vector2(100, 32)
 	rich_label.add_theme_font_size_override("normal_font_size", 22)
 	rich_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	rich_label.text = "[color=white]0[/color] [color=#FF6467](-0)[/color]"
+	rich_label.text = "[color=white]0[/color] [color=#00FF00](+0)[/color]"
 	hbox.add_child(rich_label)
 	
 	return box
@@ -1047,8 +1047,14 @@ func update_ui_data():
 					if is_instance_valid(rich_label):
 						var gold = hex_grid.team_gold.get(team, 0)
 						var upkeep = hex_grid.calculate_upkeep(team)
+						var income = hex_grid.calculate_income(team)
+						var net_income = income - upkeep
 						
-						rich_label.text = "[color=white]%d[/color] [color=#FF6467](-%d)[/color]" % [gold, upkeep]
+						# Kolor dla net_income: zielony jeśli > 0, czerwony jeśli <= 0
+						var net_color = "#00FF00" if net_income > 0 else "#FF6467"
+						
+						# Format: gold (net_income) - tylko finalny wynik
+						rich_label.text = "[color=white]%d[/color] [color=%s](%+d)[/color]" % [gold, net_color, net_income]
 	
 	# Update unit buttons availability
 	if hex_grid.current_team in hex_grid.team_gold:

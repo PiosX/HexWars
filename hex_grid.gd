@@ -73,6 +73,8 @@ var current_round: int = 1
 var bandits_need_camp: Array[Vector2i] = []  # Jednostki bandytów bez obozu
 const BANDIT_TEAM = -1
 const BANDIT_CAMP_REWARD = 10
+var ai_controllers: Dictionary = {}
+var ai_teams: Array = []
 
 # Ekonomia
 var team_gold: Dictionary = {1: 10, 2: 10, 3: 10, 4: 10, 5: 0}
@@ -138,6 +140,14 @@ func _ready():
 	
 	if not load_layout():
 		create_rectangle_grid(8, 8)
+		
+	set_team_ai(2, 1, 0.8)  # Czerwony = Hard, agresywny
+	set_team_ai(3, 0, 0.3)  # Fioletowy = Normal, defensywny
+	set_team_ai(4, 0, 0.5)  # Żółty = Normal, zbalansowany
+	
+	print("=== AI TEAMS INITIALIZED ===")
+	for ai_team in ai_teams:
+		print("Team %d: AI enabled" % ai_team)
 	
 	update_ui()
 	
@@ -180,7 +190,7 @@ func calculate_income(team: int) -> int:
 	var castle_gold = 0
 	for coords in castle_map:
 		if castle_map[coords].team == team:
-			castle_gold += 6
+			castle_gold += 4
 	
 	return territory_income + castle_gold
 
@@ -827,44 +837,103 @@ func check_bandits_need_camp():
 func _on_end_turn():
 	if not game_mode:
 		return
-		
-	if current_team == 5:
-		units_moved_this_turn.clear()
-		merge_mode = false
-		buy_mode = ""
-		wall_placement_mode = false
-		
-		for hex_coords in wall_hexes_selected:
-			remove_hex_outline(hex_coords)
-		wall_hexes_selected.clear()
-		
-		clear_highlights()
-		cycle_team()
-		return
 	
-	# POPRAWKA: Usuń naliczanie pieniędzy - jest teraz w cycle_team()
-	print("Tura zakonczona.")
+	# === EKONOMIA - TYLKO NA KOŃCU RUNDY (gdy current_team == 4) ===
+	# Sprawdź bankructwa PRZED zapisem (zawsze)
+	var teams_to_check = [1, 2, 3, 4]
+	for t in teams_to_check:
+		var gold = team_gold.get(t, 0)
+		var upkeep = calculate_upkeep(t)
+		
+		if gold < upkeep:
+			print("⚠ Drużyna %d bankrutuje! (Złoto: %d, Koszty: %d)" % [t, gold, upkeep])
+			handle_bankruptcy(t)
 	
+	# WAŻNE: Nalicz złoto/koszty TYLKO gdy kończy się cała runda (current_team == 4)
+	if current_team == 4:
+		print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII ===" % current_round)
+		for t in teams_to_check:
+			var income = calculate_income(t)
+			var upkeep = calculate_upkeep(t)
+			var net = income - upkeep
+			team_gold[t] += net
+			
+			if team_gold[t] < 0:
+				team_gold[t] = 0
+			
+			print("Team %d: +%d dochód, -%d koszty = %d (saldo: %d)" % [t, income, upkeep, net, team_gold[t]])
+	# === KONIEC ZMIANY EKONOMII ===
+	
+	# Obsługa bandytów
+	var bandits_copy = []
+	bandits_copy.assign(bandits_need_camp)
+	for coords in bandits_copy:
+		var farmer = farmer_map.get(coords)
+		if farmer and farmer.team == BANDIT_TEAM:
+			var camp_id = find_nearest_bandit_camp(coords)
+			if camp_id > 0:
+				unit_to_camp[farmer] = camp_id
+				bandit_camp_ownership[camp_id] = bandit_camp_ownership.get(camp_id, [])
+				bandit_camp_ownership[camp_id].append(farmer)
+				bandits_need_camp.erase(coords)
+	
+	# Zapisz snapshot PRZED zmianą drużyny
+	turn_history.save_turn_snapshot(self)
+	
+	# === DODAJ TUTAJ - sprawdź czy następna drużyna to AI ===
+	var next_team = (current_team % 4) + 1
+	var is_next_ai = next_team in ai_teams
+	# === KONIEC DODANIA ===
+	
+	# Zmiana drużyny
+	current_team = (current_team % 4) + 1
+	
+	# Resetuj jednostki które się ruszyły
 	units_moved_this_turn.clear()
 	cavalry_moves_this_turn.clear()
-	merge_mode = false
 	
-	# DODAJ: PELNY reset wszystkich trybow
-	buy_mode = ""
-	wall_placement_mode = false
+	# Nowa runda co 4 tury
+	if current_team == 1:
+		current_round += 1
 	
-	# Usun tymczasowe sciany (outline'y)
-	for hex_coords in wall_hexes_selected:
-		remove_hex_outline(hex_coords)
-	wall_hexes_selected.clear()
-	
-	if ui_manager:
-		ui_manager.reset_wall_button()
-	
+	# UI
+	update_ui()
 	clear_highlights()
-	cycle_team()
-	turn_history.save_turn_snapshot(self)
+	
+	if selected_unit:
+		clear_selected_unit_highlight()
+		if selected_unit.has_method("set_selected"):
+			selected_unit.set_selected(false)
+		selected_unit = null
+	
 	pulse_available_units()
+	check_victory()
+	
+	# === OBSŁUGA AI DLA BANDYTÓW (team 5) ===
+	if current_team == 5:
+		# Automatycznie wykonaj turę bandytów przez AI
+		if not ai_controllers.has(-1):
+			# Utwórz AI dla bandytów jeśli nie istnieje
+			var bandit_ai = AIController.new(self, -1, 0, 0.5)  # Team -1, Normal, zbalansowany
+			add_child(bandit_ai)
+			ai_controllers[-1] = bandit_ai
+			print("AI dla bandytów utworzone")
+		
+		await get_tree().create_timer(0.5).timeout
+		await ai_controllers[-1].execute_turn()
+		await get_tree().create_timer(0.5).timeout
+		_on_end_turn()  # Automatycznie zakończ turę
+		return
+	# === KONIEC OBSŁUGI BANDYTÓW ===
+	
+	# === DODAJ TUTAJ - wykonaj turę AI jeśli potrzeba ===
+	if is_next_ai and ai_controllers.has(current_team):
+		await get_tree().create_timer(0.5).timeout
+		await ai_controllers[current_team].execute_turn()
+		# Po zakończeniu tury AI - automatycznie zakończ turę
+		await get_tree().create_timer(0.5).timeout
+		_on_end_turn()
+	# === KONIEC DODANIA ===
 	
 func _on_rewind_turn():
 	"""Obsługa przycisku cofania tury"""
@@ -4591,3 +4660,117 @@ func calculate_map_bounds() -> Rect2:
 	return Rect2(min_x - margin_left, min_y - margin_top, 
 				 max_x - min_x + margin_left - 2*margin_right,
 				 max_y - min_y - 2*margin_bottom)
+
+func set_team_ai(team: int, difficulty: int, aggression: float = 0.5):
+	"""Ustawia AI dla danego teamu
+	difficulty: 0 = NORMAL, 1 = HARD
+	aggression: 0.1-1.0 (0.1=defensywny, 0.5=zbalansowany, 1.0=agresywny)
+	"""
+	if not ai_controllers.has(team):
+		var ai = AIController.new(self, team, difficulty, aggression)
+		add_child(ai)
+		ai_controllers[team] = ai
+		ai_teams.append(team)
+		print("AI ustawione dla drużyny %d (%s, Agresywność: %.1f)" % [team, "HARD" if difficulty == 1 else "NORMAL", aggression])
+
+func remove_team_ai(team: int):
+	"""Usuwa AI z teamu"""
+	if ai_controllers.has(team):
+		var ai = ai_controllers[team]
+		ai.queue_free()
+		ai_controllers.erase(team)
+		ai_teams.erase(team)
+		print("AI usunięte z drużyny %d" % team)
+
+func spawn_farmer_at(pos: Vector2i, team_id: int):
+	"""Spawuje farmera na danej pozycji"""
+	var hex = get_hex_at(pos)
+	if not hex or hex.occupied_object != null:
+		return
+	
+	var farmer = FARMER_SCENE.instantiate()
+	farmer.team = team_id
+	farmer.hex_position = pos
+	add_child(farmer)
+	farmer.position = hex.position
+	farmer_map[pos] = farmer
+	hex.occupied_object = farmer
+	
+	territory_map[pos] = team_id
+	hex.set_color(TEAM_COLORS[team_id])
+
+func spawn_spearman_at(pos: Vector2i, team_id: int):
+	"""Spawuje włócznika na danej pozycji"""
+	var hex = get_hex_at(pos)
+	if not hex or hex.occupied_object != null:
+		return
+	
+	var spearman = SPEARMAN_SCENE.instantiate()
+	spearman.team = team_id
+	spearman.hex_position = pos
+	add_child(spearman)
+	spearman.position = hex.position
+	spearman_map[pos] = spearman
+	hex.occupied_object = spearman
+	
+	territory_map[pos] = team_id
+	hex.set_color(TEAM_COLORS[team_id])
+
+func spawn_knight_at(pos: Vector2i, team_id: int):
+	"""Spawuje rycerza na danej pozycji"""
+	var hex = get_hex_at(pos)
+	if not hex or hex.occupied_object != null:
+		return
+	
+	var knight = KNIGHT_SCENE.instantiate()
+	knight.team = team_id
+	knight.hex_position = pos
+	add_child(knight)
+	knight.position = hex.position
+	knight_map[pos] = knight
+	hex.occupied_object = knight
+	
+	territory_map[pos] = team_id
+	hex.set_color(TEAM_COLORS[team_id])
+
+func spawn_cavalry_at(pos: Vector2i, team_id: int):
+	"""Spawuje kawalerię na danej pozycji"""
+	var hex = get_hex_at(pos)
+	if not hex or hex.occupied_object != null:
+		return
+	
+	var cavalry = CAVALRY_SCENE.instantiate()
+	cavalry.team = team_id
+	cavalry.hex_position = pos
+	add_child(cavalry)
+	cavalry.position = hex.position
+	cavalry_map[pos] = cavalry
+	hex.occupied_object = cavalry
+	
+	territory_map[pos] = team_id
+	hex.set_color(TEAM_COLORS[team_id])
+
+func find_nearest_bandit_camp(unit_pos: Vector2i) -> int:
+	"""Znajduje najbliższy obóz bandytów dla jednostki"""
+	# Jeśli nie ma obozów, zwróć 0
+	if bandit_camp_ownership.is_empty():
+		return 0
+	
+	var nearest_camp_id = 0
+	var min_distance = 999999
+	
+	# Przeszukaj wszystkie obozy bandytów w castle_map
+	for coords in castle_map:
+		var castle = castle_map[coords]
+		# Sprawdź czy to obóz bandytów (team == BANDIT_TEAM)
+		if castle.team == BANDIT_TEAM:
+			var dist = abs(coords.x - unit_pos.x) + abs(coords.y - unit_pos.y)
+			if dist < min_distance:
+				min_distance = dist
+				# Znajdź ID tego obozu
+				for camp_id in bandit_camp_ownership:
+					# Sprawdź czy ten obóz jest na tych koordynatach
+					# (zakładam że camp_id jest unikalny dla każdego obozu)
+					nearest_camp_id = camp_id
+	
+	return nearest_camp_id
