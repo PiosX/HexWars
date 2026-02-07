@@ -87,8 +87,8 @@ const SPEARMAN_UPKEEP = 6
 const KNIGHT_COST = 40
 const KNIGHT_UPKEEP = 18
 const CAVALRY_COST = 80
-const CAVALRY_UPKEEP = 2
-const GOLD_PER_TERRITORY = 2
+const CAVALRY_UPKEEP = 50
+const GOLD_PER_TERRITORY = 1
 const WALL_COST_PER_HEX = 3
 
 # UI
@@ -141,13 +141,9 @@ func _ready():
 	if not load_layout():
 		create_rectangle_grid(8, 8)
 		
-	set_team_ai(2, 1, 0.8)  # Czerwony = Hard, agresywny
-	set_team_ai(3, 0, 0.3)  # Fioletowy = Normal, defensywny
-	set_team_ai(4, 0, 0.5)  # Żółty = Normal, zbalansowany
-	
-	print("=== AI TEAMS INITIALIZED ===")
-	for ai_team in ai_teams:
-		print("Team %d: AI enabled" % ai_team)
+	set_team_ai(2, 1)  # Czerwony = Hard
+	set_team_ai(3, 0)  # Fioletowy = Normal
+	set_team_ai(4, 0)
 	
 	update_ui()
 	
@@ -838,8 +834,7 @@ func _on_end_turn():
 	if not game_mode:
 		return
 	
-	# === EKONOMIA - TYLKO NA KOŃCU RUNDY (gdy current_team == 4) ===
-	# Sprawdź bankructwa PRZED zapisem (zawsze)
+	# Sprawdź bankructwa PRZED zapisem
 	var teams_to_check = [1, 2, 3, 4]
 	for t in teams_to_check:
 		var gold = team_gold.get(t, 0)
@@ -849,25 +844,22 @@ func _on_end_turn():
 			print("⚠ Drużyna %d bankrutuje! (Złoto: %d, Koszty: %d)" % [t, gold, upkeep])
 			handle_bankruptcy(t)
 	
-	# WAŻNE: Nalicz złoto/koszty TYLKO gdy kończy się cała runda (current_team == 4)
-	if current_team == 4:
+	# Nalicz złoto/koszty dla wszystkich
+	var next_team = (current_team % 4) + 1
+	if next_team == 1:
 		print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII ===" % current_round)
 		for t in teams_to_check:
 			var income = calculate_income(t)
 			var upkeep = calculate_upkeep(t)
-			var net = income - upkeep
-			team_gold[t] += net
+			var old_gold = team_gold[t]
+			team_gold[t] += income
+			team_gold[t] -= upkeep
 			
 			if team_gold[t] < 0:
 				team_gold[t] = 0
-			
-			print("Team %d: +%d dochód, -%d koszty = %d (saldo: %d)" % [t, income, upkeep, net, team_gold[t]])
-	# === KONIEC ZMIANY EKONOMII ===
 	
 	# Obsługa bandytów
-	var bandits_copy = []
-	bandits_copy.assign(bandits_need_camp)
-	for coords in bandits_copy:
+	for coords in bandits_need_camp.duplicate():
 		var farmer = farmer_map.get(coords)
 		if farmer and farmer.team == BANDIT_TEAM:
 			var camp_id = find_nearest_bandit_camp(coords)
@@ -881,7 +873,6 @@ func _on_end_turn():
 	turn_history.save_turn_snapshot(self)
 	
 	# === DODAJ TUTAJ - sprawdź czy następna drużyna to AI ===
-	var next_team = (current_team % 4) + 1
 	var is_next_ai = next_team in ai_teams
 	# === KONIEC DODANIA ===
 	
@@ -908,23 +899,6 @@ func _on_end_turn():
 	
 	pulse_available_units()
 	check_victory()
-	
-	# === OBSŁUGA AI DLA BANDYTÓW (team 5) ===
-	if current_team == 5:
-		# Automatycznie wykonaj turę bandytów przez AI
-		if not ai_controllers.has(-1):
-			# Utwórz AI dla bandytów jeśli nie istnieje
-			var bandit_ai = AIController.new(self, -1, 0, 0.5)  # Team -1, Normal, zbalansowany
-			add_child(bandit_ai)
-			ai_controllers[-1] = bandit_ai
-			print("AI dla bandytów utworzone")
-		
-		await get_tree().create_timer(0.5).timeout
-		await ai_controllers[-1].execute_turn()
-		await get_tree().create_timer(0.5).timeout
-		_on_end_turn()  # Automatycznie zakończ turę
-		return
-	# === KONIEC OBSŁUGI BANDYTÓW ===
 	
 	# === DODAJ TUTAJ - wykonaj turę AI jeśli potrzeba ===
 	if is_next_ai and ai_controllers.has(current_team):
@@ -1332,7 +1306,7 @@ func place_cavalry_at(hex_coords: Vector2i, team: int):
 	hex.place_object(cavalry)
 	
 	await get_tree().process_frame
-	if cavalry.sprite:
+	if is_instance_valid(cavalry) and cavalry.sprite:
 		cavalry.sprite.scale = Vector2(1.0, 1.0)
 
 func remove_cavalry_at(hex_coords: Vector2i):
@@ -1562,9 +1536,14 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 		old_hex.set_selected_state(false)
 	
 	# LICZNIK RUCHÓW
-	if not cavalry_moves_this_turn.has(cavalry):
-		cavalry_moves_this_turn[cavalry] = 0
-	cavalry_moves_this_turn[cavalry] += 1
+	var cavalry_id = cavalry.get_instance_id()
+	
+	# Pobierz aktualną liczbę ruchów (domyślnie 0)
+	var current_moves = cavalry_moves_this_turn.get(cavalry_id, 0)
+	current_moves += 1
+	cavalry_moves_this_turn[cavalry_id] = current_moves
+	
+	print("🐴 Cavalry ID %d wykonał ruch %d/2" % [cavalry_id, current_moves])
 	
 	if unit_to_camp.has(from):
 		var camp_id = unit_to_camp[from]
@@ -1578,16 +1557,29 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 				camp_units[idx] = to
 	
 	# Regalo capture po zakończeniu slide animacji
+	var cavalry_team = cavalry.team
 	await get_tree().create_timer(0.15).timeout
-	capture_territory(to, cavalry.team)
 	
-	if cavalry_moves_this_turn[cavalry] >= 2:
+	# Sprawdź czy cavalry nadal istnieje
+	if not is_instance_valid(cavalry):
+		print("⚠️ Cavalry został usunięty podczas animacji")
+		return
+	
+	capture_territory(to, cavalry_team)
+	
+	# Sprawdź ponownie liczbę ruchów (może się zmienić podczas await)
+	var moves_after_await = cavalry_moves_this_turn.get(cavalry_id, 0)
+	
+	if moves_after_await >= 2:
+		print("✅ Cavalry zakończył 2 ruchy")
 		units_moved_this_turn.append(cavalry)
-		cavalry.set_selected(false)
+		if is_instance_valid(cavalry):
+			cavalry.set_selected(false)
 		selected_unit = null
 		clear_highlights()
 		pulse_available_units()
 	else:
+		print("➡️ Cavalry może się jeszcze ruszyć (%d/2)" % moves_after_await)
 		clear_highlights()
 		var new_hex = get_hex_at(to)
 		if new_hex:
@@ -1628,7 +1620,8 @@ func on_cavalry_clicked(cavalry):
 	if cavalry.team != current_team:
 		return
 	
-	var moves_done = cavalry_moves_this_turn.get(cavalry, 0)
+	var cavalry_id = cavalry.get_instance_id()
+	var moves_done = cavalry_moves_this_turn.get(cavalry_id, 0)
 	if moves_done >= 2:
 		print("Cavalry wykonał już 2 ruchy w tej turze")
 		return
@@ -1675,7 +1668,7 @@ func place_spearman_at(hex_coords: Vector2i, team: int):
 	hex.place_object(spearman)
 	
 	await get_tree().process_frame
-	if spearman.sprite:
+	if is_instance_valid(spearman) and spearman.sprite:
 		spearman.sprite.scale = Vector2(1.0, 1.0)
 
 func remove_spearman_at(hex_coords: Vector2i):
@@ -1947,8 +1940,9 @@ func move_spearman(from: Vector2i, to: Vector2i):
 			if idx != -1:
 				camp_units[idx] = to
 	
+	var spearman_team = spearman.team
 	await get_tree().create_timer(0.15).timeout
-	capture_territory(to, spearman.team)
+	capture_territory(to, spearman_team)
 	clear_highlights()
 	pulse_available_units()
 
@@ -2057,7 +2051,7 @@ func place_knight_at(hex_coords: Vector2i, team: int):
 	
 	# DODAJ: Wymus prawidlowa skale po dodaniu do sceny
 	await get_tree().process_frame
-	if knight.sprite:
+	if is_instance_valid(knight) and knight.sprite:
 		knight.sprite.scale = Vector2(1.0, 1.0)
 
 func remove_knight_at(hex_coords: Vector2i):
@@ -2303,10 +2297,11 @@ func move_knight(from: Vector2i, to: Vector2i):
 			if idx != -1:
 				camp_units[idx] = to
 	
+	var knight_team = knight.team
 	await get_tree().create_timer(0.15).timeout
 	
 	# Przejmij terytorium
-	capture_territory(to, knight.team)
+	capture_territory(to, knight_team)
 	clear_highlights()
 	pulse_available_units()
 	
@@ -2465,10 +2460,11 @@ func move_farmer(from: Vector2i, to: Vector2i):
 			if idx != -1:
 				camp_units[idx] = to
 	
+	var farmer_team = farmer.team
 	await get_tree().create_timer(0.15).timeout
-	if farmer.team == BANDIT_TEAM:
+	if is_instance_valid(farmer) and farmer.team == BANDIT_TEAM:
 		check_bandit_camp_after_move(from, to)
-	capture_territory(to, farmer.team)
+	capture_territory(to, farmer_team)
 	clear_highlights()
 	pulse_available_units()
 	
@@ -2683,148 +2679,145 @@ func check_team_isolation(team: int):
 		convert_isolated_region(region, team)
 		
 func convert_isolated_region(region: Array, original_team: int):
-	"""Konwertuje TYLKO pola z jednostkami na bandytów, reszta pozostaje u wlasciciela (odcieta)"""
+	"""NOWA ZASADA ODCIĘCIA:
+	- Knight/Cavalry -> Bandyci z obozem
+	- Farmer/Spearman -> ZNIKAJĄ
+	- WSZYSTKIE pola -> NEUTRALNE"""
 	print("=== KONWERSJA ODCIETEGO REGIONU ===")
 	print("Pola w regionie: ", region.size())
 	
-	# Znajdz wszystkie jednostki w regionie
-	var units_positions = []
+	# Znajdź jednostki
+	var knights_cavalry = []  # Knight/Cavalry -> bandyci
+	var farmers_spearmen = []  # Farmer/Spearman -> znikną
+	
 	for coords in region:
 		if knight_map.has(coords):
-			units_positions.append(coords)
-		elif spearman_map.has(coords):
-			units_positions.append(coords)
-		elif farmer_map.has(coords):
-			units_positions.append(coords)
+			knights_cavalry.append(coords)
 		elif cavalry_map.has(coords):
-			units_positions.append(coords)
+			knights_cavalry.append(coords)
+		elif farmer_map.has(coords):
+			farmers_spearmen.append(coords)
+		elif spearman_map.has(coords):
+			farmers_spearmen.append(coords)
 	
-	print("Jednostek do konwersji: ", units_positions.size())
+	print("Knights/Cavalry do konwersji: %d" % knights_cavalry.size())
+	print("Farmers/Spearmen do usunięcia: %d" % farmers_spearmen.size())
 	
-	# ZMIANA: Jesli nie ma jednostek - pola POZOSTAJA u wlasciciela (tylko odciete)
-	if units_positions.is_empty():
-		print("Brak jednostek - pola pozostaja u wlasciciela (odciete od zamku)")
-		# NIE zmieniamy territory_map - pola dalej naleza do original_team
-		return
-	
-	# Przeksztalc jednostki w farmerow bandytow
-	for coords in units_positions:
-		if knight_map.has(coords):
-			remove_knight_at(coords)
-			place_farmer_at(coords, -1)
+	# USUŃ farmerów i spearmanów
+	for coords in farmers_spearmen:
+		if farmer_map.has(coords):
+			remove_farmer_at(coords)
 		elif spearman_map.has(coords):
 			remove_spearman_at(coords)
-			place_farmer_at(coords, -1)
-		elif cavalry_map.has(coords):  
+	
+	# Konwertuj knights/cavalry na bandy
+	for coords in knights_cavalry:
+		if knight_map.has(coords):
+			remove_knight_at(coords)
+			place_farmer_at(coords, -1)  # Bandyta
+			territory_map[coords] = -1
+		elif cavalry_map.has(coords):
 			remove_cavalry_at(coords)
-			place_farmer_at(coords, -1)
-		elif farmer_map.has(coords):
-			var farmer = farmer_map[coords]
-			farmer.team = -1
-		
-		# TYLKO pola z jednostkami staja sie bandyckie
-		territory_map[coords] = -1
+			place_farmer_at(coords, -1)  # Bandyta
+			territory_map[coords] = -1
 		update_hex_color(coords)
 	
-	# Usun WSZYSTKIE mury w regionie (bandyci nie zachowuja murow)
-	print("Usuwanie walli w regionie...")
+	# WSZYSTKIE pola regionu (z jednostkami i bez) -> NEUTRALNE
+	for coords in region:
+		if territory_map.get(coords, 0) == original_team:
+			territory_map[coords] = 0  # NEUTRALNE
+			update_hex_color(coords)
+	
+	# Usuń mury
 	for coords in region:
 		for edge_index in range(6):
 			var edge_key = "%d,%d-edge%d" % [coords.x, coords.y, edge_index]
 			if wall_map.has(edge_key):
 				wall_map.erase(edge_key)
-				
 				if has_meta("wall_lines"):
 					var wall_lines = get_meta("wall_lines")
 					if wall_lines.has(edge_key):
 						wall_lines[edge_key].queue_free()
 						wall_lines.erase(edge_key)
 	
-	# Postaw JEDEN oboz bandytow dla jednostek
-	var camp_placed = place_bandit_camp_near_units(units_positions, units_positions)
+	# Postaw obóz TYLKO jeśli są bandyci (knight/cavalry)
+	if knights_cavalry.size() > 0:
+		var camp_placed = place_bandit_camp_near_units(knights_cavalry, knights_cavalry)
+		if not camp_placed:
+			print("UWAGA: Nie znaleziono miejsca na obóz bandytów!")
 	
-	if not camp_placed:
-		print("UWAGA: Nie znaleziono miejsca na oboz bandytow!")
-	
-	print("=== KONIEC KONWERSJI REGIONU ===")
-	print("Bandytow: ", units_positions.size(), " | Pola wlasciciela (odciete): ", region.size() - units_positions.size())
+	print("=== KONIEC KONWERSJI ===")
+	print("Bandyci: %d | Usuniętych: %d | Neutralne pola: %d" % [knights_cavalry.size(), farmers_spearmen.size(), region.size()])
 
 func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
-	"""Przejmuje zamek wroga - jednostki wroga NATYCHMIAST staja sie bandytami"""
+	"""NOWA ZASADA: Knight/Cavalry -> bandyci, Farmer/Spearman -> znikają"""
 	print("=== PRZEJECIE ZAMKU ===")
 	print("Zamek druzyny ", old_team, " przejety przez druzyne ", new_team)
 	
 	var castle = castle_map[castle_coords]
 	castle.team = new_team
 	
-	# Znajdz 3 najblizsze pola wroga lub puste
 	var nearby_hexes = get_nearest_hexes(castle_coords, 3, old_team, new_team)
 	for coords in nearby_hexes:
 		territory_map[coords] = new_team
 		update_hex_color(coords)
 	
-	# ZMIANA: Konwertuj wszystkie jednostki starego wlasciciela na bandytow
-	var old_team_units = []
+	# Zbierz jednostki
+	var knights_cavalry = []
+	var farmers_spearmen = []
 	
-	# Zbierz wszystkie jednostki starego wlasciciela
 	for coords in knight_map:
 		if knight_map[coords].team == old_team:
-			old_team_units.append(coords)
-			
-	for coords in spearman_map:
-		if spearman_map[coords].team == old_team:
-			old_team_units.append(coords)
-	
+			knights_cavalry.append(coords)
+	for coords in cavalry_map:
+		if cavalry_map[coords].team == old_team:
+			knights_cavalry.append(coords)
 	for coords in farmer_map:
 		if farmer_map[coords].team == old_team:
-			old_team_units.append(coords)
+			farmers_spearmen.append(coords)
+	for coords in spearman_map:
+		if spearman_map[coords].team == old_team:
+			farmers_spearmen.append(coords)
 	
-	if old_team_units.is_empty():
-		print("Stary wlasciciel nie ma jednostek")
-		return
+	print("Knights/Cavalry -> bandyci: %d" % knights_cavalry.size())
+	print("Farmers/Spearmen -> usuń: %d" % farmers_spearmen.size())
 	
-	print("Konwersja jednostek starego wlasciciela (", old_team_units.size(), ") na bandytow...")
-	
-	# Znajdz wszystkie pola starego teamu (aby usunac walle)
+	# Znajdź pola starego teamu
 	var old_team_region = []
 	for coords in territory_map:
 		if territory_map[coords] == old_team:
 			old_team_region.append(coords)
 	
-	# DODAJ: Usun WSZYSTKIE walle w regionie starego teamu (jak przy bandytach)
-	print("Usuwanie walli starego teamu...")
+	# Usuń mury
 	for coords in old_team_region:
 		var neighbors = get_neighbors(coords)
 		for neighbor in neighbors:
-			# Usun WSZYSTKIE mury (nie tylko wewnetrzne)
 			if has_wall_between(coords, neighbor):
 				remove_wall(coords, neighbor)
 	
-	# Przeksztalc wszystkie jednostki w farmerow bandytow
-	for coords in old_team_units:
+	# USUŃ farmerów/spearmanów
+	for coords in farmers_spearmen:
+		if farmer_map.has(coords):
+			remove_farmer_at(coords)
+		elif spearman_map.has(coords):
+			remove_spearman_at(coords)
+	
+	# Konwertuj knights/cavalry na bandytów
+	for coords in knights_cavalry:
 		if knight_map.has(coords):
 			remove_knight_at(coords)
 			place_farmer_at(coords, -1)
-		elif spearman_map.has(coords):
-			remove_spearman_at(coords)
+		elif cavalry_map.has(coords):
+			remove_cavalry_at(coords)
 			place_farmer_at(coords, -1)
-		elif farmer_map.has(coords):
-			var farmer = farmer_map[coords]
-			farmer.team = -1
-		
 		territory_map[coords] = -1
 		update_hex_color(coords)
 	
-	# Zbierz terytoria bandyckie (tylko te z jednostkami)
-	var isolated_territories = []
-	for coords in old_team_units:
-		if territory_map.get(coords, 0) == -1:
-			isolated_territories.append(coords)
+	# Postaw obóz dla bandytów
+	if knights_cavalry.size() > 0:
+		place_bandit_camp_near_units(knights_cavalry, knights_cavalry)
 	
-	# Postaw oboz bandytow obok jednostek
-	place_bandit_camp_near_units(old_team_units, isolated_territories)
-	
-	# Reszta pol starego wlasciciela (bez jednostek) zostaje neutralna
+	# Reszta pól -> NEUTRALNE
 	for coords in old_team_region:
 		if territory_map.get(coords, 0) == old_team:
 			territory_map.erase(coords)
@@ -3866,7 +3859,7 @@ func on_farmer_clicked(farmer):
 			return
 	
 	# === Reszta bez zmian ===
-	if farmer.team == BANDIT_TEAM:
+	if is_instance_valid(farmer) and farmer.team == BANDIT_TEAM:
 		if current_team != 5:
 			return
 	else:
@@ -3898,7 +3891,7 @@ func on_farmer_clicked(farmer):
 	
 	set_selected_unit_highlight(farmer)
 	
-	if farmer.team == BANDIT_TEAM:
+	if is_instance_valid(farmer) and farmer.team == BANDIT_TEAM:
 		highlight_unit_moves(farmer.hex_position, BANDIT_TEAM)
 	else:
 		highlight_unit_moves(farmer.hex_position, farmer.team)
@@ -4509,7 +4502,7 @@ func pulse_available_units():
 	if current_team == 5:
 		# Bandyci
 		for farmer in farmer_map.values():
-			if farmer.team == BANDIT_TEAM and farmer not in units_moved_this_turn:
+			if is_instance_valid(farmer) and farmer.team == BANDIT_TEAM and farmer not in units_moved_this_turn:
 				available_units.append(farmer)
 	else:
 		# Normalni gracze
@@ -4524,7 +4517,8 @@ func pulse_available_units():
 				available_units.append(spearman)
 		for cavalry in cavalry_map.values():
 			if cavalry.team == current_team:
-				var moves_done = cavalry_moves_this_turn.get(cavalry, 0)
+				var cavalry_id = cavalry.get_instance_id()
+				var moves_done = cavalry_moves_this_turn.get(cavalry_id, 0)
 				if moves_done < 2:
 					available_units.append(cavalry)
 	
@@ -4661,17 +4655,16 @@ func calculate_map_bounds() -> Rect2:
 				 max_x - min_x + margin_left - 2*margin_right,
 				 max_y - min_y - 2*margin_bottom)
 
-func set_team_ai(team: int, difficulty: int, aggression: float = 0.5):
+func set_team_ai(team: int, difficulty: int):
 	"""Ustawia AI dla danego teamu
 	difficulty: 0 = NORMAL, 1 = HARD
-	aggression: 0.1-1.0 (0.1=defensywny, 0.5=zbalansowany, 1.0=agresywny)
 	"""
 	if not ai_controllers.has(team):
-		var ai = AIController.new(self, team, difficulty, aggression)
+		var ai = AIController.new(self, team, difficulty)
 		add_child(ai)
 		ai_controllers[team] = ai
 		ai_teams.append(team)
-		print("AI ustawione dla drużyny %d (%s, Agresywność: %.1f)" % [team, "HARD" if difficulty == 1 else "NORMAL", aggression])
+		print("AI ustawione dla drużyny %d (%s)" % [team, "HARD" if difficulty == 1 else "NORMAL"])
 
 func remove_team_ai(team: int):
 	"""Usuwa AI z teamu"""
@@ -4774,3 +4767,47 @@ func find_nearest_bandit_camp(unit_pos: Vector2i) -> int:
 					nearest_camp_id = camp_id
 	
 	return nearest_camp_id
+
+# ============================================================================
+# DODAJ TE FUNKCJE DO hex_grid.gd (na końcu pliku)
+# ============================================================================
+
+func buy_knight(pos: Vector2i, team_id: int) -> bool:
+	"""Kupuje rycerza (odejmuje złoto i tworzy jednostkę)"""
+	var cost = 20
+	if team_gold.get(team_id, 0) < cost:
+		return false
+	
+	spawn_knight_at(pos, team_id)
+	team_gold[team_id] -= cost
+	return true
+
+func buy_spearman(pos: Vector2i, team_id: int) -> bool:
+	"""Kupuje włócznika (odejmuje złoto i tworzy jednostkę)"""
+	var cost = 10
+	if team_gold.get(team_id, 0) < cost:
+		return false
+	
+	spawn_spearman_at(pos, team_id)
+	team_gold[team_id] -= cost
+	return true
+
+func buy_cavalry(pos: Vector2i, team_id: int) -> bool:
+	"""Kupuje kawalerię (odejmuje złoto i tworzy jednostkę)"""
+	var cost = 40
+	if team_gold.get(team_id, 0) < cost:
+		return false
+	
+	spawn_cavalry_at(pos, team_id)
+	team_gold[team_id] -= cost
+	return true
+
+func buy_farmer(pos: Vector2i, team_id: int) -> bool:
+	"""Kupuje farmera (odejmuje złoto i tworzy jednostkę)"""
+	var cost = 10
+	if team_gold.get(team_id, 0) < cost:
+		return false
+	
+	spawn_farmer_at(pos, team_id)
+	team_gold[team_id] -= cost
+	return true

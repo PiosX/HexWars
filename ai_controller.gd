@@ -1,7 +1,6 @@
 extends Node
 class_name AIController
 
-# === TYPY AI ===
 enum Difficulty {
 	NORMAL,
 	HARD
@@ -10,12 +9,11 @@ enum Difficulty {
 var hex_grid: HexGrid
 var difficulty: Difficulty = Difficulty.NORMAL
 var team: int = -1
-var aggression_level: float = 0.5  # 0.1 = defensywny, 0.5 = zbalansowany, 1.0 = super agresywny
+var aggression_level: float = 0.5
 
-# Parametry dla różnych poziomów trudności
 var params = {
 	Difficulty.NORMAL: {
-		"aggression": 0.5,  # Będzie nadpisane przez aggression_level
+		"aggression": 0.5,
 		"expansion_priority": 0.6,
 		"defense_priority": 0.4,
 		"economy_reserve": 30,
@@ -23,7 +21,7 @@ var params = {
 		"think_time": 0.5,
 	},
 	Difficulty.HARD: {
-		"aggression": 0.8,  # Będzie nadpisane przez aggression_level
+		"aggression": 0.8,
 		"expansion_priority": 0.7,
 		"defense_priority": 0.7,
 		"economy_reserve": 20,
@@ -32,16 +30,16 @@ var params = {
 	}
 }
 
-# === AI MEMORY (Funkcja #2) ===
 var memory: Dictionary = {
 	"last_attacked_by": {},
 	"lost_territories": [],
 	"previous_hex_count": 0,
 	"enemy_strength_history": {},
-	"danger_zones": []
+	"danger_zones": [],
+	"castle_under_attack": false,
+	"castle_attacker_pos": Vector2i.ZERO
 }
 
-# === STRATEGIC PLANNING (Funkcja #6) ===
 var strategic_goals: Array = []
 
 func _init(grid: HexGrid, ai_team: int, diff: Difficulty = Difficulty.NORMAL, aggro: float = 0.5):
@@ -50,68 +48,58 @@ func _init(grid: HexGrid, ai_team: int, diff: Difficulty = Difficulty.NORMAL, ag
 	difficulty = diff
 	aggression_level = clamp(aggro, 0.1, 1.0)
 	
-	# Nadpisz aggression w params
 	params[difficulty].aggression = aggression_level
 	
-	# Dostosuj inne parametry na podstawie agresywności
-	if aggression_level < 0.3:  # Defensywny
+	if aggression_level < 0.3:
 		params[difficulty].defense_priority = 0.8
 		params[difficulty].expansion_priority = 0.3
 		params[difficulty].wall_threshold = 0.6
-	elif aggression_level > 0.7:  # Agresywny
+	elif aggression_level > 0.7:
 		params[difficulty].defense_priority = 0.3
 		params[difficulty].expansion_priority = 0.9
 		params[difficulty].wall_threshold = 0.2
 
-# === HELPER FUNCTIONS ===
 func has_team(obj) -> bool:
-	"""Bezpieczne sprawdzenie czy obiekt ma właściwość team"""
-	return obj != null and "team" in obj
+	return obj != null and is_instance_valid(obj) and "team" in obj
 
 func get_object_team(obj) -> int:
-	"""Bezpieczne pobranie teamu z obiektu"""
 	if has_team(obj):
 		return obj.team
 	return -1
 
-# === GŁÓWNA FUNKCJA - WYKONAJ TURĘ AI ===
 func execute_turn():
 	print("=== AI (Team %d, %s, Aggro: %.1f) zaczyna turę ===" % [team, "HARD" if difficulty == Difficulty.HARD else "NORMAL", aggression_level])
 	
-	# 1. Analiza sytuacji
 	var state = analyze_game_state()
-	
-	# 2. Aktualizacja pamięci i strategii
 	update_memory(state)
 	set_strategic_goals(state)
 	
-	# 3. BANDYCI - nie kupują jednostek ani nie stawiają murów
 	if team == -1:
 		print("AI %d: Bandyci - tylko ruch jednostek" % team)
 		await move_all_units(state)
 		print("=== AI (Team %d) kończy turę ===" % team)
 		return
 	
-	# 4. Strategia - kupowanie jednostek (jeśli nie bankrutujemy)
 	var is_bankrupt = hex_grid.team_gold.get(team, 0) < hex_grid.calculate_upkeep(team)
+	
+	# NAJPIERW RUCH - potem kupowanie (żeby zwolnić miejsce)
+	await move_all_units(state)
+	
+	# Merge units
+	await merge_units(state)
+	
+	# Kupuj jednostki
 	if not is_bankrupt:
 		await buy_units(state)
 	else:
 		print("AI %d: Bankructwo - pomijam kupowanie jednostek" % team)
 	
-	# 5. Łączenie jednostek (farmerzy -> spearman, knightowie -> cavalry)
-	await merge_units(state)
-	
-	# 6. Budowanie murów (jeśli opłacalne i nie bankrutujemy)
-	if not is_bankrupt and aggression_level < 0.7:  # Tylko dla mniej agresywnych
+	# Buduj mury POPRAWNIE
+	if not is_bankrupt:
 		await build_walls(state)
-	
-	# 7. Ruch wszystkich jednostek (ZAWSZE, nawet podczas bankructwa)
-	await move_all_units(state)
 	
 	print("=== AI (Team %d) kończy turę ===" % team)
 
-# === ANALIZA STANU GRY ===
 func analyze_game_state() -> Dictionary:
 	var state = {
 		"my_hexes": [],
@@ -123,14 +111,18 @@ func analyze_game_state() -> Dictionary:
 		"enemy_units": [],
 		"my_castles": [],
 		"enemy_castles": [],
+		"undefended_enemy_castles": [],
+		"walled_enemy_castles": [],
+		"bandit_camps": [],
 		"threats": [],
+		"castle_threats": [],
 		"opportunities": [],
+		"cutoff_opportunities": [],
 		"gold": hex_grid.team_gold.get(team, 0),
 		"income": hex_grid.calculate_income(team),
 		"upkeep": hex_grid.calculate_upkeep(team),
 	}
 	
-	# Zbierz wszystkie hexy
 	for coords in hex_grid.hex_map:
 		var owner = hex_grid.territory_map.get(coords, 0)
 		
@@ -141,288 +133,292 @@ func analyze_game_state() -> Dictionary:
 		else:
 			state.neutral_hexes.append(coords)
 	
-	# Hexy połączone z zamkiem
 	state.my_connected_hexes = hex_grid.get_connected_territories(team)
-	
-	# Granica (pola do ataku/ekspansji)
 	state.border_hexes = hex_grid.get_border_of_connected_territories(team, state.my_connected_hexes)
 	
-	# Zbierz jednostki
+	# Zbieranie jednostek z walidacją
 	for unit in hex_grid.knight_map.values():
+		if not is_instance_valid(unit):
+			continue
 		if unit.team == team:
-			state.my_units.append({"unit": unit, "type": "knight", "pos": unit.hex_position})
+			state.my_units.append({"unit": unit, "type": "knight", "pos": unit.hex_position, "strength": 40})
 		elif unit.team > 0 and unit.team <= 4:
-			state.enemy_units.append({"unit": unit, "type": "knight", "pos": unit.hex_position})
+			state.enemy_units.append({"unit": unit, "type": "knight", "pos": unit.hex_position, "team": unit.team, "strength": 40})
 	
 	for unit in hex_grid.farmer_map.values():
+		if not is_instance_valid(unit):
+			continue
 		if unit.team == team:
-			state.my_units.append({"unit": unit, "type": "farmer", "pos": unit.hex_position})
+			state.my_units.append({"unit": unit, "type": "farmer", "pos": unit.hex_position, "strength": 10})
 		elif unit.team > 0 and unit.team <= 4:
-			state.enemy_units.append({"unit": unit, "type": "farmer", "pos": unit.hex_position})
+			state.enemy_units.append({"unit": unit, "type": "farmer", "pos": unit.hex_position, "team": unit.team, "strength": 10})
 	
 	for unit in hex_grid.spearman_map.values():
+		if not is_instance_valid(unit):
+			continue
 		if unit.team == team:
-			state.my_units.append({"unit": unit, "type": "spearman", "pos": unit.hex_position})
+			state.my_units.append({"unit": unit, "type": "spearman", "pos": unit.hex_position, "strength": 20})
 		elif unit.team > 0 and unit.team <= 4:
-			state.enemy_units.append({"unit": unit, "type": "spearman", "pos": unit.hex_position})
+			state.enemy_units.append({"unit": unit, "type": "spearman", "pos": unit.hex_position, "team": unit.team, "strength": 20})
 	
 	for unit in hex_grid.cavalry_map.values():
+		if not is_instance_valid(unit):
+			continue
 		if unit.team == team:
-			state.my_units.append({"unit": unit, "type": "cavalry", "pos": unit.hex_position})
+			state.my_units.append({"unit": unit, "type": "cavalry", "pos": unit.hex_position, "strength": 80})
 		elif unit.team > 0 and unit.team <= 4:
-			state.enemy_units.append({"unit": unit, "type": "cavalry", "pos": unit.hex_position})
+			state.enemy_units.append({"unit": unit, "type": "cavalry", "pos": unit.hex_position, "team": unit.team, "strength": 80})
 	
-	# Zbierz zamki
 	for coords in hex_grid.castle_map:
 		var castle = hex_grid.castle_map[coords]
 		if castle.team == team:
 			state.my_castles.append(coords)
+			
+			for enemy in state.enemy_units:
+				var dist = hex_distance(enemy.pos, coords)
+				if dist <= 3:
+					state.castle_threats.append({
+						"castle_pos": coords,
+						"enemy": enemy,
+						"distance": dist
+					})
+					memory.castle_under_attack = true
+					memory.castle_attacker_pos = enemy.pos
+		
 		elif castle.team > 0 and castle.team <= 4:
 			state.enemy_castles.append(coords)
+			
+			var walls_count = count_walls_around(coords)
+			
+			if is_castle_undefended(coords, castle.team):
+				if walls_count >= 6:
+					state.walled_enemy_castles.append(coords)
+				else:
+					state.undefended_enemy_castles.append(coords)
+		elif castle.team == -1:
+			state.bandit_camps.append(coords)
 	
-	# Analizuj zagrożenia (wrogie jednostki blisko moich hexów)
+	# Możliwości odcięcia
+	state.cutoff_opportunities = find_cutoff_opportunities_simple(state)
+	
 	for enemy in state.enemy_units:
 		var dist_to_border = get_min_distance(enemy.pos, state.my_connected_hexes)
 		if dist_to_border <= 2:
 			state.threats.append(enemy)
 	
-	# Analizuj możliwości (słabe cele)
-	for enemy in state.enemy_units:
-		var nearby_allies = count_nearby_units(enemy.pos, state.my_units, 2)
-		if nearby_allies >= 1:
-			state.opportunities.append(enemy)
-	
 	return state
 
-# === AI MEMORY (#2) ===
-func update_memory(state: Dictionary):
-	"""Aktualizuje pamięć AI o poprzednich turach"""
-	# Sprawdź czy straciłeś terytoria
-	if memory.previous_hex_count > 0:
-		var current = state.my_connected_hexes.size()
-		var previous = memory.previous_hex_count
-		if current < previous:
-			memory.lost_territories.append({
-				"turn": hex_grid.current_round,
-				"count": previous - current
-			})
-			print("AI %d: Straciłem %d pól! Zwiększam obronę." % [team, previous - current])
-			# Zwiększ priorytet obrony
-			params[difficulty].defense_priority = min(1.0, params[difficulty].defense_priority * 1.3)
+func find_cutoff_opportunities_simple(state: Dictionary) -> Array:
+	"""Prostsza wersja - sprawdza czy możemy odciąć jednostki"""
+	var opportunities = []
 	
-	memory.previous_hex_count = state.my_connected_hexes.size()
-	
-	# Analiza wroga - kto atakuje
-	for threat in state.threats:
-		var enemy_team = threat.unit.team
-		if not memory.last_attacked_by.has(enemy_team):
-			memory.last_attacked_by[enemy_team] = hex_grid.current_round
-			print("AI %d: Team %d atakuje! Pamiętam to." % [team, enemy_team])
-	
-	# Zapisz strefy niebezpieczne
-	memory.danger_zones.clear()
-	for threat in state.threats:
-		memory.danger_zones.append(threat.pos)
-	
-	# Monitoruj siłę wrogów
-	for enemy_team in [1, 2, 3, 4]:
-		if enemy_team == team:
+	for enemy in state.enemy_units:
+		if not enemy.has("team"):
 			continue
-		var strength = calculate_team_strength(enemy_team)
-		if not memory.enemy_strength_history.has(enemy_team):
-			memory.enemy_strength_history[enemy_team] = []
-		memory.enemy_strength_history[enemy_team].append(strength)
-		# Trzymaj tylko ostatnie 5 tur
-		if memory.enemy_strength_history[enemy_team].size() > 5:
-			memory.enemy_strength_history[enemy_team].pop_front()
+		
+		var enemy_pos = enemy.pos
+		var enemy_team = enemy.team
+		
+		# Znajdź hexy wokół wroga które możemy zająć
+		var neighbors = hex_grid.get_neighbors(enemy_pos)
+		var occupiable = []
+		
+		for neighbor in neighbors:
+			var hex = hex_grid.get_hex_at(neighbor)
+			if not hex or hex.occupied_object != null:
+				continue
+			
+			var owner = hex_grid.territory_map.get(neighbor, 0)
+			if owner != enemy_team:  # Możemy zająć
+				occupiable.append(neighbor)
+		
+		if occupiable.size() >= 2:
+			# Ile naszych jednostek jest blisko?
+			var our_nearby = 0
+			for our_unit in state.my_units:
+				if hex_distance(our_unit.pos, enemy_pos) <= 3:
+					our_nearby += 1
+			
+			if our_nearby >= 2:
+				opportunities.append({
+					"type": "surround",
+					"target_pos": enemy_pos,
+					"target_strength": enemy.strength,
+					"surrounding_hexes": occupiable,
+					"priority": 100 + enemy.strength / 2
+				})
+	
+	return opportunities
 
-func get_priority_enemy() -> int:
-	"""Zwraca priorytetowego wroga (ostatnio atakującego)"""
-	var most_recent = -1
-	var most_recent_turn = 0
+func is_castle_undefended(castle_pos: Vector2i, castle_team: int) -> bool:
+	var neighbors = hex_grid.get_neighbors(castle_pos)
 	
-	for enemy_team in memory.last_attacked_by:
-		var turn = memory.last_attacked_by[enemy_team]
-		if turn > most_recent_turn:
-			most_recent_turn = turn
-			most_recent = enemy_team
+	for neighbor in neighbors:
+		if hex_grid.knight_map.has(neighbor):
+			var unit = hex_grid.knight_map[neighbor]
+			if is_instance_valid(unit) and unit.team == castle_team:
+				return false
+		if hex_grid.spearman_map.has(neighbor):
+			var unit = hex_grid.spearman_map[neighbor]
+			if is_instance_valid(unit) and unit.team == castle_team:
+				return false
+		if hex_grid.cavalry_map.has(neighbor):
+			var unit = hex_grid.cavalry_map[neighbor]
+			if is_instance_valid(unit) and unit.team == castle_team:
+				return false
 	
-	return most_recent
+	return true
 
-func calculate_team_strength(t: int) -> float:
-	"""Oblicza siłę drużyny (Funkcja #5)"""
-	var strength = 0.0
+func update_memory(state: Dictionary):
+	var current_hex_count = state.my_connected_hexes.size()
 	
-	# Punkty za jednostki
-	for unit in hex_grid.knight_map.values():
-		if unit.team == t:
-			strength += 40
-	for unit in hex_grid.spearman_map.values():
-		if unit.team == t:
-			strength += 20
-	for unit in hex_grid.cavalry_map.values():
-		if unit.team == t:
-			strength += 80
-	for unit in hex_grid.farmer_map.values():
-		if unit.team == t:
-			strength += 10
+	if current_hex_count < memory.previous_hex_count:
+		print("AI %d: Straciłem terytorium!" % team)
 	
-	# Punkty za terytoria
-	var connected = hex_grid.get_connected_territories(t)
-	strength += connected.size() * 2
+	memory.previous_hex_count = current_hex_count
 	
-	# Punkty za złoto
-	strength += hex_grid.team_gold.get(t, 0) * 0.5
-	
-	return strength
+	if state.castle_threats.is_empty():
+		memory.castle_under_attack = false
+		memory.castle_attacker_pos = Vector2i.ZERO
 
-# === STRATEGIC PLANNING (#6) ===
 func set_strategic_goals(state: Dictionary):
-	"""Planuje długoterminowe cele strategiczne"""
 	strategic_goals.clear()
 	
-	# Cel 1: Przejmij wrogie zamki (najwyższy priorytet)
-	for castle_pos in state.enemy_castles:
-		if hex_grid.get_hex_at(castle_pos):
-			var turns_needed = estimate_turns_to_capture(castle_pos, state)
+	# PRIORYTET #1: Obrona zamku
+	if not state.castle_threats.is_empty():
+		for threat in state.castle_threats:
 			strategic_goals.append({
-				"type": "capture_castle",
-				"position": castle_pos,
-				"priority": 10,
-				"turns_to_complete": turns_needed,
-				"target_team": hex_grid.castle_map[castle_pos].team
+				"type": "defend_castle",
+				"castle_pos": threat.castle_pos,
+				"enemy_pos": threat.enemy.pos,
+				"priority": 300,
 			})
 	
-	# Cel 2: Rozbuduj ekonomię (zajmij więcej pól)
-	if state.my_connected_hexes.size() < 20:
-		var expansion_target = state.my_connected_hexes.size() + 8
+	# PRIORYTET #2: Zdobycie zamków
+	for castle_pos in state.undefended_enemy_castles:
 		strategic_goals.append({
-			"type": "expand_economy",
-			"target_size": expansion_target,
-			"priority": 6
+			"type": "capture_castle",
+			"position": castle_pos,
+			"priority": 250,
+			"target_team": hex_grid.castle_map[castle_pos].team
 		})
 	
-	# Cel 3: Odetnij największą grupę wroga
-	var cutoff_target = find_best_cutoff_target(state)
-	if cutoff_target.has("position"):
+	for castle_pos in state.walled_enemy_castles:
 		strategic_goals.append({
-			"type": "cutoff_enemy",
-			"position": cutoff_target.position,
-			"priority": 8,
-			"potential_cutoff": cutoff_target.cutoff_count
+			"type": "capture_walled_castle",
+			"position": castle_pos,
+			"priority": 220,
+			"target_team": hex_grid.castle_map[castle_pos].team
 		})
 	
-	# Cel 4: Eliminuj priorytetowego wroga (z pamięci)
-	var priority_enemy = get_priority_enemy()
-	if priority_enemy > 0:
+	# PRIORYTET #3: Odcinanie
+	for opp in state.cutoff_opportunities:
 		strategic_goals.append({
-			"type": "eliminate_enemy",
-			"target_team": priority_enemy,
-			"priority": 9
+			"type": "surround_enemy",
+			"data": opp,
+			"priority": opp.priority
 		})
 	
-	# DEBUG: Pokaż cele
+	# Bandit camps
+	for camp_pos in state.bandit_camps:
+		var distance = get_min_unit_distance_to(camp_pos, state.my_units)
+		if distance <= 5:
+			strategic_goals.append({
+				"type": "capture_bandit_camp",
+				"position": camp_pos,
+				"priority": 50,
+			})
+	
+	# ZAWSZE dodaj ekspansję jako fallback
+	strategic_goals.append({
+		"type": "expand_territory",
+		"priority": 10
+	})
+	
+	strategic_goals.sort_custom(func(a, b): return a.priority > b.priority)
+	
 	print("AI %d: Cele strategiczne:" % team)
 	for goal in strategic_goals:
 		print("  - %s (priorytet: %d)" % [goal.type, goal.priority])
 
-func estimate_turns_to_capture(castle_pos: Vector2i, state: Dictionary) -> int:
-	"""Szacuje ile tur zajmie przejęcie zamku"""
+func get_min_unit_distance_to(target: Vector2i, units: Array) -> int:
 	var min_dist = 999999
-	for unit_data in state.my_units:
-		var dist = hex_distance(unit_data.pos, castle_pos)
+	for unit_data in units:
+		var dist = hex_distance(unit_data.pos, target)
 		if dist < min_dist:
 			min_dist = dist
-	
-	return max(1, min_dist)
+	return min_dist
 
-func find_best_cutoff_target(state: Dictionary) -> Dictionary:
-	"""Znajduje pole, którego przejęcie odcina najwięcej jednostek wroga"""
-	var best = {"position": Vector2i.ZERO, "cutoff_count": 0}
-	
-	for border_hex in state.border_hexes:
-		var owner = hex_grid.territory_map.get(border_hex, 0)
-		if owner <= 0 or owner > 4 or owner == team:
-			continue
-		
-		var cutoff = count_units_that_would_be_cutoff(owner, border_hex)
-		if cutoff > best.cutoff_count:
-			best.position = border_hex
-			best.cutoff_count = cutoff
-	
-	return best
-
-# === MERGING UNITS ===
 func merge_units(state: Dictionary):
-	"""Łączy jednostki: 2 farmerów -> spearman, 2 knightów -> cavalry"""
-	
-	# Zbierz farmerów według pozycji
+	# Farmers
 	var farmers_by_pos = {}
 	for unit_data in state.my_units:
 		if unit_data.type == "farmer":
 			farmers_by_pos[unit_data.pos] = unit_data
 	
-	# Spróbuj połączyć farmerów w spearmana
 	var farmers_positions = farmers_by_pos.keys()
 	for i in range(farmers_positions.size()):
 		var pos1 = farmers_positions[i]
 		if not hex_grid.farmer_map.has(pos1):
 			continue
 		
-		# Znajdź najbliższego farmera
 		for j in range(i + 1, farmers_positions.size()):
 			var pos2 = farmers_positions[j]
 			if not hex_grid.farmer_map.has(pos2):
 				continue
 			
-			# Jeśli są obok siebie - połącz
 			if are_hexes_adjacent(pos1, pos2):
 				print("AI %d: Łączę farmerów %s + %s -> spearman" % [team, pos1, pos2])
 				hex_grid.merge_farmers_to_spearman(pos1, pos2)
 				await hex_grid.get_tree().create_timer(0.2).timeout
 				break
 	
-	# Zbierz knightów według pozycji
+	# Knights
 	var knights_by_pos = {}
 	for unit_data in state.my_units:
 		if unit_data.type == "knight":
 			knights_by_pos[unit_data.pos] = unit_data
 	
-	# Spróbuj połączyć knightów w cavalry
 	var knights_positions = knights_by_pos.keys()
 	for i in range(knights_positions.size()):
 		var pos1 = knights_positions[i]
 		if not hex_grid.knight_map.has(pos1):
 			continue
 		
-		# Znajdź najbliższego knighta
 		for j in range(i + 1, knights_positions.size()):
 			var pos2 = knights_positions[j]
 			if not hex_grid.knight_map.has(pos2):
 				continue
 			
-			# Jeśli są obok siebie - połącz
 			if are_hexes_adjacent(pos1, pos2):
 				print("AI %d: Łączę knightów %s + %s -> cavalry" % [team, pos1, pos2])
 				hex_grid.merge_knights_to_cavalry(pos1, pos2)
 				await hex_grid.get_tree().create_timer(0.2).timeout
 				break
 
-# === BUYING UNITS (#3) ===
+# ============================================================================
+# KUPOWANIE JEDNOSTEK - NAPRAWIONE
+# ============================================================================
 func buy_units(state: Dictionary):
-	"""Kupuje jednostki zgodnie ze strategią"""
 	var gold = state.gold
-	var income = state.income
-	var upkeep = state.upkeep
-	
 	var reserve = params[difficulty].economy_reserve
 	var available_gold = max(0, gold - reserve)
 	
+	print("AI %d: Złoto: %d, Rezerwacja: %d, Dostępne: %d" % [team, gold, reserve, available_gold])
+	
 	if available_gold < hex_grid.FARMER_COST:
+		print("AI %d: Za mało złota na jakąkolwiek jednostkę" % team)
 		return
 	
-	# Strategia kupowania
-	var units_to_buy = plan_unit_purchases(state, available_gold)
+	var map_full = is_map_full()
+	
+	var units_to_buy = []
+	if map_full:
+		units_to_buy = plan_unit_purchases_aggressive(state, available_gold)
+	else:
+		units_to_buy = plan_unit_purchases_aggressive(state, available_gold)
+	
+	print("AI %d: Zaplanowano zakup %d jednostek" % [team, units_to_buy.size()])
 	
 	for purchase in units_to_buy:
 		var unit_type = purchase.type
@@ -430,576 +426,417 @@ func buy_units(state: Dictionary):
 		var cost = purchase.cost
 		
 		if hex_grid.team_gold[team] < cost:
+			print("AI %d: Brak złota na %s (koszt: %d, mam: %d)" % [team, unit_type, cost, hex_grid.team_gold[team]])
 			continue
 		
-		# Kup jednostkę
+		# Sprawdź czy pole jest wolne
+		var hex = hex_grid.get_hex_at(position)
+		if not hex or hex.occupied_object != null:
+			print("AI %d: Pole %s zajęte, pomijam" % [team, position])
+			continue
+		
 		if unit_type == "farmer":
 			hex_grid.place_farmer_at(position, team)
 			hex_grid.team_gold[team] -= cost
 			hex_grid.capture_territory(position, team)
-			print("AI %d: Kupiono farmera na %s" % [team, position])
+			print("AI %d: ✓ Kupiono FARMER na %s za %d" % [team, position, cost])
 		elif unit_type == "knight":
 			hex_grid.place_knight_at(position, team)
 			hex_grid.team_gold[team] -= cost
 			hex_grid.capture_territory(position, team)
-			print("AI %d: Kupiono knighta na %s" % [team, position])
+			print("AI %d: ✓ Kupiono KNIGHT na %s za %d" % [team, position, cost])
 		elif unit_type == "spearman":
 			hex_grid.place_spearman_at(position, team)
 			hex_grid.team_gold[team] -= cost
 			hex_grid.capture_territory(position, team)
-			print("AI %d: Kupiono spearmana na %s" % [team, position])
+			print("AI %d: ✓ Kupiono SPEARMAN na %s za %d" % [team, position, cost])
 		elif unit_type == "cavalry":
 			hex_grid.place_cavalry_at(position, team)
 			hex_grid.team_gold[team] -= cost
 			hex_grid.capture_territory(position, team)
-			print("AI %d: Kupiono cavalry na %s" % [team, position])
+			print("AI %d: ✓ Kupiono CAVALRY na %s za %d" % [team, position, cost])
 		
 		await hex_grid.get_tree().create_timer(0.1).timeout
 
-func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
-	"""Planuje zakup jednostek"""
+func is_map_full() -> bool:
+	for coords in hex_grid.hex_map:
+		var owner = hex_grid.territory_map.get(coords, 0)
+		if owner == 0:
+			return false
+	return true
+
+func plan_unit_purchases_aggressive(state: Dictionary, budget: int) -> Array:
+	"""NAPRAWIONE: Zawsze kupuj jednostki gdy masz kasę"""
 	var purchases = []
 	
-	# Znajdź bezpieczne miejsce do kupna (zamek lub bezpieczny border)
-	var safe_positions = find_safe_purchase_positions(state)
+	var spawn_positions = find_best_spawn_positions(state)
 	
-	if safe_positions.is_empty():
+	if spawn_positions.is_empty():
+		print("AI %d: Brak miejsca na spawn" % team)
 		return purchases
 	
 	var remaining_budget = budget
 	var aggression = params[difficulty].aggression
 	
-	# Strategia: więcej knightów jeśli agresywny
-	if aggression > 0.6 and remaining_budget >= hex_grid.KNIGHT_COST:
-		for pos in safe_positions:
-			if remaining_budget >= hex_grid.KNIGHT_COST:
-				purchases.append({
-					"type": "knight",
-					"position": pos,
-					"cost": hex_grid.KNIGHT_COST
-				})
-				remaining_budget -= hex_grid.KNIGHT_COST
-				break
+	print("AI %d: Dostępny budżet: %d, Pozycje spawnu: %d" % [team, remaining_budget, spawn_positions.size()])
 	
-	# Kup farmerów dla ekspansji
-	while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < safe_positions.size():
-		var pos = safe_positions[purchases.size()]
+	# Zamek zagrożony - KUP OBRONĘ
+	if memory.castle_under_attack:
+		while remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < 3:
+			var pos = spawn_positions[purchases.size() % spawn_positions.size()]
+			purchases.append({
+				"type": "knight",
+				"position": pos,
+				"cost": hex_grid.KNIGHT_COST
+			})
+			remaining_budget -= hex_grid.KNIGHT_COST
+			print("AI %d: [OBRONA] Planuję knight za %d" % [team, hex_grid.KNIGHT_COST])
+		return purchases
+	
+	# Normalne kupowanie - ZAWSZE KUP COŚ!
+	var units_bought = 0
+	
+	# Agresywny - kupuj knightów
+	if aggression >= 0.7:
+		while remaining_budget >= hex_grid.KNIGHT_COST and units_bought < 2 and units_bought < spawn_positions.size():
+			var pos = spawn_positions[units_bought]
+			purchases.append({
+				"type": "knight",
+				"position": pos,
+				"cost": hex_grid.KNIGHT_COST
+			})
+			remaining_budget -= hex_grid.KNIGHT_COST
+			units_bought += 1
+			print("AI %d: [AGRESJA] Planuję knight za %d" % [team, hex_grid.KNIGHT_COST])
+	
+	# Kupuj farmerów dopóki mamy kasę
+	while remaining_budget >= hex_grid.FARMER_COST and units_bought < 5 and units_bought < spawn_positions.size():
+		var pos = spawn_positions[units_bought]
 		purchases.append({
 			"type": "farmer",
 			"position": pos,
 			"cost": hex_grid.FARMER_COST
 		})
 		remaining_budget -= hex_grid.FARMER_COST
+		units_bought += 1
+		print("AI %d: [EKONOMIA] Planuję farmer za %d" % [team, hex_grid.FARMER_COST])
 	
+	print("AI %d: Zaplanowano %d jednostek" % [team, purchases.size()])
 	return purchases
 
-func find_safe_purchase_positions(state: Dictionary) -> Array:
-	"""Znajduje bezpieczne miejsca do zakupu jednostek"""
+func find_best_spawn_positions(state: Dictionary) -> Array:
+	"""Znajduje NAJLEPSZE pozycje do spawnu - agresywne preferowane"""
 	var positions = []
 	
-	# Priorytet 1: Na zamku
-	for castle_pos in state.my_castles:
-		var hex = hex_grid.get_hex_at(castle_pos)
-		if hex and hex.occupied_object == null:
-			positions.append(castle_pos)
+	if state.my_castles.is_empty():
+		return positions
 	
-	# Priorytet 2: Pola connected border (bezpieczne od wrogów)
-	for border_hex in state.border_hexes:
-		var owner = hex_grid.territory_map.get(border_hex, 0)
-		if owner != 0 and owner != team:
+	var castle_pos = state.my_castles[0]
+	var neighbors = hex_grid.get_neighbors(castle_pos)
+	
+	# PRIORYTET 1: Wrogie pola (przejmuj!)
+	for neighbor in neighbors:
+		if not hex_grid.hex_map.has(neighbor):
 			continue
 		
-		var hex = hex_grid.get_hex_at(border_hex)
+		var hex = hex_grid.get_hex_at(neighbor)
 		if not hex or hex.occupied_object != null:
 			continue
 		
-		# Sprawdź czy nie ma wrogów obok
-		var safe = true
-		var neighbors = hex_grid.get_neighbors(border_hex)
+		var owner = hex_grid.territory_map.get(neighbor, 0)
+		
+		if owner > 0 and owner != team:
+			positions.append(neighbor)
+			print("AI %d: Pozycja spawnu [WROGIE POLE]: %s" % [team, neighbor])
+	
+	# PRIORYTET 2: Neutralne pola
+	if positions.size() < 3:
 		for neighbor in neighbors:
-			if hex_grid.knight_map.has(neighbor):
-				var knight = hex_grid.knight_map[neighbor]
-				if knight.team != team and knight.team > 0:
-					safe = false
-					break
-		
-		if safe:
-			positions.append(border_hex)
-	
-	return positions
-
-# === BUILDING WALLS (#4) ===
-func build_walls(state: Dictionary):
-	"""Buduje mury jeśli opłacalne"""
-	var gold = state.gold
-	var wall_threshold = params[difficulty].wall_threshold
-	
-	# Jeśli mamy dużo złota i priorytet obrony jest wysoki
-	if gold > 50 and state.threats.size() > 0:
-		var walls_to_build = plan_wall_construction(state)
-		
-		for wall_pos in walls_to_build:
-			var cost = hex_grid.WALL_COST_PER_HEX
-			if hex_grid.team_gold[team] >= cost:
-				var from = wall_pos.from
-				var to = wall_pos.to
-				create_wall(from, to)
-				hex_grid.team_gold[team] -= cost
-				print("AI %d: Zbudowano mur %s-%s" % [team, from, to])
-				await hex_grid.get_tree().create_timer(0.1).timeout
-
-func plan_wall_construction(state: Dictionary) -> Array:
-	"""Planuje budowę murów"""
-	var walls = []
-	
-	# Zbuduj mury wokół zagrożonych pól
-	for threat in state.threats:
-		var threat_pos = threat.pos
-		var neighbors = hex_grid.get_neighbors(threat_pos)
-		
-		for neighbor in neighbors:
-			if hex_grid.territory_map.get(neighbor, 0) == team:
-				# Pole mojego teamu sąsiaduje z zagrożeniem
-				if not is_blocked_by_wall(neighbor, threat_pos):
-					walls.append({"from": neighbor, "to": threat_pos})
-	
-	return walls
-
-# === MOVING UNITS (#1 + #7) ===
-func move_all_units(state: Dictionary):
-	"""Rusza wszystkimi jednostkami AI w optymalny sposób"""
-	
-	# Sortuj jednostki według priorytetu (cavalry > knight > spearman > farmer)
-	var sorted_units = state.my_units.duplicate()
-	sorted_units.sort_custom(func(a, b): return get_unit_priority(a.type) > get_unit_priority(b.type))
-	
-	for unit_data in sorted_units:
-		var unit = unit_data.unit
-		
-		# Sprawdź czy jednostka już się ruszyła
-		if unit in hex_grid.units_moved_this_turn:
-			continue
-		
-		# Znajdź najlepszy ruch dla tej jednostki
-		var best_move = find_best_move(unit, unit_data, state)
-		
-		if best_move != Vector2i.ZERO and best_move != unit_data.pos:
-			await execute_move(unit, unit_data, best_move)
-			await hex_grid.get_tree().create_timer(0.15).timeout
-
-func get_unit_priority(unit_type: String) -> int:
-	match unit_type:
-		"cavalry": return 4
-		"knight": return 3
-		"spearman": return 2
-		"farmer": return 1
-	return 0
-
-func find_best_move(unit, unit_data: Dictionary, state: Dictionary) -> Vector2i:
-	"""Znajduje najlepszy ruch dla jednostki"""
-	var moves = get_possible_moves_for_unit(unit, unit_data)
-	
-	if moves.is_empty():
-		return Vector2i.ZERO
-	
-	# Strategia zależy od typu jednostki i sytuacji
-	var best_move = Vector2i.ZERO
-	var best_score = -999999.0
-	
-	for move in moves:
-		var score = evaluate_move(unit, unit_data, move, state)
-		if score > best_score:
-			best_score = score
-			best_move = move
-	
-	return best_move
-
-func evaluate_move(unit, unit_data: Dictionary, move: Vector2i, state: Dictionary) -> float:
-	"""Ocenia wartość ruchu - uwzględnia agresywność AI"""
-	var score = 0.0
-	
-	var hex = hex_grid.get_hex_at(move)
-	if not hex:
-		return -999999.0
-	
-	var owner = hex_grid.territory_map.get(move, 0)
-	var aggression = params[difficulty].aggression
-	
-	# === OCENA DEFENSYWNA (ważna dla niskiej agresywności) ===
-	if aggression < 0.5:
-		# Sprawdź czy to ruch obronny (blisko zagrożenia)
-		var is_defensive = false
-		for threat in state.threats:
-			if hex_distance(move, threat.pos) <= 2:
-				is_defensive = true
-				score += 600  # BONUS za obronną pozycję
-				break
-		
-		# Sprawdź czy to wypełnia lukę w granicy
-		if owner == team:
-			var neighbors = hex_grid.get_neighbors(move)
-			var border_neighbors = 0
-			for neighbor in neighbors:
-				var n_owner = hex_grid.territory_map.get(neighbor, 0)
-				if n_owner != team and n_owner >= 0:
-					border_neighbors += 1
-			
-			if border_neighbors >= 2:
-				score += 400  # BONUS za zapełnianie luk w granicy
-	
-	# === KARA ZA STACKOWANIE (mniejsza dla defensywnych AI) ===
-	if owner == team:
-		var is_threatened = false
-		for threat in state.threats:
-			if hex_distance(move, threat.pos) <= 2:
-				is_threatened = true
-				break
-		
-		if not is_threatened:
-			# Kara zależy od agresywności
-			var stack_penalty = -200 - (aggression * 400)  # -200 do -600
-			score += stack_penalty
-	
-	# === ATAK NA WROGIE JEDNOSTKI ===
-	if hex.occupied_object != null:
-		var target = hex.occupied_object
-		var target_team = get_object_team(target)
-		
-		if target_team > 0 and target_team != team and target_team <= 4:
-			var combat_advantage = calculate_combat_advantage(unit, unit_data, target, move, state)
-			if combat_advantage > 0:
-				# Bonus zależy od agresywności
-				var attack_bonus = 1000 + (aggression * 1500) + combat_advantage * 10
-				score += attack_bonus
-			else:
-				score -= 500
-		elif target_team == -1:  # Bandyci
-			score += 300  # Zawsze warto atakować bandytów
-	
-	# === PRZEJMOWANIE TERYTORIÓW ===
-	if owner > 0 and owner != team and owner <= 4:
-		# Bonus zależy od agresywności
-		var conquest_bonus = 400 + (aggression * 600)  # 400-1000
-		score += conquest_bonus
-		
-		# BONUS: Cutoff
-		var cutoff_count = count_units_that_would_be_cutoff(owner, move)
-		if cutoff_count > 0:
-			score += cutoff_count * 200
-	elif owner == 0:
-		# Neutralne pole - bonus zależy od strategii
-		var neutral_bonus = 300 + (aggression * 400)  # 300-700
-		score += neutral_bonus
-	
-	# === POSZERZANIE GRANICY (ważne dla defensywnych AI) ===
-	if aggression < 0.5:
-		if owner == 0 or (owner > 0 and owner != team):
-			var neighbors = hex_grid.get_neighbors(move)
-			var friendly_neighbors = 0
-			for neighbor in neighbors:
-				if hex_grid.territory_map.get(neighbor, 0) == team:
-					friendly_neighbors += 1
-			
-			# BONUS za równomierne poszerzanie
-			if friendly_neighbors >= 2:
-				score += 350
-	
-	# === POZYCJA PRZY GRANICY ===
-	if owner == 0 or (owner > 0 and owner != team):
-		var neighbors = hex_grid.get_neighbors(move)
-		var adjacent_to_enemy = false
-		for neighbor in neighbors:
-			var neighbor_owner = hex_grid.territory_map.get(neighbor, 0)
-			if neighbor_owner > 0 and neighbor_owner != team and neighbor_owner <= 4:
-				adjacent_to_enemy = true
-				break
-		
-		if adjacent_to_enemy:
-			# BONUS zależy od agresywności
-			var border_bonus = 150 + (aggression * 250)  # 150-400
-			score += border_bonus
-	
-	# === CELE STRATEGICZNE ===
-	for goal in strategic_goals:
-		if goal.type == "capture_castle" and goal.has("position"):
-			var dist_from_current = hex_distance(unit_data.pos, goal.position)
-			var dist_from_move = hex_distance(move, goal.position)
-			if dist_from_move < dist_from_current:
-				# Bonus zależy od agresywności
-				var progress_bonus = 30 + (aggression * 40)  # 30-70
-				score += (dist_from_current - dist_from_move) * progress_bonus
-	
-	# === UNIKANIE STREF NIEBEZPIECZNYCH ===
-	if unit_data.type in ["farmer", "spearman"]:
-		for danger_zone in memory.danger_zones:
-			var dist = hex_distance(move, danger_zone)
-			if dist <= 1:
-				# Kara większa dla defensywnych AI
-				var danger_penalty = -300 - ((1.0 - aggression) * 200)  # -300 do -500
-				score += danger_penalty
-	
-	return score
-
-func calculate_combat_advantage(unit, unit_data: Dictionary, target, target_pos: Vector2i, state: Dictionary) -> float:
-	"""Oblicza przewagę w walce"""
-	# Policz wsparcie
-	var my_support = count_nearby_units(target_pos, state.my_units, 1)
-	var enemy_support = count_nearby_units(target_pos, state.enemy_units, 1)
-	
-	# Siły jednostek
-	var my_power = get_unit_power(unit_data.type)
-	var enemy_power = get_unit_power(get_unit_type(target))
-	
-	var my_total = my_power + my_support * 10
-	var enemy_total = enemy_power + enemy_support * 10
-	
-	# Zwróć różnicę - dodatnia = przewaga
-	return my_total - enemy_total
-
-func get_unit_power(unit_type: String) -> int:
-	match unit_type:
-		"cavalry": return 80
-		"knight": return 40
-		"spearman": return 20
-		"farmer": return 10
-	return 0
-
-func get_unit_type(unit) -> String:
-	if unit is Cavalry:
-		return "cavalry"
-	elif unit is Knight:
-		return "knight"
-	elif unit is Spearman:
-		return "spearman"
-	elif unit is Farmer:
-		return "farmer"
-	return "unknown"
-
-func get_possible_moves_for_unit(unit, unit_data: Dictionary) -> Array:
-	var moves = []
-	
-	# NOWA LOGIKA: Tak samo jak highlight_*_moves - PEŁNA WOLNOŚĆ po swoim królestwie!
-	
-	if unit_data.type == "cavalry":
-		# Cavalry: cały border + może atakować jednostki
-		var border_hexes = hex_grid.get_territory_border(team)
-		for coords in border_hexes:
-			var hex = hex_grid.get_hex_at(coords)
-			if not hex:
+			if neighbor in positions:
 				continue
-			
-			# Może atakować wrogie jednostki
-			if hex.occupied_object != null:
-				var target = hex.occupied_object
-				var target_team = get_object_team(target)
-				if target_team != team and target_team > 0 and target_team <= 4:
-					moves.append(coords)
-					continue
-			
-			# Może wejść na puste border
-			if hex.occupied_object == null:
-				moves.append(coords)
-	
-	elif unit_data.type == "knight":
-		# Knight: WSZYSTKIE własne pola + border z wrogimi jednostkami
-		
-		# 1. Wszystkie własne terytoria (puste)
-		for coords in hex_grid.territory_map:
-			if hex_grid.territory_map[coords] == team and coords != unit_data.pos:
-				var hex = hex_grid.get_hex_at(coords)
-				if hex and hex.occupied_object == null:
-					moves.append(coords)
-		
-		# 2. Border z wrogimi jednostkami i pustymi polami
-		var border_hexes = hex_grid.get_territory_border(team)
-		for coords in border_hexes:
-			var hex = hex_grid.get_hex_at(coords)
-			if not hex:
-				continue
-			
-			# Może atakować wrogie jednostki
-			if hex.occupied_object != null:
-				var target = hex.occupied_object
-				var target_team = get_object_team(target)
-				if target_team != team and target_team > 0 and target_team <= 4:
-					# Sprawdź czy nie jest cavalry (knight nie może atakować cavalry)
-					if not (target is Cavalry):
-						moves.append(coords)
-			else:
-				# Może wejść na puste border
-				moves.append(coords)
-	
-	elif unit_data.type == "farmer" or unit_data.type == "spearman":
-		# Farmer/Spearman: WSZYSTKIE własne pola + border (tylko puste lub do przejęcia)
-		
-		# 1. Wszystkie własne terytoria (puste)
-		var my_territories = []
-		if team == -1:
-			# Bandyci - terytoria -1 i -2
-			for coords in hex_grid.territory_map:
-				var owner = hex_grid.territory_map[coords]
-				if (owner == -1 or owner == -2) and coords != unit_data.pos:
-					my_territories.append(coords)
-		else:
-			# Normalne teamy
-			for coords in hex_grid.territory_map:
-				if hex_grid.territory_map[coords] == team and coords != unit_data.pos:
-					my_territories.append(coords)
-		
-		for coords in my_territories:
-			var hex = hex_grid.get_hex_at(coords)
-			if hex and hex.occupied_object == null:
-				moves.append(coords)
-		
-		# 2. Border - tylko puste pola do przejęcia
-		var border_hexes
-		if team == -1:
-			border_hexes = get_bandit_border()
-		else:
-			border_hexes = hex_grid.get_territory_border(team)
-		
-		for coords in border_hexes:
-			var hex = hex_grid.get_hex_at(coords)
-			if not hex or hex.occupied_object != null:
-				continue
-			
-			# KLUCZOWE: Bandyci NIE MOGĄ przejść przez wrogie mury!
-			var can_reach = false
-			var neighbors = hex_grid.get_neighbors(coords)
-			for neighbor in neighbors:
-				var neighbor_owner = hex_grid.territory_map.get(neighbor, 0)
-				
-				# Sprawdź czy to nasze pole
-				var is_our_territory = false
-				if team == -1:
-					is_our_territory = (neighbor_owner == -1 or neighbor_owner == -2)
-				else:
-					is_our_territory = (neighbor_owner == team)
-				
-				if is_our_territory:
-					# Sprawdź czy NIE MA WROGIEGO muru
-					var blocked = false
-					var enemy_neighbors = hex_grid.get_neighbors(coords)
-					var edge_index = enemy_neighbors.find(neighbor)
-					if edge_index != -1:
-						var enemy_wall_key = "%d,%d-edge%d" % [coords.x, coords.y, edge_index]
-						if hex_grid.wall_map.has(enemy_wall_key):
-							var wall_data = hex_grid.wall_map[enemy_wall_key]
-							# Sprawdź czy wrogi mur (nie nasz)
-							var wall_team = wall_data.get("team", 0)
-							if team == -1:
-								# Bandyci - każdy mur blokuje (nie mają swoich)
-								blocked = true
-							elif wall_team != team:
-								blocked = true
-					
-					if not blocked:
-						can_reach = true
-						break
-			
-			if can_reach:
-				moves.append(coords)
-	
-	return moves
-
-func get_bandit_border() -> Array:
-	"""Zwraca granicę terytoriów bandytów"""
-	var border = []
-	var checked = {}
-	
-	for coords in hex_grid.territory_map:
-		var owner = hex_grid.territory_map[coords]
-		if owner != -1 and owner != -2:
-			continue
-		
-		var neighbors = hex_grid.get_neighbors(coords)
-		for neighbor in neighbors:
-			if checked.has(neighbor):
-				continue
-			
-			checked[neighbor] = true
 			
 			if not hex_grid.hex_map.has(neighbor):
 				continue
 			
-			var neighbor_owner = hex_grid.territory_map.get(neighbor, 0)
-			if neighbor_owner == -1 or neighbor_owner == -2:
+			var hex = hex_grid.get_hex_at(neighbor)
+			if not hex or hex.occupied_object != null:
 				continue
 			
-			border.append(neighbor)
+			var owner = hex_grid.territory_map.get(neighbor, 0)
+			
+			if owner == 0:
+				positions.append(neighbor)
+				print("AI %d: Pozycja spawnu [NEUTRALNE]: %s" % [team, neighbor])
 	
-	return border
-
-func is_blocked_by_wall(from: Vector2i, to: Vector2i) -> bool:
-	"""Sprawdza czy między hexami jest mur"""
-	var wall_key1 = "%s-%s" % [from, to]
-	var wall_key2 = "%s-%s" % [to, from]
-	return hex_grid.wall_map.has(wall_key1) or hex_grid.wall_map.has(wall_key2)
-
-func find_cutoff_target(from: Vector2i, moves: Array, state: Dictionary) -> Vector2i:
-	var best_move = Vector2i.ZERO
-	var max_cutoff = 0
+	# PRIORYTET 3: Własne pola (ostateczność)
+	if positions.size() < 3:
+		for neighbor in neighbors:
+			if neighbor in positions:
+				continue
+			
+			if not hex_grid.hex_map.has(neighbor):
+				continue
+			
+			var hex = hex_grid.get_hex_at(neighbor)
+			if not hex or hex.occupied_object != null:
+				continue
+			
+			var owner = hex_grid.territory_map.get(neighbor, 0)
+			
+			if owner == team:
+				positions.append(neighbor)
+				print("AI %d: Pozycja spawnu [WŁASNE]: %s" % [team, neighbor])
 	
-	for move in moves:
-		var owner = hex_grid.territory_map.get(move, 0)
+	return positions
+
+# ============================================================================
+# BUDOWANIE MURÓW - NAPRAWIONE (wszystkie 6 ścian!)
+# ============================================================================
+func build_walls(state: Dictionary):
+	"""NAPRAWIONE: Używa create_hex_walls() jak gracz"""
+	var hexes_to_wall = plan_hexes_for_walling(state)
+	
+	if hexes_to_wall.is_empty():
+		return
+	
+	var walls_built = 0
+	var max_hexes = 3  # Maksymalnie 3 hexy z murami na turę
+	
+	for hex_pos in hexes_to_wall:
+		if walls_built >= max_hexes:
+			break
 		
-		if owner > 0 and owner != team and owner <= 4:
-			var cutoff_count = count_units_that_would_be_cutoff(owner, move)
-			if cutoff_count > max_cutoff:
-				max_cutoff = cutoff_count
-				best_move = move
-	
-	return best_move
+		# Koszt za cały hex (6 ścian)
+		var cost = hex_grid.WALL_COST_PER_HEX
+		if hex_grid.team_gold[team] < cost:
+			break
+		
+		# UŻYJ FUNKCJI HEX_GRID!
+		var walls_created = hex_grid.create_hex_walls(hex_pos, team)
+		
+		if walls_created > 0:
+			hex_grid.team_gold[team] -= cost
+			walls_built += 1
+			print("AI %d: Zbudowano %d murów wokół %s za %d złota" % [team, walls_created, hex_pos, cost])
+		
+		await hex_grid.get_tree().create_timer(0.1).timeout
 
-func count_units_that_would_be_cutoff(enemy_team: int, captured_pos: Vector2i) -> int:
-	var original_owner = hex_grid.territory_map.get(captured_pos, 0)
-	hex_grid.territory_map[captured_pos] = team
+func plan_hexes_for_walling(state: Dictionary) -> Array:
+	"""Zwraca listę hexów które powinny dostać mury (wszystkie 6 ścian)"""
+	var hexes = []
 	
-	var enemy_connected = hex_grid.get_connected_territories(enemy_team)
+	# PRIORYTET 1: Zamek
+	if memory.castle_under_attack:
+		for castle_pos in state.my_castles:
+			if count_walls_around(castle_pos) < 6:
+				hexes.append(castle_pos)
 	
-	hex_grid.territory_map[captured_pos] = original_owner
+	# PRIORYTET 2: Silne jednostki
+	for unit_data in state.my_units:
+		if unit_data.type in ["cavalry", "knight"]:
+			if count_walls_around(unit_data.pos) < 6:
+				hexes.append(unit_data.pos)
 	
-	var cutoff = 0
-	# Sprawdź wszystkie jednostki wroga
-	for unit in hex_grid.knight_map.values():
-		if unit.team == enemy_team and unit.hex_position not in enemy_connected:
-			cutoff += 1
-	
-	for unit in hex_grid.farmer_map.values():
-		if unit.team == enemy_team and unit.hex_position not in enemy_connected:
-			cutoff += 1
-	
-	for unit in hex_grid.spearman_map.values():
-		if unit.team == enemy_team and unit.hex_position not in enemy_connected:
-			cutoff += 1
-	
-	for unit in hex_grid.cavalry_map.values():
-		if unit.team == enemy_team and unit.hex_position not in enemy_connected:
-			cutoff += 1
-	
-	return cutoff
+	return hexes
 
-func find_expansion_target(from: Vector2i, moves: Array, state: Dictionary) -> Vector2i:
-	var best_move = Vector2i.ZERO
-	var best_score = -1
+# ============================================================================
+# RUCH JEDNOSTEK - Z LEAPFROGGIEM
+# ============================================================================
+func move_all_units(state: Dictionary):
+	"""Rusza WSZYSTKIE jednostki - z logiką leapfrogu"""
+	print("AI %d: === Rozpoczynam ruch %d jednostek ===" % [team, state.my_units.size()])
 	
-	for move in moves:
-		var hex = hex_grid.get_hex_at(move)
-		if not hex or hex.occupied_object != null:
+	var sorted_goals = strategic_goals.duplicate()
+	sorted_goals.sort_custom(func(a, b): return a.priority > b.priority)
+	
+	# Obrona zamku
+	if memory.castle_under_attack:
+		await defend_castle_all_units(state)
+		return
+	
+	# Zdobycie zamków
+	await capture_enemy_castles(state, sorted_goals)
+	
+	# Odcinanie wrogów
+	await surround_enemies(state, sorted_goals)
+	
+	# RESZTA - AGRESYWNA EKSPANSJA Z LEAPFROGGIEM
+	await expand_aggressively_with_leapfrog(state, sorted_goals)
+	
+	print("AI %d: === Zakończono ruch jednostek ===" % team)
+
+func capture_enemy_castles(state: Dictionary, goals: Array):
+	"""Wysyła jednostki bojowe do zajęcia zamków"""
+	
+	for goal in goals:
+		if goal.type not in ["capture_castle", "capture_walled_castle"]:
 			continue
 		
-		var owner = hex_grid.territory_map.get(move, 0)
+		var castle_pos = goal.position
 		
+		# Znajdź najbliższą jednostkę bojową
+		var best_unit = null
+		var min_dist = 999999
+		
+		for unit_data in state.my_units:
+			if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
+				continue
+			
+			var unit_type = unit_data.type
+			var can_capture = false
+			
+			if goal.type == "capture_walled_castle":
+				can_capture = unit_type in ["knight", "cavalry"]
+			else:
+				can_capture = unit_type in ["spearman", "knight", "cavalry"]
+			
+			if can_capture:
+				var dist = hex_distance(unit_data.pos, castle_pos)
+				if dist < min_dist:
+					min_dist = dist
+					best_unit = unit_data
+		
+		if best_unit:
+			var moves = get_possible_moves(best_unit.type, best_unit.pos)
+			
+			if castle_pos in moves:
+				print("AI %d: %s ZAJMUJE ZAMEK %s!" % [team, best_unit.type, castle_pos])
+				await execute_move(best_unit.unit, best_unit, castle_pos)
+			else:
+				var best_move = find_closest_move(best_unit.pos, moves, castle_pos)
+				if best_move != Vector2i.ZERO:
+					print("AI %d: %s -> %s (cel: zamek %s)" % [team, best_unit.type, best_move, castle_pos])
+					await execute_move(best_unit.unit, best_unit, best_move)
+
+func surround_enemies(state: Dictionary, goals: Array):
+	"""Otacza wrogów wieloma jednostkami naraz"""
+	
+	for goal in goals:
+		if goal.type != "surround_enemy":
+			continue
+		
+		var data = goal.data
+		var target_pos = data.target_pos
+		var surrounding_hexes = data.surrounding_hexes
+		
+		print("AI %d: OTACZAM WROGA na %s" % [team, target_pos])
+		
+		# Znajdź jednostki do otoczenia
+		var available_units = []
+		for unit_data in state.my_units:
+			if is_instance_valid(unit_data.unit) and unit_data.unit not in hex_grid.units_moved_this_turn:
+				var dist = hex_distance(unit_data.pos, target_pos)
+				if dist <= 3:
+					available_units.append(unit_data)
+		
+		# Sortuj po odległości
+		available_units.sort_custom(func(a, b):
+			return hex_distance(a.pos, target_pos) < hex_distance(b.pos, target_pos)
+		)
+		
+		# Przypisz jednostki do hexów otaczających
+		var assignments = min(available_units.size(), surrounding_hexes.size())
+		
+		for i in range(assignments):
+			var unit_data = available_units[i]
+			var target_hex = surrounding_hexes[i]
+			
+			var moves = get_possible_moves(unit_data.type, unit_data.pos)
+			var best_move = find_closest_move(unit_data.pos, moves, target_hex)
+			
+			if best_move != Vector2i.ZERO:
+				print("AI %d: %s otacza -> %s" % [team, unit_data.type, best_move])
+				await execute_move(unit_data.unit, unit_data, best_move)
+
+func expand_aggressively_with_leapfrog(state: Dictionary, goals: Array):
+	"""KLUCZOWE: Jednostki mijają się i wychodzą na prowadzenie (LEAPFROG)"""
+	
+	print("AI %d: EKSPANSJA Z LEAPFROGGIEM" % team)
+	
+	# Posortuj jednostki od najdalszych od zamku (te z tyłu idą do przodu!)
+	var units_to_move = []
+	for unit_data in state.my_units:
+		if is_instance_valid(unit_data.unit) and unit_data.unit not in hex_grid.units_moved_this_turn:
+			units_to_move.append(unit_data)
+	
+	if units_to_move.is_empty():
+		return
+	
+	var castle_pos = state.my_castles[0] if not state.my_castles.is_empty() else Vector2i.ZERO
+	
+	# SORTUJ: najbliższe wrogów/granicy - IDń PIERWSZE (agresywne leapfrogging)
+	units_to_move.sort_custom(func(a, b):
+		var a_to_enemy = 999999
+		var b_to_enemy = 999999
+		
+		for enemy in state.enemy_units:
+			a_to_enemy = min(a_to_enemy, hex_distance(a.pos, enemy.pos))
+			b_to_enemy = min(b_to_enemy, hex_distance(b.pos, enemy.pos))
+		
+		# Bliższe wrogowi idą PIERWSZE
+		return a_to_enemy < b_to_enemy
+	)
+	
+	print("AI %d: Ruszam %d jednostek w kolejności agresywnej" % [team, units_to_move.size()])
+	
+	for unit_data in units_to_move:
+		if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
+			continue
+		
+		var moves = get_possible_moves(unit_data.type, unit_data.pos)
+		
+		if moves.is_empty():
+			continue
+		
+		# Znajdź NAJLEPSZY ruch - PREFERUJ LEAPFROG
+		var best_move = find_best_leapfrog_move(unit_data, moves, state)
+		
+		if best_move != Vector2i.ZERO:
+			print("AI %d: %s leapfrog %s -> %s" % [team, unit_data.type, unit_data.pos, best_move])
+			await execute_move(unit_data.unit, unit_data, best_move)
+
+func find_best_leapfrog_move(unit_data: Dictionary, moves: Array, state: Dictionary) -> Vector2i:
+	"""KLUCZOWE: Preferuj ruchy które wyprzedzają sojuszników"""
+	
+	var best_move = Vector2i.ZERO
+	var best_score = -999999
+	
+	# Znajdź najbliższych sojuszników
+	var nearest_allies = []
+	for ally in state.my_units:
+		if ally.pos == unit_data.pos:
+			continue
+		var dist = hex_distance(unit_data.pos, ally.pos)
+		if dist <= 2:
+			nearest_allies.append(ally)
+	
+	for move in moves:
 		var score = 0
-		if owner == 0:
-			score = 1
-		elif owner > 0 and owner != team:
-			score = 3
-		else:
-			continue
+		var owner = hex_grid.territory_map.get(move, 0)
 		
-		var dist_to_border = get_min_distance(move, state.border_hexes)
-		score += max(0, 5 - dist_to_border)
+		# BONUS: Wrogie pola
+		if owner > 0 and owner != team:
+			score += 30
+		elif owner == 0:
+			score += 20
+		
+		# BONUS: LEAPFROG - im dalej od sojuszników tym lepiej!
+		var min_ally_dist = 999999
+		for ally in nearest_allies:
+			var dist_from_ally = hex_distance(move, ally.pos)
+			min_ally_dist = min(min_ally_dist, dist_from_ally)
+		
+		if min_ally_dist >= 2:
+			score += 50  # DUŻY BONUS za oddalenie się od sojuszników!
+		
+		# BONUS: Blisko wrogów
+		if not state.enemy_units.is_empty():
+			var min_enemy_dist = 999999
+			for enemy in state.enemy_units:
+				var dist = hex_distance(move, enemy.pos)
+				min_enemy_dist = min(min_enemy_dist, dist)
+			
+			score += max(0, 20 - min_enemy_dist * 3)
 		
 		if score > best_score:
 			best_score = score
@@ -1007,39 +844,33 @@ func find_expansion_target(from: Vector2i, moves: Array, state: Dictionary) -> V
 	
 	return best_move
 
-func find_defense_target(from: Vector2i, moves: Array, state: Dictionary) -> Vector2i:
-	if state.threats.is_empty():
-		return Vector2i.ZERO
+func defend_castle_all_units(state: Dictionary):
+	"""Wszystkie jednostki bronią zamku"""
 	
-	var threat_positions = state.threats.map(func(t): return t.pos)
-	var best_move = Vector2i.ZERO
-	var min_dist = 999999
+	if state.my_castles.is_empty():
+		return
 	
-	for move in moves:
-		var dist = get_min_distance(move, threat_positions)
-		if dist < min_dist:
-			min_dist = dist
-			best_move = move
+	var castle_pos = state.my_castles[0]
 	
-	return best_move
+	for threat in state.castle_threats:
+		var threat_pos = threat.enemy.pos
+		
+		for unit_data in state.my_units:
+			if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
+				continue
+			
+			var moves = get_possible_moves(unit_data.type, unit_data.pos)
+			var best_move = find_closest_move(unit_data.pos, moves, threat_pos)
+			
+			if best_move != Vector2i.ZERO:
+				await execute_move(unit_data.unit, unit_data, best_move)
 
-func find_border_target(from: Vector2i, moves: Array, state: Dictionary) -> Vector2i:
-	if state.border_hexes.is_empty():
-		return Vector2i.ZERO
-	
+func find_closest_move(from: Vector2i, moves: Array, target: Vector2i) -> Vector2i:
 	var best_move = Vector2i.ZERO
 	var min_dist = 999999
 	
 	for move in moves:
-		var hex = hex_grid.get_hex_at(move)
-		if not hex or hex.occupied_object != null:
-			continue
-		
-		var owner = hex_grid.territory_map.get(move, 0)
-		if owner != team:
-			continue
-		
-		var dist = get_min_distance(move, state.border_hexes)
+		var dist = hex_distance(move, target)
 		if dist < min_dist:
 			min_dist = dist
 			best_move = move
@@ -1047,9 +878,9 @@ func find_border_target(from: Vector2i, moves: Array, state: Dictionary) -> Vect
 	return best_move
 
 func execute_move(unit, unit_data: Dictionary, target: Vector2i):
-	print("AI %d: %s z %s na %s" % [team, unit_data.type, unit_data.pos, target])
+	if not is_instance_valid(unit):
+		return
 	
-	# NAPRAW: Bezpośrednio wywołaj funkcje move_* zamiast symulować kliknięcia
 	var from = unit_data.pos
 	
 	if unit_data.type == "knight":
@@ -1061,9 +892,145 @@ func execute_move(unit, unit_data: Dictionary, target: Vector2i):
 	elif unit_data.type == "cavalry":
 		hex_grid.move_cavalry(from, target)
 	
-	await hex_grid.get_tree().create_timer(0.2).timeout
+	await hex_grid.get_tree().create_timer(0.15).timeout
 
-# === FUNKCJE POMOCNICZE ===
+# ============================================================================
+# FUNKCJE POMOCNICZE
+# ============================================================================
+func get_possible_moves(unit_type: String, from: Vector2i) -> Array:
+	match unit_type:
+		"farmer":
+			return get_farmer_moves(from)
+		"spearman":
+			return get_spearman_moves(from)
+		"knight":
+			return get_knight_moves(from)
+		"cavalry":
+			return get_cavalry_moves(from)
+		_:
+			return []
+
+func get_farmer_moves(from: Vector2i) -> Array:
+	var moves = []
+	var neighbors = hex_grid.get_neighbors(from)
+	
+	for neighbor in neighbors:
+		if not hex_grid.hex_map.has(neighbor):
+			continue
+		
+		var hex = hex_grid.get_hex_at(neighbor)
+		if not hex:
+			continue
+		
+		var owner = hex_grid.territory_map.get(neighbor, 0)
+		
+		if owner == 0 and hex.occupied_object == null:
+			if not is_blocked_by_wall(from, neighbor):
+				moves.append(neighbor)
+	
+	return moves
+
+func get_spearman_moves(from: Vector2i) -> Array:
+	var moves = []
+	var neighbors = hex_grid.get_neighbors(from)
+	
+	for neighbor in neighbors:
+		if not hex_grid.hex_map.has(neighbor):
+			continue
+		
+		var hex = hex_grid.get_hex_at(neighbor)
+		if not hex:
+			continue
+		
+		var owner = hex_grid.territory_map.get(neighbor, 0)
+		var target = hex.occupied_object
+		
+		if owner == 0 or owner != team:
+			if target == null:
+				moves.append(neighbor)
+			elif target is Farmer:
+				var target_team = get_object_team(target)
+				if target_team != team:
+					moves.append(neighbor)
+	
+	return moves
+
+func get_knight_moves(from: Vector2i) -> Array:
+	var moves = []
+	var neighbors = hex_grid.get_neighbors(from)
+	
+	for neighbor in neighbors:
+		if not hex_grid.hex_map.has(neighbor):
+			continue
+		
+		var hex = hex_grid.get_hex_at(neighbor)
+		if not hex:
+			continue
+		
+		var owner = hex_grid.territory_map.get(neighbor, 0)
+		var target = hex.occupied_object
+		
+		if owner == 0 or owner != team:
+			if target == null:
+				if not is_blocked_by_wall(from, neighbor):
+					moves.append(neighbor)
+			elif target is Farmer or target is Spearman:
+				var target_team = get_object_team(target)
+				if target_team != team:
+					moves.append(neighbor)
+	
+	return moves
+
+func get_cavalry_moves(from: Vector2i) -> Array:
+	var moves = []
+	var range2_hexes = get_hexes_in_range_manual(from, 2)
+	
+	for target_pos in range2_hexes:
+		if not hex_grid.hex_map.has(target_pos):
+			continue
+		
+		var hex = hex_grid.get_hex_at(target_pos)
+		if not hex:
+			continue
+		
+		var owner = hex_grid.territory_map.get(target_pos, 0)
+		var target = hex.occupied_object
+		
+		if owner == 0 or owner != team:
+			if target == null:
+				moves.append(target_pos)
+			elif not (target is Cavalry):
+				var target_team = get_object_team(target)
+				if target_team != team:
+					moves.append(target_pos)
+	
+	return moves
+
+func get_hexes_in_range_manual(center: Vector2i, range_dist: int) -> Array:
+	var hexes = []
+	
+	for q in range(center.x - range_dist, center.x + range_dist + 1):
+		for r in range(center.y - range_dist, center.y + range_dist + 1):
+			var hex_pos = Vector2i(q, r)
+			
+			if hex_distance(center, hex_pos) <= range_dist:
+				hexes.append(hex_pos)
+	
+	return hexes
+
+func is_blocked_by_wall(from: Vector2i, to: Vector2i) -> bool:
+	return hex_grid.has_wall_between(from, to)
+
+func count_walls_around(pos: Vector2i) -> int:
+	var count = 0
+	var neighbors = hex_grid.get_neighbors(pos)
+	
+	for neighbor in neighbors:
+		if hex_grid.has_wall_between(pos, neighbor):
+			count += 1
+	
+	return count
+
 func get_min_distance(pos: Vector2i, targets: Array) -> int:
 	if targets.is_empty():
 		return 999999
@@ -1087,26 +1054,6 @@ func axial_to_cube(hex: Vector2i) -> Vector3i:
 	var y = -x - z
 	return Vector3i(x, y, z)
 
-func count_nearby_units(pos: Vector2i, units: Array, max_dist: int) -> int:
-	var count = 0
-	for unit_data in units:
-		if hex_distance(pos, unit_data.pos) <= max_dist:
-			count += 1
-	return count
-
 func are_hexes_adjacent(a: Vector2i, b: Vector2i) -> bool:
 	var neighbors = hex_grid.get_neighbors(a)
 	return b in neighbors
-
-func create_wall(from: Vector2i, to: Vector2i):
-	if not are_hexes_adjacent(from, to):
-		return
-	
-	var wall_id = "%s-%s" % [from, to]
-	var wall_id_rev = "%s-%s" % [to, from]
-	
-	if hex_grid.wall_map.has(wall_id) or hex_grid.wall_map.has(wall_id_rev):
-		return
-	
-	hex_grid.wall_map[wall_id] = true
-	hex_grid.wall_map[wall_id_rev] = true

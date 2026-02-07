@@ -1,0 +1,90 @@
+# Konfiguracja dla treningu AI - WERSJA EDYTOR
+# UWAGA: Ustaw najpierw GODOT_BIN_PATH!
+#
+# Linux/macOS:
+#   export GODOT_BIN_PATH="/ścieżka/do/Godot_v4.x.x_linux.x86_64"
+#
+# Windows PowerShell:
+#   $env:GODOT_BIN_PATH = "C:\Godot\Godot_v4.3_win64.exe"
+#
+# Windows CMD:
+#   set GODOT_BIN_PATH=C:\Godot\Godot_v4.3_win64.exe
+#
+# Użycie: gdrl --config_path=rl_config_editor.yaml --env=godot
+
+settings:
+  run_name: "strategy_game_dev"
+  seed: 42
+  torch_deterministic: true
+  
+env_settings:
+  # TRENING W EDYTORZE - bez eksportu!
+  # "." = bieżący folder (projekt Godot)
+  env_path: "C:/Users/Rusinek/Documents/hexwars"
+  
+  # WAŻNE: Tylko 1 instancja edytora!
+  num_envs: 1
+  
+  action_repeat: 8
+  show_window: true  # Zobacz co robi AI w czasie rzeczywistym
+  
+godot_settings:
+  # Normalna prędkość żeby widzieć co się dzieje
+  speedup: 1
+  
+algo_settings:
+  # === PODSTAWOWE ===
+  algo: "PPO"
+  
+  # Krótki test - 50k kroków (~10 minut)
+  # Zwiększ do 500k+ gdy nagrody są dobre
+  n_timesteps: 50000
+  
+  # === LEARNING ===
+  learning_rate: 0.0003
+  batch_size: 256  # Mniejszy batch dla szybszego uczenia
+  n_steps: 64
+  n_epochs: 10
+  
+  # === ADVANCED ===
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  
+  # === SIEĆ NEURONOWA ===
+  net_arch: [256, 256]
+  activation_fn: "relu"
+  
+checkpoint:
+  save_freq: 10000  # Co 10k kroków (częściej niż w production)
+  save_path: "runs/checkpoints"
+  
+tensorboard:
+  enabled: true
+  log_dir: "runs/tensorboard"
+
+# ============================================================================
+# WORKFLOW:
+# ============================================================================
+#
+# 1. DEVELOPMENT (szybkie testy):
+#    gdrl --config_path=rl_config_editor.yaml --env=godot
+#    - Zmień nagrody w strategy_game_rl_env.gd
+#    - Ctrl+C aby przerwać
+#    - Uruchom ponownie - zmiany działają od razu!
+#
+# 2. SPRAWDZENIE (średni test):
+#    - Zmień n_timesteps: 100000
+#    - Trenuj ~30 minut
+#    - Zobacz czy AI robi postępy
+#
+# 3. PRODUCTION (długi trening):
+#    - Użyj rl_config.yaml (wersja z eksportem)
+#    - num_envs: 4
+#    - n_timesteps: 2000000+
+#    - Zostaw na noc
+#
+# ============================================================================
