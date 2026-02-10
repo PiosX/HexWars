@@ -1,13 +1,10 @@
-[gd_scene load_steps=12 format=4 uid="uid://4ky2admtw8a0"]
+[gd_scene load_steps=9 format=4 uid="uid://4ky2admtw8a0"]
 
 [ext_resource type="Script" uid="uid://n0dnci1o62mv" path="res://main_scene.gd" id="1_2c62f"]
 [ext_resource type="Texture2D" uid="uid://bx7c3m7vcgccm" path="res://hexagon.png" id="2_d5x1h"]
 [ext_resource type="PackedScene" uid="uid://c6g8ekjbs2q28" path="res://castle.tscn" id="2_gyfs4"]
 [ext_resource type="Script" uid="uid://k6y3hxmuglk0" path="res://hex_grid.gd" id="4_d5x1h"]
 [ext_resource type="Script" uid="uid://c0ftetoin8fl5" path="res://level_editor_ui.gd" id="5_8mm7a"]
-[ext_resource type="Script" uid="uid://cneayvi2i5h2s" path="res://scripts/strategy_game_rl_env.gd" id="6_hq1ik"]
-[ext_resource type="Script" uid="uid://ej123f1ywlpe" path="res://addons/godot_rl_agents/sync.gd" id="7_nfk4m"]
-[ext_resource type="Script" uid="uid://dp6c0026m281e" path="res://scripts/rl_agent_interface.gd" id="8_66tet"]
 
 [sub_resource type="Environment" id="Environment_gyfs4"]
 background_mode = 1
@@ -50,16 +47,3 @@ script = ExtResource("4_d5x1h")
 
 [node name="LevelEditorUI" type="CanvasLayer" parent="."]
 script = ExtResource("5_8mm7a")
-
-[node name="Sync" type="Node" parent="."]
-script = ExtResource("7_nfk4m")
-
-[node name="AIAgent" type="Node" parent="." node_paths=PackedStringArray("rl_environment", "hex_grid")]
-script = ExtResource("8_66tet")
-rl_environment = NodePath("RLEnvironment")
-hex_grid = NodePath("../HexGrid")
-
-[node name="RLEnvironment" type="Node" parent="AIAgent" node_paths=PackedStringArray("hex_grid")]
-script = ExtResource("6_hq1ik")
-hex_grid = NodePath("../../HexGrid")
-episode_max_steps = 300
