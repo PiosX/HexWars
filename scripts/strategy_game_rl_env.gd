@@ -22,6 +22,7 @@ class_name StrategyGameRLEnv
 # Liczniki i stan
 var current_step: int = 0
 var episode_rewards: float = 0.0
+var episode_number: int = 0  # NOWE: Licznik epizodów
 
 # Stan początkowy
 var initial_state: Dictionary = {}
@@ -33,6 +34,7 @@ var previous_territory: int = 0
 var previous_enemy_territory: int = 0
 var previous_units: int = 0
 var previous_enemy_units: int = 0
+var previous_bandit_units: int = 0  # NOWE: Tracking bandytów
 
 # ✅ NOWE: Śledzenie jednostek które się poruszyły w tej turze
 var units_moved_in_turn: Dictionary = {}  # {unit: moves_count}
@@ -65,134 +67,39 @@ func setup_ai_opponent():
 # ============================================================================
 
 func reset():
-	"""Reset środowiska"""
-	print("🔄 PRAWDZIWY Reset środowiska - nowy epizod")
+	print("🔄 Reset - EPIZOD nowy")
 	
+	episode_number += 1
 	current_step = 0
 	episode_rewards = 0.0
 	current_reward = 0.0
 	done = false
 	needs_reset = false
 	
-	# Resetuj śledzenie
-	previous_territory = 0
-	previous_enemy_territory = 0
-	previous_units = 0
-	previous_enemy_units = 0
-	units_moved_in_turn.clear()
-	
-	# USUŃ JEDNOSTKI - queue_free + czekanie
-	for coords in hex_grid.knight_map.keys():
-		var unit = hex_grid.knight_map[coords]
-		if is_instance_valid(unit):
-			var hex = hex_grid.get_hex_at(coords)
-			if hex:
-				hex.occupied_object = null
-			unit.queue_free()
-	hex_grid.knight_map.clear()
-	
-	for coords in hex_grid.farmer_map.keys():
-		var unit = hex_grid.farmer_map[coords]
-		if is_instance_valid(unit):
-			var hex = hex_grid.get_hex_at(coords)
-			if hex:
-				hex.occupied_object = null
-			unit.queue_free()
-	hex_grid.farmer_map.clear()
-	
-	for coords in hex_grid.spearman_map.keys():
-		var unit = hex_grid.spearman_map[coords]
-		if is_instance_valid(unit):
-			var hex = hex_grid.get_hex_at(coords)
-			if hex:
-				hex.occupied_object = null
-			unit.queue_free()
-	hex_grid.spearman_map.clear()
-	
-	for coords in hex_grid.cavalry_map.keys():
-		var unit = hex_grid.cavalry_map[coords]
-		if is_instance_valid(unit):
-			var hex = hex_grid.get_hex_at(coords)
-			if hex:
-				hex.occupied_object = null
-			unit.queue_free()
-	hex_grid.cavalry_map.clear()
-	
+	# Wczytaj poziom od nowa
 	hex_grid.units_moved_this_turn.clear()
 	hex_grid.cavalry_moves_this_turn.clear()
 	
-	# Poczekaj na usunięcie
-	await get_tree().process_frame
-	await get_tree().process_frame
+	if hex_grid.current_level_file != "":
+		hex_grid.load_layout_from_file(hex_grid.current_level_file)
+	elif not hex_grid.load_layout():
+		print("Nie można wczytać - brak layoutu")
 	
-	print("   ✅ Wszystkie jednostki usunięte")
+	hex_grid.team_gold = {1: 10, 2: 10, 3: 10, 4: 10, 5: 0, -1: 0}
+	hex_grid.current_round = 1
+	hex_grid.current_team = 1
 	
-	# ZRESETUJ ZŁOTO
-	for team in range(-1, 5):
-		hex_grid.team_gold[team] = 10
-	
-	# ZRESETUJ TERYTORIUM
-	for coords in hex_grid.territory_map.keys():
-		hex_grid.territory_map[coords] = 0
-	
-	# Wyczyść occupied_object na WSZYSTKICH hexach
-	for coords in hex_grid.hex_map.keys():
-		var hex = hex_grid.get_hex_at(coords)
-		if hex:
-			hex.occupied_object = null
-	
-	print("   ✅ Hexy wyczyszczone (occupied_object = null)")
-	
-	for castle_pos in hex_grid.castle_map.keys():
-		var castle = hex_grid.castle_map[castle_pos]
-		var team = castle.team
-		
-		if team <= 0 or team > 4:
-			continue
-		
-		hex_grid.territory_map[castle_pos] = team
-		var neighbors = hex_grid.get_neighbors(castle_pos)
-		for i in range(min(2, neighbors.size())):
-			hex_grid.territory_map[neighbors[i]] = team
-	
-	# DAJ STARTOWE JEDNOSTKI - TYLKO 1 FARMER!
-	for castle_pos in hex_grid.castle_map.keys():
-		var castle = hex_grid.castle_map[castle_pos]
-		var team = castle.team
-		
-		if team != 1 and team != 2:
-			continue
-		
-		var neighbors = hex_grid.get_neighbors(castle_pos)
-		
-		var placed_farmer = false
-		for neighbor in neighbors:
-			var hex = hex_grid.get_hex_at(neighbor)
-			if hex:
-				if hex.occupied_object != null:
-					print("   ⚠️ Hex %s nie pusty - czyszczę!" % neighbor)
-					hex.occupied_object = null
-				
-				hex_grid.spawn_farmer_at(neighbor, team)
-				placed_farmer = true
-				print("   ✅ Utworzono farmera Team %d na %s" % [team, neighbor])
-				break
-		
-		if not placed_farmer:
-			print("   ❌ NIE UDAŁO SIĘ utworzyć farmera dla Team %d!" % team)
-	
-	# ZAPISZ STAN POCZĄTKOWY
 	await get_tree().process_frame
 	initial_state = generate_initial_state()
 	
-	# Inicjalizuj tracking
 	previous_territory = count_territories(ai_team)
 	previous_enemy_territory = count_all_enemy_territories()
 	previous_units = count_my_units_total()
 	previous_enemy_units = count_all_enemy_units_total()
+	previous_bandit_units = count_bandit_units()
 	
-	print("✅ Gra FAKTYCZNIE zresetowana!")
-	print("   Team %d: %d jednostek, %d złota" % [ai_team, count_my_units_total(), hex_grid.team_gold.get(ai_team, 0)])
+	print("✅ Poziom zresetowany! EPIZOD %d" % episode_number)
+	print("   Team %d: %d jednostek" % [ai_team, count_my_units_total()])
 	
 	return get_obs()
 
@@ -292,7 +199,7 @@ func get_obs_space() -> Dictionary:
 func get_action_space() -> Dictionary:
 	return {
 		"action": {
-			"size": 9,
+			"size": 10,
 			"action_type": "discrete"
 		}
 	}
@@ -300,7 +207,6 @@ func get_action_space() -> Dictionary:
 func set_action(action):
 	"""
 	✅ SELF-PLAY: Agent wykonuje akcję dla Team 1, potem dla Team 2
-	Nagroda = różnica (Team 1 sukces - Team 2 sukces)
 	"""
 	current_step += 1
 	
@@ -358,6 +264,11 @@ func set_action(action):
 	var reward_2 = calculate_reward_for_team(state_before_2, 2)
 	
 	# ============================================================================
+	# ✅ ZŁOTO PRZYDZIELANE DOPIERO TERAZ (po obu turach)
+	# ============================================================================
+	distribute_gold_and_check_bankruptcy()
+	
+	# ============================================================================
 	# ✅ NAGRODA FINALNA = Team1 minus Team2 (zero-sum game)
 	# ============================================================================
 	current_reward = reward_1 - reward_2
@@ -371,14 +282,15 @@ func set_action(action):
 	previous_enemy_territory = count_territories(2)
 	previous_units = count_units_for_team(1)
 	previous_enemy_units = count_units_for_team(2)
-	
-	end_round()
+	previous_bandit_units = count_bandit_units()  # NOWE
 	
 	check_episode_done()
 	
 	# Debug co 50 kroków
 	if current_step % 50 == 0:
 		print("🎮 Krok %d | Akcja: %d | Reward: %.2f (T1: %.2f, T2: %.2f)" % [current_step, action_int, current_reward, reward_1, reward_2])
+
+
 
 func count_units_for_team(team: int) -> int:
 	"""Zlicz jednostki dla konkretnej drużyny"""
@@ -476,6 +388,20 @@ func calculate_reward_for_team(state_before: Dictionary, team: int) -> float:
 		reward += enemy_territory_lost * 5.0
 	
 	# ============================================================================
+	# BONUS: Atakowanie bandytów
+	# ============================================================================
+	var bandit_units_after = count_bandit_units()
+	var bandits_killed = previous_bandit_units - bandit_units_after
+	if bandits_killed > 0:
+		reward += bandits_killed * 5.0
+		print("🏴‍☠️ Team %d: Zabito %d bandytów! Bonus: +%.1f" % [team, bandits_killed, bandits_killed * 5.0])
+	
+	# BONUS: Bycie blisko wrogiego zamku (motywuj do ataku)
+	var attacking_enemy_castle = is_attacking_enemy_castle_team(team)
+	if attacking_enemy_castle:
+		reward += 3.0
+	
+	# ============================================================================
 	# KARY
 	# ============================================================================
 	
@@ -487,6 +413,20 @@ func calculate_reward_for_team(state_before: Dictionary, team: int) -> float:
 	# Kara za utratę terytorium
 	if territory_gain < 0:
 		reward += territory_gain * 3.0
+		
+	# ===== NOWE: Kara za brak ekspansji =====
+	# Jeśli jednostki się ruszały, ale terytorium nie rosło - kara
+	var moved_units = units_moved_in_turn.size()
+	
+	if moved_units > 0 and territory_gain == 0:
+		# Jednostki się ruszały ale nie zdobyły nowego terenu
+		reward -= 0.5
+		if current_step % 100 == 0:
+			print("   ⚠️ Team %d: Kara za brak ekspansji (-0.5)" % team)
+	
+	# Kara za cofanie się (utrata terytorium)
+	if territory_gain < 0:
+		reward -= abs(territory_gain) * 2.0
 	
 	# ============================================================================
 	# WARUNKI WYGRANEJ/PRZEGRANEJ
@@ -547,6 +487,8 @@ func execute_action_for_all_units(action: int):
 			action_patrol_all_units(state)
 		8:  # NIC NIE RÓB
 			pass
+		9:  # ✅ NOWE: BUDUJ MUR
+			try_build_wall_near_castle()
 
 func get_game_state() -> Dictionary:
 	var my_units = []
@@ -821,25 +763,42 @@ func move_unit_smart(unit_data: Dictionary, target: Vector2i):
 	}
 
 func choose_best_move(from: Vector2i, moves: Array) -> Vector2i:
-	"""Wybiera najlepszy ruch z dostępnych"""
+	"""Wybiera najlepszy ruch z dostępnych - PRIORYTETYZUJ WROGIE CELE"""
 	if moves.is_empty():
 		return Vector2i.ZERO
 	
-	# Priorytet 1: Pola z wrogami
+	# PRIORYTET 1: Bandyci i wrogie jednostki  
 	for move in moves:
 		var hex = hex_grid.get_hex_at(move)
 		if hex and hex.occupied_object != null:
 			var target = hex.occupied_object
-			if is_instance_valid(target) and target.team > 0 and target.team != ai_team:
+			if is_instance_valid(target) and "team" in target:
+				var target_team = target.team
+				# Bandyci (-1) lub wrogowie (!=ai_team)
+				if target_team == -1 or (target_team > 0 and target_team != ai_team):
+					return move
+	
+	# PRIORYTET 2: Wrogi zamek
+	for move in moves:
+		if hex_grid.castle_map.has(move):
+			var castle = hex_grid.castle_map[move]
+			if castle.team > 0 and castle.team != ai_team:
 				return move
 	
-	# Priorytet 2: Neutralne pola
+	# PRIORYTET 3: Obóz bandytów
+	for move in moves:
+		if hex_grid.castle_map.has(move):
+			var castle = hex_grid.castle_map[move]
+			if castle.team == -1:  # Bandycki obóz
+				return move
+	
+	# PRIORYTET 4: Neutralne pola
 	for move in moves:
 		var owner = hex_grid.territory_map.get(move, 0)
 		if owner == 0:
 			return move
 	
-	# Priorytet 3: Pola w kierunku wroga
+	# PRIORYTET 5: W kierunku wroga
 	var enemy_castle = find_enemy_castle_position()
 	if enemy_castle != Vector2i.ZERO:
 		return find_move_towards(from, moves, enemy_castle)
@@ -1000,6 +959,14 @@ func calculate_reward(state_before: Dictionary) -> float:
 func check_episode_done():
 	"""Sprawdza czy epizod się skończył"""
 	
+	# Sprawdź WAŻNE: Czy któryś team zbankrutował
+	for team in [1, 2]:
+		if hex_grid.team_gold.get(team, 0) < -50:  # Duże długi
+			done = true
+			needs_reset = true
+			print("💸 Koniec epizodu: Team %d zbankrutował" % team)
+			return
+	
 	# 1. Przekroczono limit kroków
 	if current_step >= episode_max_steps:
 		done = true
@@ -1007,26 +974,18 @@ func check_episode_done():
 		print("⏱️ Koniec epizodu: Limit kroków osiągnięty")
 		return
 	
-	# 2. Stracono zamek
-	if not has_castle():
+	# 2. Jeden z teamów stracił zamek
+	var team1_has_castle = has_castle_team(1)
+	var team2_has_castle = has_castle_team(2)
+	
+	if not team1_has_castle or not team2_has_castle:
 		done = true
 		needs_reset = true
-		print("💀 Koniec epizodu: Zamek przejęty")
+		if not team1_has_castle:
+			print("💀 Koniec epizodu: Team 1 stracił zamek - Team 2 WYGRYWA!")
+		else:
+			print("💀 Koniec epizodu: Team 2 stracił zamek - Team 1 WYGRYWA!")
 		return
-	
-	# 3. Wyeliminowano wszystkich wrogów
-	if count_all_enemy_units_total() == 0:
-		var enemy_castles = 0
-		for coords in hex_grid.castle_map:
-			var castle = hex_grid.castle_map[coords]
-			if castle.team > 0 and castle.team != ai_team:
-				enemy_castles += 1
-		
-		if enemy_castles == 0:
-			done = true
-			needs_reset = true
-			print("🏆 Koniec epizodu: Zwycięstwo!")
-			return
 
 func has_castle() -> bool:
 	"""Sprawdza czy mamy zamek"""
@@ -1265,29 +1224,79 @@ func get_min_distance_to_enemy_castle() -> int:
 	return min_distance
 
 func try_buy_unit_near_castle(unit_type: String) -> bool:
+	"""
+	Kupuje jednostkę - PRIORYTET: neutralne/wrogie tereny > własne pola
+	"""
 	var cost = get_unit_cost(unit_type)
+	var upkeep = get_unit_upkeep(unit_type)
 	var gold = hex_grid.team_gold.get(ai_team, 0)
 	
 	if gold < cost:
 		return false
 	
+	# Sprawdź czy dochód pokrywa upkeep
+	var current_income = hex_grid.calculate_income(ai_team)
+	var current_upkeep = hex_grid.calculate_upkeep(ai_team)
+	var future_upkeep = current_upkeep + upkeep
+	
+	if current_income < future_upkeep * 0.8:
+		return false
+	
+	# Znajdź NAJLEPSZĄ pozycję do spawnu
+	var best_pos = Vector2i.ZERO
+	var best_priority = -1
+	
 	for coords in hex_grid.castle_map:
 		var castle = hex_grid.castle_map[coords]
 		if castle.team == ai_team:
 			var neighbors = hex_grid.get_neighbors(coords)
+			
 			for neighbor in neighbors:
 				var hex = hex_grid.get_hex_at(neighbor)
 				if hex and hex.occupied_object == null:
-					match unit_type:
-						"knight":
-							hex_grid.buy_knight(neighbor, ai_team)
-						"spearman":
-							hex_grid.buy_spearman(neighbor, ai_team)
-						"cavalry":
-							hex_grid.buy_cavalry(neighbor, ai_team)
-					return true
+					var owner = hex_grid.territory_map.get(neighbor, 0)
+					var priority = 0
+					
+					# PRIORYTET 1: Neutralne pola (+3)
+					if owner == 0:
+						priority = 3
+					# PRIORYTET 2: Wrogie pola (+2)
+					elif owner > 0 and owner != ai_team:
+						priority = 2
+					# PRIORYTET 3: Własne pola (+1 - tylko gdy nie ma lepszych)
+					elif owner == ai_team:
+						priority = 1
+					
+					if priority > best_priority:
+						best_priority = priority
+						best_pos = neighbor
+	
+	# Spawnuj na najlepszej pozycji
+	if best_pos != Vector2i.ZERO:
+		match unit_type:
+			"knight":
+				return hex_grid.buy_knight(best_pos, ai_team)
+			"spearman":
+				return hex_grid.buy_spearman(best_pos, ai_team)
+			"cavalry":
+				return hex_grid.buy_cavalry(best_pos, ai_team)
+			"farmer":
+				return hex_grid.buy_farmer(best_pos, ai_team)
 	
 	return false
+
+func get_unit_upkeep(unit_type: String) -> int:
+	"""Zwraca koszt utrzymania jednostki na turę"""
+	match unit_type:
+		"knight":
+			return 18
+		"spearman":
+			return 6
+		"cavalry":
+			return 50
+		"farmer":
+			return 2
+	return 0
 
 func get_unit_cost(unit_type: String) -> int:
 	match unit_type:
@@ -1326,15 +1335,255 @@ func get_hexes_in_range(center: Vector2i, range_dist: int) -> Array:
 				hexes.append(hex_pos)
 	return hexes
 
-func end_round():
-	"""Kończy całą rundę (po turach obu drużyn)"""
+func distribute_gold_and_check_bankruptcy():
+	"""
+	✅ Przydziela złoto i sprawdza bankructwo PO TURACH OBUDWÓCH drużyn
+	"""
 	for team in [1, 2]:
 		var income = hex_grid.calculate_income(team)
 		var upkeep = hex_grid.calculate_upkeep(team)
 		var net = income - upkeep
 		
 		var old_gold = hex_grid.team_gold.get(team, 0)
-		hex_grid.team_gold[team] = max(0, old_gold + net)
+		var new_gold = old_gold + net
+		hex_grid.team_gold[team] = new_gold
 		
 		if current_step % 50 == 0:
-			print("   💵 Team %d: Złoto %d → %d" % [team, old_gold, hex_grid.team_gold[team]])
+			print("   💵 Team %d: Złoto %d → %d (dochód: %d, koszty: %d)" % [team, old_gold, new_gold, income, upkeep])
+		
+		# ============================================================================
+		# ✅ BANKRUCTWO - zamień wszystkie jednostki na bandytów
+		# ============================================================================
+		if new_gold < 0:
+			print("💥 BANKRUCTWO Team %d! Złoto: %d. Zamieniamy jednostki na bandytów!" % [team, new_gold])
+			hex_grid.handle_bankruptcy(team)
+			
+			# Kara za bankructwo
+			if team == ai_team:
+				current_reward -= 200.0
+				print("⚠️ Kara za bankructwo: -200")
+	
+	# ✅ POPRAWKA: Przetwórz bankructwa RAZ po sprawdzeniu obu teamów
+	hex_grid.process_bankruptcies()
+
+func convert_team_to_bandits(team: int):
+	"""Zamienia wszystkie jednostki drużyny na bandytów"""
+	var units_to_convert = []
+	
+	# Zbierz wszystkie jednostki drużyny
+	for coords in hex_grid.knight_map.keys():
+		if hex_grid.knight_map[coords].team == team:
+			units_to_convert.append({"type": "knight", "pos": coords})
+	
+	for coords in hex_grid.spearman_map.keys():
+		if hex_grid.spearman_map[coords].team == team:
+			units_to_convert.append({"type": "spearman", "pos": coords})
+	
+	for coords in hex_grid.cavalry_map.keys():
+		if hex_grid.cavalry_map[coords].team == team:
+			units_to_convert.append({"type": "cavalry", "pos": coords})
+	
+	for coords in hex_grid.farmer_map.keys():
+		if hex_grid.farmer_map[coords].team == team:
+			units_to_convert.append({"type": "farmer", "pos": coords})
+	
+	# Zamień na bandytów (farmerów z team -1)
+	for unit_data in units_to_convert:
+		var pos = unit_data.pos
+		var type = unit_data.type
+		
+		# Usuń starą jednostkę
+		match type:
+			"knight":
+				hex_grid.remove_knight_at(pos)
+			"spearman":
+				hex_grid.remove_spearman_at(pos)
+			"cavalry":
+				hex_grid.remove_cavalry_at(pos)
+			"farmer":
+				hex_grid.remove_farmer_at(pos)
+		
+		# Dodaj bandyckiego farmera
+		hex_grid.spawn_farmer_at(pos, -1)
+	
+	print("🏴‍☠️ Zamieniono %d jednostek Team %d na bandytów!" % [units_to_convert.size(), team])
+	
+	# NOWE: Usuń mury wokół zbuntowanych jednostek
+	for unit_data in units_to_convert:
+		var pos = unit_data.pos
+		var neighbors = hex_grid.get_neighbors(pos)
+		
+		# Usuń wszystkie mury wokół tej pozycji
+		for i in range(6):  # 6 krawędzi hexa
+			var edge_key = "%d,%d-edge%d" % [pos.x, pos.y, i]
+			if hex_grid.wall_map.has(edge_key):
+				hex_grid.wall_map.erase(edge_key)
+				# Usuń wizualną linię
+				if hex_grid.has_meta("wall_lines"):
+					var wall_lines = hex_grid.get_meta("wall_lines")
+					if wall_lines.has(edge_key):
+						var line = wall_lines[edge_key]
+						if is_instance_valid(line):
+							line.queue_free()
+						wall_lines.erase(edge_key)
+	
+	print("   🧹 Usunięto mury wokół zbuntowanych jednostek")
+	
+	# Zamień terytorium na bandyckie
+	for coords in hex_grid.territory_map.keys():
+		if hex_grid.territory_map[coords] == team:
+			hex_grid.territory_map[coords] = -1
+			hex_grid.update_hex_color(coords)
+	
+	# Zamień zamek na bandycki obóz (jeśli mają zamek)
+	for coords in hex_grid.castle_map.keys():
+		var castle = hex_grid.castle_map[coords]
+		if castle.team == team:
+			castle.team = -1
+			hex_grid.territory_map[coords] = -2
+			hex_grid.update_hex_color(coords)
+
+func try_build_wall_near_castle() -> bool:
+	"""
+	Buduje mury wokół JEDNOSTEK (nie zamku) aby je chronić.
+	Logika:
+	- Farmer w murach = tylko knight może go zniszczyć
+	- Spearman w murach = tylko knight może go zniszczyć  
+	- Knight w murach = tylko cavalry może go zniszczyć
+	- Cavalry w murach = niezniszczalny (chyba że odcięty)
+	
+	Priorytet: jednostki blisko wroga > silne jednostki
+	"""
+	var wall_cost = hex_grid.WALL_COST_PER_HEX
+	var gold = hex_grid.team_gold.get(ai_team, 0)
+	
+	if gold < wall_cost:
+		return false
+	
+	# Zbierz jednostki z priorytetem (cavalry > knight > spearman > farmer)
+	var my_units = []
+	for coords in hex_grid.cavalry_map:
+		var unit = hex_grid.cavalry_map[coords]
+		if is_instance_valid(unit) and unit.team == ai_team:
+			my_units.append({"pos": coords, "type": "cavalry", "priority": 4})
+	for coords in hex_grid.knight_map:
+		var unit = hex_grid.knight_map[coords]
+		if is_instance_valid(unit) and unit.team == ai_team:
+			my_units.append({"pos": coords, "type": "knight", "priority": 3})
+	for coords in hex_grid.spearman_map:
+		var unit = hex_grid.spearman_map[coords]
+		if is_instance_valid(unit) and unit.team == ai_team:
+			my_units.append({"pos": coords, "type": "spearman", "priority": 2})
+	for coords in hex_grid.farmer_map:
+		var unit = hex_grid.farmer_map[coords]
+		if is_instance_valid(unit) and unit.team == ai_team:
+			my_units.append({"pos": coords, "type": "farmer", "priority": 1})
+	
+	# Znajdź wrogów
+	var enemy_units = []
+	for coords in hex_grid.knight_map:
+		var unit = hex_grid.knight_map[coords]
+		if is_instance_valid(unit) and unit.team > 0 and unit.team != ai_team:
+			enemy_units.append(coords)
+	for coords in hex_grid.spearman_map:
+		var unit = hex_grid.spearman_map[coords]
+		if is_instance_valid(unit) and unit.team > 0 and unit.team != ai_team:
+			enemy_units.append(coords)
+	for coords in hex_grid.cavalry_map:
+		var unit = hex_grid.cavalry_map[coords]
+		if is_instance_valid(unit) and unit.team > 0 and unit.team != ai_team:
+			enemy_units.append(coords)
+	for coords in hex_grid.farmer_map:
+		var unit = hex_grid.farmer_map[coords]
+		if is_instance_valid(unit) and unit.team > 0 and unit.team != ai_team:
+			enemy_units.append(coords)
+	
+	# Bez wrogów nie buduj murów
+	if enemy_units.is_empty():
+		return false
+	
+	# Znajdź jednostkę najbliżej wroga, która nie ma murów
+	var best_unit = null
+	var min_distance_to_enemy = 999999
+	
+	for unit_data in my_units:
+		var pos = unit_data.pos
+		
+		# Sprawdź czy ma pełne mury (6 ścian)
+		var walls_count = 0
+		var neighbors = hex_grid.get_neighbors(pos)
+		for nn in neighbors:
+			if hex_grid.has_wall_between(pos, nn):
+				walls_count += 1
+		
+		if walls_count >= 6:
+			continue  # Już ma pełne mury
+		
+		# Odległość do najbliższego wroga
+		var min_dist = 999999
+		for enemy_pos in enemy_units:
+			var dist = hex_distance(pos, enemy_pos)
+			min_dist = min(min_dist, dist)
+		
+		# Wybierz jednostkę najbliżej wroga (z uwzględnieniem priorytetu)
+		if min_dist < min_distance_to_enemy or (min_dist == min_distance_to_enemy and unit_data.priority > (best_unit.priority if best_unit else 0)):
+			min_distance_to_enemy = min_dist
+			best_unit = unit_data
+	
+	# Zbuduj mury wokół najlepszej jednostki
+	if best_unit != null:
+		var walls_created = hex_grid.create_hex_walls(best_unit.pos, ai_team)
+		if walls_created > 0:
+			hex_grid.team_gold[ai_team] -= wall_cost
+			print("   🧱 Zbudowano %d murów wokół %s (Team %d) - odległość od wroga: %d" % [walls_created, best_unit.type, ai_team, min_distance_to_enemy])
+			return true
+	
+	return false
+
+# ============================================================================
+# FUNKCJE POMOCNICZE - BANDYCI I WROGIE CELE
+# ============================================================================
+
+func count_bandit_units() -> int:
+	"""Zlicza wszystkie jednostki bandytów (team -1)"""
+	var count = 0
+	for coords in hex_grid.knight_map:
+		var unit = hex_grid.knight_map[coords]
+		if is_instance_valid(unit) and unit.team == -1:
+			count += 1
+	for coords in hex_grid.farmer_map:
+		var unit = hex_grid.farmer_map[coords]
+		if is_instance_valid(unit) and unit.team == -1:
+			count += 1
+	for coords in hex_grid.spearman_map:
+		var unit = hex_grid.spearman_map[coords]
+		if is_instance_valid(unit) and unit.team == -1:
+			count += 1
+	for coords in hex_grid.cavalry_map:
+		var unit = hex_grid.cavalry_map[coords]
+		if is_instance_valid(unit) and unit.team == -1:
+			count += 1
+	return count
+
+func is_attacking_enemy_castle_team(team: int) -> bool:
+	"""Sprawdza czy jednostki danego teamu są blisko wrogiego zamku"""
+	for coords in hex_grid.castle_map:
+		var castle = hex_grid.castle_map[coords]
+		if castle.team > 0 and castle.team != team:
+			# Sprawdź czy mamy jednostki w odległości 2
+			for unit_coords in hex_grid.knight_map:
+				var unit = hex_grid.knight_map[unit_coords]
+				if is_instance_valid(unit) and unit.team == team:
+					if hex_distance(unit_coords, coords) <= 2:
+						return true
+			for unit_coords in hex_grid.spearman_map:
+				var unit = hex_grid.spearman_map[unit_coords]
+				if is_instance_valid(unit) and unit.team == team:
+					if hex_distance(unit_coords, coords) <= 2:
+						return true
+			for unit_coords in hex_grid.cavalry_map:
+				var unit = hex_grid.cavalry_map[unit_coords]
+				if is_instance_valid(unit) and unit.team == team:
+					if hex_distance(unit_coords, coords) <= 2:
+						return true
+	return false
