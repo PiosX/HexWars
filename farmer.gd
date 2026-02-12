@@ -3,6 +3,7 @@ class_name Farmer
 
 @export var team: int = 1
 @export var hex_position: Vector2i = Vector2i.ZERO
+var spawn_turn: int = -1  # NOWE: Tura w której jednostka się zrespila
 
 var sprite = null
 var area = null

@@ -896,9 +896,18 @@ func create_next_button() -> VBoxContainer:
 	var style_hover = style_normal.duplicate()
 	style_hover.bg_color = Color("059669")  # emerald-600
 	
+	var style_disabled = style_normal.duplicate()
+	style_disabled.bg_color = Color("01402C")  # Ciemnoszary jak w UNDO
+	style_disabled.border_width_left = 1
+	style_disabled.border_width_right = 1
+	style_disabled.border_width_top = 1
+	style_disabled.border_width_bottom = 1
+	style_disabled.border_color = Color("01402c")
+	
 	btn.add_theme_stylebox_override("normal", style_normal)
 	btn.add_theme_stylebox_override("hover", style_hover)
 	btn.add_theme_stylebox_override("pressed", style_hover)
+	btn.add_theme_stylebox_override("disabled", style_disabled)
 	
 	var icon = load(ICON_NEXT)
 	if icon:
@@ -1272,3 +1281,15 @@ func set_wall_button_active(active: bool):
 				btn.add_theme_stylebox_override("hover", style_hover)
 			else:
 				reset_wall_button()
+				
+func set_buttons_enabled(enabled: bool):
+	"""Blokuje/odblokuje przyciski Next Round i Undo"""
+	if undo_button and undo_button.has_meta("button"):
+		var undo_btn = undo_button.get_meta("button")
+		if is_instance_valid(undo_btn):
+			undo_btn.disabled = not enabled
+	
+	if next_button and next_button.has_meta("button"):
+		var next_btn = next_button.get_meta("button")
+		if is_instance_valid(next_btn):
+			next_btn.disabled = not enabled
