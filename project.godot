@@ -26,7 +26,7 @@ window/orientation="portrait"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_rl_agents/plugin.cfg")
+enabled=PackedStringArray()
 
 [rendering]
 

@@ -52,6 +52,7 @@ var memory: Dictionary = {
 
 var strategic_goals: Array = []
 var isolated_units_freeze: Dictionary = {}  # NOWE: {unit_instance: turn_isolated}
+var units_moved_on_own_territory: Dictionary = {}  # NOWE: {unit_instance: true} - jednostki które już przeszły po swoim terenie w tej turze
 
 # ============================================================================
 # INITIALIZATION
@@ -88,6 +89,9 @@ func get_object_team(obj) -> int:
 
 func execute_turn():
 	print("=== AI (Team %d, %s, Aggro: %.1f) zaczyna turę ===" % [team, "HARD" if difficulty == Difficulty.HARD else "NORMAL", aggression_level])
+	
+	# NOWE: Wyczyść tracking jednostek które były na swoim terenie
+	units_moved_on_own_territory.clear()
 	
 	var state = analyze_game_state()
 	update_memory(state)
@@ -596,15 +600,39 @@ func set_strategic_goals(state: Dictionary):
 	# PRIORYTET #3: Zdobycie zamków BLISKO (bardzo wysoki priorytet!)
 	for castle_pos in state.undefended_enemy_castles:
 		var distance = get_min_unit_distance_to(castle_pos, state.my_units)
-		if distance <= 3:  # Tylko jeśli BLISKO
-			var priority = 280 - distance * 20  # 220-280
-			
+		
+		# NOWE: Sprawdź czy zamek ma JAKIEKOLWIEK jednostki w promieniu 3
+		var castle_team = hex_grid.castle_map[castle_pos].team
+		var has_any_defenders = false
+		var range3_hexes = get_hexes_in_range_manual(castle_pos, 3)
+		for hex_pos in range3_hexes:
+			if hex_grid.knight_map.has(hex_pos) and hex_grid.knight_map[hex_pos].team == castle_team:
+				has_any_defenders = true
+				break
+			if hex_grid.spearman_map.has(hex_pos) and hex_grid.spearman_map[hex_pos].team == castle_team:
+				has_any_defenders = true
+				break
+			if hex_grid.cavalry_map.has(hex_pos) and hex_grid.cavalry_map[hex_pos].team == castle_team:
+				has_any_defenders = true
+				break
+		
+		var priority = 0
+		if not has_any_defenders:
+			# CAŁKOWICIE BEZBRONNY ZAMEK - NATYCHMIASTOWY ATAK! (najwyższy priorytet)
+			priority = 400 - distance * 5  # 350-400 (wyższe niż defend_from_cutoff)
+			print("AI %d: ⚠️ WYKRYTO BEZBRONNY ZAMEK @ %s (dystans: %d, priorytet: %d)" % [team, castle_pos, distance, priority])
+		elif distance <= 3:
+			# BLISKO - wysoki priorytet
+			priority = 280 - distance * 20  # 220-280
+		
+		if priority > 0:
 			strategic_goals.append({
 				"type": "capture_castle",
 				"position": castle_pos,
 				"priority": priority,
-				"target_team": hex_grid.castle_map[castle_pos].team,
-				"distance": distance
+				"target_team": castle_team,
+				"distance": distance,
+				"defenseless": not has_any_defenders
 			})
 	
 	for castle_pos in state.walled_enemy_castles:
@@ -2154,9 +2182,13 @@ func find_move_towards_targets(from: Vector2i, moves: Array, targets: Array) -> 
 	return best_move
 
 func find_best_aggressive_move(unit_data: Dictionary, moves: Array, state: Dictionary) -> Vector2i:
-	"""Znajduje najlepszy agresywny ruch (leapfrogging)"""
+	"""Znajduje najlepszy agresywny ruch (leapfrogging) - PRIORYTET EKSPANSJI"""
 	var best_move = Vector2i.ZERO
 	var best_score = -999999
+	
+	# Sprawdź czy jednostka już była na swoim terenie w tej turze
+	var unit = unit_data.unit
+	var already_moved_on_own = units_moved_on_own_territory.get(unit, false)
 	
 	# Zbierz pozycje sojuszników (aktualne - po ich ruchach)
 	var ally_positions = {}
@@ -2167,17 +2199,36 @@ func find_best_aggressive_move(unit_data: Dictionary, moves: Array, state: Dicti
 		if ally_current != (unit_data.unit.hex_position if is_instance_valid(unit_data.unit) else unit_data.pos):
 			ally_positions[ally_current] = true
 	
+	# Sprawdź czy wszystkie ruchy to własne terytoria (blokada murami)
+	var has_expansion_move = false
+	for move in moves:
+		var owner = hex_grid.territory_map.get(move, 0)
+		if owner != team:  # Wrogie lub neutralne
+			has_expansion_move = true
+			break
+	
 	for move in moves:
 		var score = 0
 		var owner = hex_grid.territory_map.get(move, 0)
 		
-		# BONUS: Wrogie/neutralne pola (nowe terytorium)
-		if owner > 0 and owner != team:
-			score += 30
+		# PRIORYTET: Jeśli jednostka już była na swoim terenie, MUSI iść na ekspansję
+		if already_moved_on_own and owner == team:
+			# Jeśli są możliwości ekspansji, zignoruj własne tereny
+			if has_expansion_move:
+				score -= 10000  # OGROMNA KARA - praktycznie zablokuj własne tereny
+			else:
+				# Wszystko zablokowane - można iść po swoim
+				score += 1
+		elif owner > 0 and owner != team:
+			# WROGIE TERYTORIUM - najwyższy priorytet
+			score += 50
 		elif owner == 0:
-			score += 20
+			# NEUTRALNE - wysoki priorytet
+			score += 35
 		elif owner == team:
-			score += 5  # Własne - mały bonus
+			# WŁASNE - DUŻA KARA za bierność (zamiast +5 teraz -20)
+			# AI powinno EKSPANDOWAĆ, nie krążyć po swoim królestwie
+			score -= 20
 		
 		# KARA: Pole zajęte przez sojusznika (nie wchodź tam gdzie stoi ally)
 		if ally_positions.has(move):
@@ -2224,6 +2275,12 @@ func execute_move(unit, unit_data: Dictionary, target: Vector2i):
 	
 	# Używaj AKTUALNEJ pozycji jednostki, nie buforowanej unit_data.pos
 	var from = unit.hex_position if is_instance_valid(unit) else unit_data.pos
+	
+	# NOWE: Sprawdź czy ruch jest po własnym terenie
+	var target_owner = hex_grid.territory_map.get(target, 0)
+	if target_owner == team:
+		# Jednostka przeszła po swoim terenie - oznacz
+		units_moved_on_own_territory[unit] = true
 	
 	if unit_data.type == "knight":
 		hex_grid.move_knight(from, target)
@@ -2421,8 +2478,13 @@ func get_spearman_moves(from: Vector2i) -> Array:
 		var target = hex.occupied_object
 		if owner != team:
 			if target == null:
+				# POPRAWKA: Spearman może przejąć pole z wallem (ale nie bez)
 				moves.append(neighbor)
-			elif target is Farmer or target is Cavalry or target is Castle:
+			elif target is Farmer or target is Spearman:  # DODANO: Spearman może atakować Spearman
+				var target_team = get_object_team(target)
+				if target_team != team:
+					moves.append(neighbor)
+			elif target is Castle:
 				var target_team = get_object_team(target)
 				if target_team != team:
 					moves.append(neighbor)
@@ -2478,7 +2540,11 @@ func get_knight_moves(from: Vector2i) -> Array:
 			if target == null:
 				if not is_blocked_by_wall(from, neighbor):
 					moves.append(neighbor)
-			elif target is Farmer or target is Spearman or target is Castle:
+			elif target is Farmer or target is Spearman or target is Knight:  # DODANO: Knight może atakować Knight
+				var target_team = get_object_team(target)
+				if target_team != team:
+					moves.append(neighbor)
+			elif target is Castle:
 				var target_team = get_object_team(target)
 				if target_team != team:
 					moves.append(neighbor)
@@ -2538,7 +2604,7 @@ func get_cavalry_moves(from: Vector2i) -> Array:
 		if owner == 0 or owner != team:
 			if target == null:
 				moves.append(target_pos)
-			elif not (target is Cavalry):
+			elif target is Farmer or target is Spearman or target is Knight or target is Cavalry or target is Castle:  # DODANO: Knight i Cavalry
 				var target_team = get_object_team(target)
 				if target_team != team:
 					moves.append(target_pos)
@@ -2571,8 +2637,15 @@ func count_walls_around(pos: Vector2i) -> int:
 	return count
 
 func is_castle_undefended(castle_pos: Vector2i, castle_team: int) -> bool:
-	var neighbors = hex_grid.get_neighbors(castle_pos)
+	"""
+	Sprawdza czy zamek jest niebroniony i czy warto go atakować.
+	Zamek jest uznany za cel tylko gdy:
+	1. Nie ma jednostek przeciwnika bezpośrednio obok
+	2. AI jest już blisko (≤ 5 hexów) - inaczej to nie "łatwy cel"
+	"""
 	
+	# Sprawdź czy są jednostki bezpośrednio przy zamku
+	var neighbors = hex_grid.get_neighbors(castle_pos)
 	for neighbor in neighbors:
 		if hex_grid.knight_map.has(neighbor):
 			var unit = hex_grid.knight_map[neighbor]
@@ -2587,7 +2660,44 @@ func is_castle_undefended(castle_pos: Vector2i, castle_team: int) -> bool:
 			if is_instance_valid(unit) and unit.team == castle_team:
 				return false
 	
-	return true
+	# Zamek nie ma bezpośrednich obrońców - ale czy jesteśmy blisko?
+	# Znajdź najbliższą jednostkę AI
+	var min_dist = 999999
+	
+	# Sprawdź wszystkie jednostki AI
+	for coords in hex_grid.knight_map:
+		var unit = hex_grid.knight_map[coords]
+		if is_instance_valid(unit) and unit.team == team:
+			var dist = hex_distance(coords, castle_pos)
+			if dist < min_dist:
+				min_dist = dist
+	
+	for coords in hex_grid.farmer_map:
+		var unit = hex_grid.farmer_map[coords]
+		if is_instance_valid(unit) and unit.team == team:
+			var dist = hex_distance(coords, castle_pos)
+			if dist < min_dist:
+				min_dist = dist
+	
+	for coords in hex_grid.spearman_map:
+		var unit = hex_grid.spearman_map[coords]
+		if is_instance_valid(unit) and unit.team == team:
+			var dist = hex_distance(coords, castle_pos)
+			if dist < min_dist:
+				min_dist = dist
+	
+	for coords in hex_grid.cavalry_map:
+		var unit = hex_grid.cavalry_map[coords]
+		if is_instance_valid(unit) and unit.team == team:
+			var dist = hex_distance(coords, castle_pos)
+			if dist < min_dist:
+				min_dist = dist
+	
+	if min_dist == 999999:
+		return false  # Nie mamy jednostek
+	
+	# Zamek jest "niebroniony" tylko gdy AI jest już blisko (≤ 5 hexów)
+	return min_dist <= 5
 
 func get_min_distance(pos: Vector2i, targets: Array) -> int:
 	if targets.is_empty():

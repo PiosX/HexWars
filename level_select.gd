@@ -326,6 +326,10 @@ class LevelHex extends Area2D:
 			animate_scale(original_scale, 0.15)
 
 func _ready():
+	var main_node = get_node_or_null("/root/Main")
+	if main_node:
+		sound_enabled = main_node.sound_enabled
+		music_enabled = main_node.music_enabled
 	setup_background()
 	setup_panel_backgrounds()
 	setup_top_panel()
@@ -396,11 +400,13 @@ func setup_top_panel():
 	sound_button = create_icon_button(ICON_SOUND, Vector2(95, 95))
 	sound_button.pressed.connect(_on_sound_pressed)
 	settings_menu.add_child(sound_button)
+	update_toggle_button(sound_button, sound_enabled)
 	
 	# Music button
 	music_button = create_icon_button(ICON_MUSIC, Vector2(95, 95))
 	music_button.pressed.connect(_on_music_pressed)
 	settings_menu.add_child(music_button)
+	update_toggle_button(music_button, music_enabled)
 	
 	# Info button
 	info_button = create_icon_button(ICON_INFO, Vector2(95, 95))
@@ -472,8 +478,9 @@ func setup_top_panel():
 	currency_hbox.offset_bottom = 0
 	currency_panel.add_child(currency_hbox)
 	
+	var currency = get_node("/root/Main").global_time_currency
 	currency_amount = Label.new()
-	currency_amount.text = "1251"
+	currency_amount.text = str(currency)
 	currency_amount.add_theme_font_size_override("font_size", 24)
 	currency_amount.add_theme_color_override("font_color", Color.WHITE)
 	currency_amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -711,6 +718,7 @@ func _on_nav_hover(panel: Panel, is_hovering: bool):
 				tween.tween_property(icon_container, "scale", Vector2.ONE, 0.2)
 
 func _on_nav_pressed(tab_name: String):
+	get_node("/root/Main").play_btn_sound()
 	update_active_tab(tab_name)
 	tab_changed.emit(tab_name)
 
@@ -803,6 +811,7 @@ func remove_hex_at(grid_pos: Vector2i):
 
 func on_hex_clicked(hex: LevelHex):
 	print("on_hex_clicked - Editor mode: ", editor_mode)
+	get_node("/root/Main").play_btn_sound()
 	if editor_mode:
 		handle_editor_click(hex)
 	else:
@@ -849,7 +858,7 @@ func handle_play_click(hex: LevelHex):
 		return  # Can't select locked levels
 	
 	print("Hex is clickable, selecting...")
-	
+	get_node("/root/Main").play_btn_sound()
 	# Deselect previous
 	if selected_hex and is_instance_valid(selected_hex):
 		selected_hex.set_selected(false)
@@ -1108,9 +1117,11 @@ func _on_close_selection():
 		selected_hex.set_selected(false)
 		selected_hex = null
 	
+	get_node("/root/Main").play_btn_sound()
 	selected_level_coords = Vector2i.MAX
 
 func _on_play_level():
+	get_node("/root/Main").play_btn_sound()
 	if selected_hex and is_instance_valid(selected_hex):
 		var hex_data = level_data.get(selected_hex.grid_position, {})
 		var level_file = hex_data.get("level_file", "")
@@ -1578,6 +1589,7 @@ func reset_progress():
 
 # === SETTINGS ===
 func _on_settings_pressed():
+	get_node("/root/Main").play_btn_sound()
 	settings_expanded = !settings_expanded
 	settings_menu.visible = settings_expanded
 	
@@ -1587,12 +1599,18 @@ func _on_settings_pressed():
 		tween.tween_property(settings_menu, "modulate", Color.WHITE, 0.2)
 
 func _on_sound_pressed():
+	"""Toggles sound"""
 	sound_enabled = !sound_enabled
 	update_toggle_button(sound_button, sound_enabled)
+	get_node("/root/Main").toggle_sound(sound_enabled)
+	get_node("/root/Main").play_btn_sound()
 
 func _on_music_pressed():
+	"""Toggles music"""
+	get_node("/root/Main").play_btn_sound()
 	music_enabled = !music_enabled
 	update_toggle_button(music_button, music_enabled)
+	get_node("/root/Main").toggle_music(music_enabled)
 
 func update_toggle_button(btn: Button, is_enabled: bool):
 	if is_enabled:
@@ -1601,6 +1619,8 @@ func update_toggle_button(btn: Button, is_enabled: bool):
 		btn.modulate = Color(0.5, 0.5, 0.5)
 
 func _on_info_pressed():
+	"""Opens info/tutorial"""
+	get_node("/root/Main").play_btn_sound()
 	print("Info pressed")
 
 func _on_viewport_size_changed():

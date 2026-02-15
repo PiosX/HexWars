@@ -415,6 +415,9 @@ func create_button(text: String, icon_path: String, bg_color: Color, hover_color
 
 func show_victory(level: int):
 	"""Shows victory popup and marks level as completed"""
+	# Play sound at the beginning like defeat_popup
+	get_node("/root/Main").play_victory_sound()
+	
 	current_level = level
 	
 	# Update level text
@@ -422,8 +425,22 @@ func show_victory(level: int):
 	if level_label:
 		level_label.text = "Level %d" % level
 	
+	# Check if level was already completed BEFORE marking it
+	var was_already_completed = is_level_completed(level)
+	
 	# IMPORTANT: Mark level as completed
 	mark_level_completed(level)
+	
+	# Add currency reward ONLY if first time completing
+	if not was_already_completed:
+		var main = get_node("/root/Main")
+		main.add_currency(3)
+		print("First time victory! +3 currency awarded")
+	else:
+		print("Level already completed before - no currency reward")
+	
+	# Update reward panel based on completion status
+	update_reward_panel(was_already_completed)
 	
 	# Show overlay and container
 	overlay.visible = true
@@ -441,32 +458,36 @@ func show_victory(level: int):
 	tween.set_trans(Tween.TRANS_BACK)
 	tween.tween_property(popup_container, "scale", Vector2.ONE, 0.6)
 	
-	# Animate crown bounce
+	# Animate crown bounce with CENTER pivot
 	var crown_container = main_panel.get_node("Content/CrownContainer")
 	if crown_container:
 		var crown = crown_container.get_node("Crown")
 		if crown:
+			# POPRAWKA: Ustaw pivot_offset na środek tekstury
+			crown.pivot_offset = crown.custom_minimum_size / 2.0
 			crown.scale = Vector2(0.8, 0.8)
 			var crown_tween = create_tween()
 			crown_tween.set_ease(Tween.EASE_OUT)
 			crown_tween.set_trans(Tween.TRANS_BOUNCE)
 			crown_tween.tween_property(crown, "scale", Vector2(1.0, 1.0), 0.8).set_delay(0.4)
 	
-	# Relics — wchodzą jeden po drugim po popup animacji
-	for i in range(relic_textures.size()):
-		var pivot = relic_textures[i]
-		pivot.scale = Vector2.ZERO
-		pivot.modulate.a = 0.0
-		
-		var relic_tween = create_tween()
-		relic_tween.set_parallel(true)
-		# Scale z bounce
-		var scale_tw = relic_tween.tween_property(pivot, "scale", Vector2.ONE, 0.45).set_delay(0.6 + i * 0.18)
-		scale_tw.set_ease(Tween.EASE_OUT)
-		scale_tw.set_trans(Tween.TRANS_BOUNCE)
-		# Fade in szybko na początku
-		var fade_tw = relic_tween.tween_property(pivot, "modulate:a", 1.0, 0.15).set_delay(0.6 + i * 0.18)
-		fade_tw.set_ease(Tween.EASE_OUT)
+	# Animate rewards ONLY if showing relics
+	if not was_already_completed:
+		# Relics — wchodzą jeden po drugim po popup animacji
+		for i in range(relic_textures.size()):
+			var pivot = relic_textures[i]
+			pivot.scale = Vector2.ZERO
+			pivot.modulate.a = 0.0
+			
+			var relic_tween = create_tween()
+			relic_tween.set_parallel(true)
+			# Scale z bounce
+			var scale_tw = relic_tween.tween_property(pivot, "scale", Vector2.ONE, 0.45).set_delay(0.6 + i * 0.18)
+			scale_tw.set_ease(Tween.EASE_OUT)
+			scale_tw.set_trans(Tween.TRANS_BOUNCE)
+			# Fade in szybko na początku
+			var fade_tw = relic_tween.tween_property(pivot, "modulate:a", 1.0, 0.15).set_delay(0.6 + i * 0.18)
+			fade_tw.set_ease(Tween.EASE_OUT)
 
 func mark_level_completed(level_num: int):
 	"""Marks a level as completed in progress data"""
@@ -479,6 +500,68 @@ func mark_level_completed(level_num: int):
 	
 	save_progress_data(progress_data)
 	print("Level ", level_num, " marked as completed and saved!")
+
+func is_level_completed(level_num: int) -> bool:
+	"""Checks if a level was already completed"""
+	var progress_data = load_progress_data()
+	
+	if not progress_data.has(str(level_num)):
+		return false
+	
+	return progress_data[str(level_num)].get("completed", false)
+
+func update_reward_panel(already_completed: bool):
+	"""Updates the reward panel to show relics or 'already claimed' message"""
+	var reward_panel = main_panel.get_node("Content/RewardPanel")
+	if not reward_panel:
+		return
+	
+	var reward_vbox = reward_panel.get_child(0)  # First child is VBoxContainer
+	if not reward_vbox:
+		return
+	
+	# Find reward_label, relics_hbox and count_label
+	var reward_label = null
+	var relics_hbox = null
+	var count_label = null
+	
+	for child in reward_vbox.get_children():
+		if child is Label:
+			if child.text == "REWARD":
+				reward_label = child
+			elif child.text.begins_with("Chrono") or child.text.begins_with("Reward"):
+				count_label = child
+		elif child is HBoxContainer:
+			relics_hbox = child
+	
+	if already_completed:
+		# Hide REWARD label
+		if reward_label:
+			reward_label.visible = false
+		
+		# Hide relics
+		if relics_hbox:
+			relics_hbox.visible = false
+		
+		# Change text to "Reward already claimed"
+		if count_label:
+			count_label.text = "Reward already claimed"
+			count_label.add_theme_color_override("font_color", COMPLETED_COLOR)
+			count_label.add_theme_font_size_override("font_size", 20)
+	else:
+		# Show REWARD label
+		if reward_label:
+			reward_label.visible = true
+		
+		# Show relics
+		if relics_hbox:
+			relics_hbox.visible = true
+		
+		# Show normal reward text
+		if count_label:
+			count_label.text = "Chrono Relic ×3"
+			count_label.add_theme_color_override("font_color", LEVEL_COLOR)
+			count_label.add_theme_font_size_override("font_size", 24)
 
 func load_progress_data() -> Dictionary:
 	"""Loads progress data from file"""
@@ -571,9 +654,11 @@ func hide_popup():
 	)
 
 func _on_home_pressed():
+	get_node("/root/Main").play_btn_sound()
 	home_pressed.emit()
 	hide_popup()
 
 func _on_next_pressed():
+	get_node("/root/Main").play_btn_sound()
 	next_pressed.emit()
 	hide_popup()

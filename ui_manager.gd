@@ -178,9 +178,10 @@ func setup_ui():
 	rewind_counter.offset_right = -10
 	rewind_panel.add_child(rewind_counter)
 
+	var currency = get_node("/root/Main").global_time_currency
 	var rewind_label = Label.new()
 	rewind_label.name = "RewindLabel"
-	rewind_label.text = "3"
+	rewind_label.text = str(currency)
 	rewind_label.add_theme_font_size_override("font_size", 24)  # Zmienione z 30 na 24
 	rewind_label.add_theme_color_override("font_color", Color.WHITE)
 	rewind_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -433,12 +434,15 @@ func setup_settings_popup():
 	toggle_panel.add_child(toggles_hbox)
 	
 	# Sound toggle
-	var sound_vbox = create_toggle_control("Sound", ICON_SOUND, true)
+	var main_node = get_node_or_null("/root/Main")
+	var initial_sound_state = main_node.sound_enabled if main_node else true
+	var sound_vbox = create_toggle_control("Sound", ICON_SOUND, initial_sound_state)
 	sound_vbox.set_meta("type", "sound")
 	toggles_hbox.add_child(sound_vbox)
 	
 	# Music toggle
-	var music_vbox = create_toggle_control("Music", ICON_MUSIC, true)
+	var initial_music_state = main_node.music_enabled if main_node else true
+	var music_vbox = create_toggle_control("Music", ICON_MUSIC, initial_music_state)
 	music_vbox.set_meta("type", "music")
 	toggles_hbox.add_child(music_vbox)
 	
@@ -816,15 +820,30 @@ func create_unit_button(unit_data: Dictionary) -> VBoxContainer:
 	# Connect to appropriate function
 	match unit_data.id:
 		"farmer":
-			btn.pressed.connect(func(): hex_grid._on_buy_farmer())
+			btn.pressed.connect(func(): 
+				get_node("/root/Main").play_select_sound()
+				hex_grid._on_buy_farmer()
+			)
 		"spearman":
-			btn.pressed.connect(func(): hex_grid._on_buy_spearman())
+			btn.pressed.connect(func(): 
+				get_node("/root/Main").play_select_sound()
+				hex_grid._on_buy_spearman()
+			)
 		"knight":
-			btn.pressed.connect(func(): hex_grid._on_buy_knight())
+			btn.pressed.connect(func(): 
+				get_node("/root/Main").play_select_sound()
+				hex_grid._on_buy_knight()
+			)
 		"cavalry":
-			btn.pressed.connect(func(): hex_grid._on_buy_cavalry())
+			btn.pressed.connect(func(): 
+				get_node("/root/Main").play_select_sound()
+				hex_grid._on_buy_cavalry()
+			)
 		"wall":
-			btn.pressed.connect(func(): hex_grid._on_buy_wall())
+			btn.pressed.connect(func(): 
+				get_node("/root/Main").play_select_sound()
+				hex_grid._on_buy_wall()
+			)
 	
 	container.add_child(btn)
 	
@@ -1012,11 +1031,13 @@ func update_ui_data():
 	# Update turn label
 	turn_label.text = "Turn %d" % hex_grid.current_round
 	
-	# Update rewind counter
+	# Update rewind counter (currency display)
 	if is_instance_valid(rewind_counter):
 		var rewind_label = rewind_counter.get_node("RewindLabel")
 		if is_instance_valid(rewind_label):
-			rewind_label.text = str(hex_grid.turn_history.get_rewinds_remaining())
+			var main = get_node_or_null("/root/Main")
+			if main:
+				rewind_label.text = str(main.get_currency())
 	
 	# Update undo button state
 	if is_instance_valid(undo_button) and undo_button.has_meta("button"):
@@ -1149,14 +1170,18 @@ func update_dominance_bar():
 			team_index += 1
 
 func _on_undo_pressed():
+	get_node("/root/Main").play_btn_sound()
 	if hex_grid:
 		hex_grid._on_rewind_turn()
 
 func _on_next_pressed():
+	get_node("/root/Main").play_btn_sound()
 	if hex_grid:
 		hex_grid._on_end_turn()
 
 func _on_settings_pressed():
+	get_node("/root/Main").play_btn_sound()
+	
 	settings_overlay.visible = true
 	settings_popup.visible = true
 	settings_popup.modulate = Color(1, 1, 1, 0)  # Przezroczysty
@@ -1172,6 +1197,7 @@ func _on_settings_pressed():
 	tween.tween_property(popup_panel, "scale", Vector2.ONE, 0.3)
 
 func _on_close_settings():
+	get_node("/root/Main").play_btn_sound()
 	var popup_panel = settings_popup.get_node("PopupPanel")
 	
 	var tween = create_tween()
@@ -1202,6 +1228,16 @@ func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: V
 	var tween = create_tween()
 	tween.tween_property(circle, "position", Vector2(54, 4) if new_state else Vector2(4, 4), 0.2)
 	
+	var main_node = get_node_or_null("/root/Main")
+	if type == "Sound":
+		sound_enabled = new_state
+		if main_node and main_node.has_method("toggle_sound"):
+			main_node.toggle_sound(new_state)
+	elif type == "Music":
+		music_enabled = new_state
+		if main_node and main_node.has_method("toggle_music"):
+			main_node.toggle_music(new_state)
+	
 	# Update state label - POPRAWKA: szukaj w parent_vbox zamiast btn.get_parent()
 	var state_label = parent_vbox.get_node("StateLabel")
 	if state_label:
@@ -1210,11 +1246,16 @@ func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: V
 	# Update actual sound/music settings
 	if type == "Sound":
 		sound_enabled = new_state
+		get_node("/root/Main").toggle_sound(new_state)
+		get_node("/root/Main").play_switch_sound()
 	elif type == "Music":
 		music_enabled = new_state
+		get_node("/root/Main").toggle_music(new_state)
+		get_node("/root/Main").play_switch_sound()
 
 func _on_restart_pressed():
 	print("Restart pressed")
+	get_node("/root/Main").play_btn_sound()
 	_on_close_settings()
 
 	if hex_grid and hex_grid.has_meta("current_level_file"):
@@ -1224,18 +1265,22 @@ func _on_restart_pressed():
 			print("Level restarted from settings: ", level_file)
 
 func _on_howto_pressed():
+	get_node("/root/Main").play_btn_sound()
 	tab_changed.emit("howto")
 	_on_close_settings()
 
 func _on_store_pressed():
+	get_node("/root/Main").play_btn_sound()
 	tab_changed.emit("shop")
 	_on_close_settings()
 
 func _on_home_pressed():
+	get_node("/root/Main").play_btn_sound()
 	tab_changed.emit("home")
 	_on_close_settings()
 			
 func reset_wall_button():
+	get_node("/root/Main").play_select_sound()
 	"""Resetuje przycisk murów do stanu początkowego"""
 	if "wall" in unit_buttons and unit_buttons["wall"].has_meta("button"):
 		var container = unit_buttons["wall"]
@@ -1256,6 +1301,7 @@ func reset_wall_button():
 			btn.add_theme_stylebox_override("normal", style_normal)
 			
 func set_wall_button_active(active: bool):
+	get_node("/root/Main").play_select_sound()
 	"""Ustawia przycisk murów jako aktywny/nieaktywny"""
 	if "wall" in unit_buttons and unit_buttons["wall"].has_meta("button"):
 		var container = unit_buttons["wall"]

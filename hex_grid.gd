@@ -75,6 +75,9 @@ const BANDIT_TEAM = -1
 const BANDIT_CAMP_REWARD = 10
 var ai_controllers: Dictionary = {}
 var ai_teams: Array = []
+var game_over: bool = false  # Flaga zatrzymująca grę po defeat
+
+var main_node: Node
 
 # Ekonomia
 var team_gold: Dictionary = {1: 10, 2: 10, 3: 10, 4: 10, 5: 0}
@@ -112,6 +115,8 @@ var bandit_camp_ownership: Dictionary = {}
 var unit_to_camp: Dictionary = {}
 
 func _ready():
+	main_node = get_node("/root/Main")
+	
 	var victory_popup = preload("res://victory_popup.tscn").instantiate()
 	add_child(victory_popup)
 	set_meta("victory_popup", victory_popup)
@@ -119,6 +124,10 @@ func _ready():
 	var defeat_popup = preload("res://defeat_popup.gd").new()
 	add_child(defeat_popup)
 	set_meta("defeat_popup", defeat_popup)
+	
+	# NOWE: Połącz sygnały defeat popup
+	defeat_popup.rewind_2_turns_pressed.connect(_on_defeat_rewind_2_turns)
+	defeat_popup.watch_ad_pressed.connect(_on_defeat_watch_ad)
 	
 	turn_history = TurnHistory.new()
 	add_child(turn_history)
@@ -620,6 +629,7 @@ func handle_wall_placement(hex_coords: Vector2i):
 		wall_hexes_selected.append(hex_coords)
 		print("Zaznaczono hex: ", hex_coords, " (Koszt: ", wall_hexes_selected.size() * WALL_COST_PER_HEX, ")")
 		draw_hex_outline(hex_coords, Color.WHITE)
+		get_node("/root/Main").play_put_sound()
 		
 func draw_hex_outline(hex_coords: Vector2i, color: Color):
 	"""Rysuje biala przerywana obwodke wokol hexa (taki sam styl jak walle)"""
@@ -842,7 +852,7 @@ func check_bandits_need_camp():
 		print("✗ Brak miejsca na obóz - jednostki izolowane")
 
 func _on_end_turn():
-	if not game_mode:
+	if not game_mode or game_over:
 		return
 		
 	if ui_manager:
@@ -964,6 +974,8 @@ func _on_rewind_turn():
 	if not turn_history.can_rewind():
 		print("Nie można cofnąć tury!")
 		return
+	
+	get_node("/root/Main").play_btn_sound()
 	
 	print("=== COFANIE TURY ===")
 	
@@ -1331,6 +1343,7 @@ func place_castle_at(hex_coords: Vector2i, team: int):
 	castle.team = team
 	castle.hex_position = hex_coords
 	castle.position = hex.position
+	castle.modulate = Color.WHITE  # Sprite zamku zawsze biały
 	add_child(castle)
 	
 	castle_map[hex_coords] = castle
@@ -1409,6 +1422,8 @@ func remove_cavalry_at(hex_coords: Vector2i):
 			hex.remove_object()
 
 func move_cavalry(from: Vector2i, to: Vector2i):
+	var player_lost = false  # Flaga czy gracz przegrał
+	
 	if not cavalry_map.has(from):
 		return
 	
@@ -1533,10 +1548,8 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 				var old_team = target.team
 				
 				if old_team == 1:
-					if has_meta("defeat_popup"):
-						var defeat_popup = get_meta("defeat_popup")
-						await get_tree().create_timer(0.4).timeout
-						defeat_popup.show_defeat(current_round)
+					# Zapamiętaj że gracz przegrał - pokażemy defeat PO przejęciu
+					player_lost = true
 				
 				remove_castle_at(to)
 				
@@ -1609,6 +1622,8 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 	to_hex.place_object(cavalry)
 	cavalry.sprite.scale = Vector2.ZERO
 	
+	get_node("/root/Main").play_put_sound()
+	
 	cavalry.animate_slide_to(to_hex.position, 0.3)
 	var cavalry_pop = create_tween()
 	cavalry_pop.tween_property(cavalry.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
@@ -1649,6 +1664,14 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 		if new_hex:
 			new_hex.set_selected_state(true)
 		highlight_unit_moves(cavalry.hex_position, cavalry.team)
+	
+	# Sprawdź czy gracz przegrał - pokazujemy defeat PO przejęciu zamku
+	if player_lost:
+		game_over = true
+		if has_meta("defeat_popup"):
+			var defeat_popup = get_meta("defeat_popup")
+			await get_tree().create_timer(0.4).timeout
+			defeat_popup.show_defeat(current_level_number)
 
 func merge_knights_to_cavalry(knight1_pos: Vector2i, knight2_pos: Vector2i):
 	"""Łączy dwóch knightów w cavalry"""
@@ -1660,6 +1683,8 @@ func merge_knights_to_cavalry(knight1_pos: Vector2i, knight2_pos: Vector2i):
 	
 	if knight1.team != knight2.team:
 		return
+		
+	get_node("/root/Main").play_put_sound()
 	
 	remove_knight_at(knight2_pos)
 	remove_knight_at(knight1_pos)
@@ -1683,7 +1708,7 @@ func on_cavalry_clicked(cavalry):
 	
 	if cavalry.team != current_team:
 		return
-	
+	get_node("/root/Main").play_select_sound()
 	var moves_done = cavalry_moves_this_turn.get(cavalry, 0)
 	if moves_done >= 2:
 		print("Cavalry wykonał już 2 ruchy w tej turze")
@@ -1752,6 +1777,8 @@ func remove_spearman_at(hex_coords: Vector2i):
 			hex.remove_object()
 
 func move_spearman(from: Vector2i, to: Vector2i):
+	var player_lost = false  # Flaga czy gracz przegrał
+	
 	if not spearman_map.has(from):
 		return
 	
@@ -1771,10 +1798,8 @@ func move_spearman(from: Vector2i, to: Vector2i):
 			var old_team = target_castle.team
 			
 			if old_team == 1:
-				if has_meta("defeat_popup"):
-					var defeat_popup = get_meta("defeat_popup")
-					await get_tree().create_timer(0.4).timeout
-					defeat_popup.show_defeat(current_round)
+				# Zapamiętaj że gracz przegrał - pokażemy defeat PO przejęciu
+				player_lost = true
 			
 			if old_team == -1:
 				print("=== SPEARMAN PRZEJMUJE OBÓZ BANDYTÓW ===")
@@ -1977,6 +2002,8 @@ func move_spearman(from: Vector2i, to: Vector2i):
 	to_hex.place_object(spearman)
 	spearman.sprite.scale = Vector2.ZERO
 	
+	get_node("/root/Main").play_put_sound()
+	
 	spearman.animate_slide_to(to_hex.position, 0.3)
 	var spearman_pop = create_tween()
 	spearman_pop.tween_property(spearman.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
@@ -2007,6 +2034,14 @@ func move_spearman(from: Vector2i, to: Vector2i):
 	capture_territory(to, spearman.team)
 	clear_highlights()
 	pulse_available_units()
+	
+	# Sprawdź czy gracz przegrał - pokazujemy defeat PO przejęciu zamku
+	if player_lost:
+		game_over = true
+		if has_meta("defeat_popup"):
+			var defeat_popup = get_meta("defeat_popup")
+			await get_tree().create_timer(0.4).timeout
+			defeat_popup.show_defeat(current_level_number)
 
 func merge_farmers_to_spearman(farmer1_pos: Vector2i, farmer2_pos: Vector2i):
 	"""Łączy dwóch farmerów w spearmana"""
@@ -2018,6 +2053,8 @@ func merge_farmers_to_spearman(farmer1_pos: Vector2i, farmer2_pos: Vector2i):
 	
 	if farmer1.team != farmer2.team:
 		return
+		
+	get_node("/root/Main").play_put_sound()
 	
 	remove_farmer_at(farmer2_pos)
 	remove_farmer_at(farmer1_pos)
@@ -2039,6 +2076,8 @@ func merge_spearmen_to_knight(spearman1_pos: Vector2i, spearman2_pos: Vector2i):
 	
 	if spearman1.team != spearman2.team:
 		return
+		
+	get_node("/root/Main").play_put_sound()
 	
 	remove_spearman_at(spearman2_pos)
 	remove_spearman_at(spearman1_pos)
@@ -2061,6 +2100,8 @@ func on_spearman_clicked(spearman):
 		if spearman.team == selected_unit.team:
 			merge_spearmen_to_knight(selected_unit.hex_position, spearman.hex_position)
 			return
+		else:
+			get_node("/root/Main").play_select_sound()
 	
 	# === Reszta bez zmian ===
 	if spearman.team != current_team:
@@ -2069,6 +2110,8 @@ func on_spearman_clicked(spearman):
 	if spearman in units_moved_this_turn:
 		print("Ta jednostka już się ruszyła w tej turze")
 		return
+		
+	get_node("/root/Main").play_select_sound()
 	
 	if selected_unit == spearman:
 		clear_selected_unit_highlight()
@@ -2154,16 +2197,16 @@ func move_knight(from: Vector2i, to: Vector2i):
 				return
 	
 	# ZMIANA: Jesli atakujemy zamek wroga - ZNISZCZ GO
+	var player_lost = false  # Flaga czy gracz przegrał (zamek team 1 przejęty)
+	
 	if castle_map.has(to):
 		var target_castle = castle_map[to]
 		if target_castle.team != knight.team:
 			var old_team = target_castle.team
 			
 			if old_team == 1:
-				if has_meta("defeat_popup"):
-					var defeat_popup = get_meta("defeat_popup")
-					await get_tree().create_timer(0.4).timeout
-					defeat_popup.show_defeat(current_round)
+				# Zapamiętaj że gracz przegrał - pokażemy defeat PO przejęciu
+				player_lost = true
 			
 			if old_team == -1:
 				print("=== PRZEJECIE OBOZU BANDYTOW ===")
@@ -2332,6 +2375,8 @@ func move_knight(from: Vector2i, to: Vector2i):
 	to_hex.place_object(knight)
 	knight.sprite.scale = Vector2.ZERO
 	
+	get_node("/root/Main").play_put_sound()
+	
 	knight.animate_slide_to(to_hex.position, 0.3)
 	var knight_pop = create_tween()
 	knight_pop.tween_property(knight.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
@@ -2365,6 +2410,14 @@ func move_knight(from: Vector2i, to: Vector2i):
 	capture_territory(to, knight.team)
 	clear_highlights()
 	pulse_available_units()
+	
+	# Sprawdź czy gracz przegrał - pokazujemy defeat PO przejęciu zamku
+	if player_lost:
+		game_over = true
+		if has_meta("defeat_popup"):
+			var defeat_popup = get_meta("defeat_popup")
+			await get_tree().create_timer(0.4).timeout
+			defeat_popup.show_defeat(current_level_number)
 	
 func remove_wall(hex1: Vector2i, hex2: Vector2i):
 	"""Usuwa wall między hex1 i hex2 (z obu stron)"""
@@ -2524,6 +2577,8 @@ func move_farmer(from: Vector2i, to: Vector2i):
 	to_hex.place_object(farmer)
 	farmer.sprite.scale = Vector2.ZERO
 	
+	get_node("/root/Main").play_put_sound()
+	
 	farmer.animate_slide_to(to_hex.position, 0.3)
 	var farmer_pop = create_tween()
 	farmer_pop.tween_property(farmer.sprite, "scale", Vector2.ONE, 0.15).set_delay(0.2)
@@ -2631,6 +2686,7 @@ func check_bandit_camp_after_move(from: Vector2i, to: Vector2i):
 	castle.team = BANDIT_TEAM
 	castle.hex_position = from
 	castle.position = hex.position
+	castle.modulate = Color.WHITE  # Sprite zamku zawsze biały
 	add_child(castle)
 	
 	castle_map[from] = castle
@@ -2834,10 +2890,9 @@ func convert_isolated_region(region: Array, original_team: int):
 	
 	print("Jednostek do konwersji: ", units_positions.size())
 	
-	# ZMIANA: Jesli nie ma jednostek - pola POZOSTAJA u wlasciciela (tylko odciete)
+	# KLUCZOWY FIX: Jeśli nie ma jednostek - NIE TWÓRZ OBOZU
 	if units_positions.is_empty():
-		print("Brak jednostek - pola pozostaja u wlasciciela (odciete od zamku)")
-		# NIE zmieniamy territory_map - pola dalej naleza do original_team
+		print("Brak jednostek w odcietym regionie - pomijam tworzenie obozu")
 		return
 	
 	# Przeksztalc TYLKO knight/cavalry/spearman w farmerow bandytow, farmery usuń
@@ -2873,6 +2928,19 @@ func convert_isolated_region(region: Array, original_team: int):
 					if wall_lines.has(edge_key):
 						wall_lines[edge_key].queue_free()
 						wall_lines.erase(edge_key)
+	
+	# NOWE: Sprawdź czy po konwersji są jakiekolwiek jednostki bandytów
+	var bandit_units = []
+	for coords in region:
+		if farmer_map.has(coords) and farmer_map[coords].team == BANDIT_TEAM:
+			bandit_units.append(coords)
+	
+	if bandit_units.is_empty():
+		print("Po konwersji brak jednostek bandytow - pomijam tworzenie obozu")
+		print("=== KONIEC KONWERSJI REGIONU ===")
+		return
+	
+	print("Tworzenie obozu dla ", bandit_units.size(), " bandytow...")
 	
 	# Postaw JEDEN oboz bandytow dla jednostek
 	var camp_placed = place_bandit_camp_near_units(units_positions, units_positions)
@@ -3173,6 +3241,7 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 	castle.team = -1
 	castle.hex_position = camp_pos
 	castle.position = get_hex_at(camp_pos).position
+	castle.modulate = Color.WHITE  # Sprite zamku zawsze biały
 	
 	# ===== NOWE: Przypisz unikalne ID obozowi =====
 	var camp_id = next_bandit_camp_id
@@ -3888,6 +3957,7 @@ func on_hex_clicked(hex: Hex):
 	# Obsluga zakupu jednostek
 	if buy_mode == "farmer" and hex in highlighted_hexes:
 		if team_gold[current_team] >= FARMER_COST:
+			get_node("/root/Main").play_put_sound()
 			place_farmer_at(clicked_pos, current_team)
 			team_gold[current_team] -= FARMER_COST
 			capture_territory(clicked_pos, current_team)
@@ -3900,6 +3970,7 @@ func on_hex_clicked(hex: Hex):
 		
 	if buy_mode == "spearman" and hex in highlighted_hexes:
 		if team_gold[current_team] >= SPEARMAN_COST:
+			get_node("/root/Main").play_put_sound()
 			place_spearman_at(clicked_pos, current_team)
 			team_gold[current_team] -= SPEARMAN_COST
 			capture_territory(clicked_pos, current_team)
@@ -3912,6 +3983,7 @@ func on_hex_clicked(hex: Hex):
 		
 	if buy_mode == "cavalry" and hex in highlighted_hexes:
 		if team_gold[current_team] >= CAVALRY_COST:
+			get_node("/root/Main").play_put_sound()
 			place_cavalry_at(clicked_pos, current_team)
 			team_gold[current_team] -= CAVALRY_COST
 			capture_territory(clicked_pos, current_team)
@@ -3924,6 +3996,7 @@ func on_hex_clicked(hex: Hex):
 	
 	if buy_mode == "knight" and hex in highlighted_hexes:
 		if team_gold[current_team] >= 20:
+			get_node("/root/Main").play_put_sound()
 			if hex.occupied_object:
 				if knight_map.has(clicked_pos):
 					remove_knight_at(clicked_pos)
@@ -3974,6 +4047,8 @@ func on_knight_clicked(knight: Knight):
 		if knight.team == selected_unit.team:
 			merge_knights_to_cavalry(selected_unit.hex_position, knight.hex_position)
 			return
+		else:
+			get_node("/root/Main").play_select_sound()
 	
 	# === Reszta bez zmian ===
 	if knight.team != current_team:
@@ -3982,6 +4057,8 @@ func on_knight_clicked(knight: Knight):
 	if knight in units_moved_this_turn:
 		print("Ta jednostka już się ruszyła w tej turze")
 		return
+	
+	get_node("/root/Main").play_select_sound()
 	
 	if selected_unit == knight:
 		clear_selected_unit_highlight()
@@ -4019,6 +4096,8 @@ func on_farmer_clicked(farmer):
 		if farmer.team == selected_unit.team:
 			merge_farmers_to_spearman(selected_unit.hex_position, farmer.hex_position)
 			return
+		else:
+			get_node("/root/Main").play_select_sound()
 	
 	# === Reszta bez zmian ===
 	if farmer.team == BANDIT_TEAM:
@@ -4031,6 +4110,8 @@ func on_farmer_clicked(farmer):
 	if farmer in units_moved_this_turn:
 		print("Ta jednostka już się ruszyła w tej turze")
 		return
+		
+	get_node("/root/Main").play_select_sound()
 	
 	if selected_unit == farmer:
 		clear_selected_unit_highlight()
@@ -4285,6 +4366,9 @@ func load_layout() -> bool:
 
 func load_layout_from_file(file_name: String) -> bool:
 	"""Loads layout from a specific file (for level loading)"""
+	# Reset game_over flag when loading new level
+	game_over = false
+	
 	var full_path = "res://levels/" + file_name
 	
 	var file = FileAccess.open(full_path, FileAccess.READ)
@@ -4379,6 +4463,11 @@ func load_layout_from_file(file_name: String) -> bool:
 	cavalry_moves_this_turn.clear()
 	
 	update_ui()
+	
+	# WAŻNE: Odblokuj przyciski po wczytaniu poziomu (dla retry)
+	if ui_manager:
+		ui_manager.set_buttons_enabled(true)
+	
 	print("✓ Wczytano poziom z: ", full_path)
 	
 	if turn_history:
@@ -4388,6 +4477,27 @@ func load_layout_from_file(file_name: String) -> bool:
 	return true
 
 func _on_buy_farmer():
+	if wall_placement_mode:
+		wall_placement_mode = false
+		for hex_coords in wall_hexes_selected:
+			remove_hex_outline(hex_coords)
+		wall_hexes_selected.clear()
+		if ui_manager:
+			ui_manager.reset_wall_button()
+			
+	if buy_mode == "farmer":
+		buy_mode = ""
+		clear_highlights()
+		if selected_unit:
+			clear_selected_unit_highlight()
+			if selected_unit.has_method("set_selected"):
+				selected_unit.set_selected(false)
+			selected_unit = null
+		update_ui()
+		pulse_available_units()
+		print("Tryb kupna farmera wyłączony")
+		return
+	
 	if team_gold[current_team] < FARMER_COST:
 		return
 		
@@ -4430,6 +4540,27 @@ func _on_buy_farmer():
 	print("Tryb zakupu: Farmer - kliknij pole")
 	
 func _on_buy_cavalry():
+	if wall_placement_mode:
+		wall_placement_mode = false
+		for hex_coords in wall_hexes_selected:
+			remove_hex_outline(hex_coords)
+		wall_hexes_selected.clear()
+		if ui_manager:
+			ui_manager.reset_wall_button()
+			
+	if buy_mode == "cavalry":
+		buy_mode = ""
+		clear_highlights()
+		if selected_unit:
+			clear_selected_unit_highlight()
+			if selected_unit.has_method("set_selected"):
+				selected_unit.set_selected(false)
+			selected_unit = null
+		update_ui()
+		pulse_available_units()
+		print("Tryb kupna cavalry wyłączony")
+		return
+	
 	if team_gold[current_team] < CAVALRY_COST:
 		return
 		
@@ -4475,6 +4606,27 @@ func _on_buy_cavalry():
 	print("Tryb zakupu: Cavalry - kliknij pole")
 	
 func _on_buy_spearman():
+	if wall_placement_mode:
+		wall_placement_mode = false
+		for hex_coords in wall_hexes_selected:
+			remove_hex_outline(hex_coords)
+		wall_hexes_selected.clear()
+		if ui_manager:
+			ui_manager.reset_wall_button()
+			
+	if buy_mode == "spearman":
+		buy_mode = ""
+		clear_highlights()
+		if selected_unit:
+			clear_selected_unit_highlight()
+			if selected_unit.has_method("set_selected"):
+				selected_unit.set_selected(false)
+			selected_unit = null
+		update_ui()
+		pulse_available_units()
+		print("Tryb kupna spearmana wyłączony")
+		return
+	
 	if team_gold[current_team] < SPEARMAN_COST:
 		return
 		
@@ -4513,6 +4665,27 @@ func _on_buy_spearman():
 	print("Tryb zakupu: Spearman - kliknij pole")
 
 func _on_buy_knight():
+	if wall_placement_mode:
+		wall_placement_mode = false
+		for hex_coords in wall_hexes_selected:
+			remove_hex_outline(hex_coords)
+		wall_hexes_selected.clear()
+		if ui_manager:
+			ui_manager.reset_wall_button()
+			
+	if buy_mode == "knight":
+		buy_mode = ""
+		clear_highlights()
+		if selected_unit:
+			clear_selected_unit_highlight()
+			if selected_unit.has_method("set_selected"):
+				selected_unit.set_selected(false)
+			selected_unit = null
+		update_ui()
+		pulse_available_units()
+		print("Tryb kupna knighta wyłączony")
+		return
+	
 	if team_gold[current_team] < 20:
 		return
 		
@@ -4780,7 +4953,7 @@ func check_victory():
 			enemy_castles += 1
 	
 	if enemy_castles == 0:
-		# Wygrana!
+		# Wygrana! Sound is now played inside victory_popup.show_victory()
 		if has_meta("victory_popup"):
 			var victory_popup = get_meta("victory_popup")
 			# Pass the current level number (if available)
@@ -4931,3 +5104,61 @@ func find_nearest_bandit_camp(unit_pos: Vector2i) -> int:
 		return camp.get_meta("camp_id")
 	
 	return 0
+
+# ============================================================================
+# DEFEAT POPUP - Obsługa przycisków
+# ============================================================================
+
+func _on_defeat_rewind_2_turns():
+	"""Wywoływane gdy użytkownik kliknie przycisk rewind (niebieski)"""
+	print("=== DEFEAT POPUP: Rewind 2 turns ===")
+	
+	# Sprawdź czy mamy 2 rewindy
+	var rewind_label = ui_manager.rewind_counter.get_node_or_null("RewindLabel")
+	if not rewind_label:
+		print("ERROR: Brak RewindLabel")
+		return
+	
+	var current_rewinds = int(rewind_label.text)
+	if current_rewinds < 2:
+		print("Nie wystarczajaco rewindow: %d (potrzeba 2)" % current_rewinds)
+		return
+	
+	# Oblicz ile tur trzeba cofnąć aby wrócić do początku ostatnich 2 PEŁNYCH rund gracza (team 1)
+	var num_teams = ai_teams.size() + 1  # AI teams + gracz
+	var turns_to_rewind = 2 * num_teams  # 2 rundy × liczba teamów
+	
+	print("Cofanie %d tur (2 rundy x %d teamów)" % [turns_to_rewind, num_teams])
+	
+	# Użyj nowej funkcji która cofa wiele tur naraz
+	var success = await turn_history.restore_multiple_turns(self, turns_to_rewind, 2)
+	
+	if not success:
+		print("ERROR: Nie udało się cofnąć tur!")
+		return
+	
+	# Odśwież UI po cofnięciu
+	update_ui()
+	
+	# WAŻNE: Resetuj game_over żeby móc grać dalej
+	game_over = false
+	
+	# WAŻNE: Odblokuj przyciski UI
+	if ui_manager:
+		ui_manager.set_buttons_enabled(true)
+	
+	# Zamknij defeat popup
+	if has_meta("defeat_popup"):
+		var defeat_popup = get_meta("defeat_popup")
+		if defeat_popup and defeat_popup.has_method("hide_popup"):
+			defeat_popup.hide_popup()
+	
+	print("=== Cofnieto 2 rundy (powrot do team 1) ===")
+
+func _on_defeat_watch_ad():
+	"""Wywoływane gdy użytkownik kliknie Watch Ad"""
+	print("=== DEFEAT POPUP: Watch Ad ===")
+	
+	# TODO: Tutaj możesz dodać logikę wyświetlania reklamy
+	# Po obejrzeniu reklamy wywołaj rewind:
+	_on_defeat_rewind_2_turns()

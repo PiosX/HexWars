@@ -61,6 +61,11 @@ var music_enabled: bool = true
 signal tab_changed(tab_name: String)
 
 func _ready():
+	var main_node = get_node_or_null("/root/Main")
+	if main_node:
+		sound_enabled = main_node.sound_enabled
+		music_enabled = main_node.music_enabled
+		
 	setup_background()
 	setup_top_panel()
 	setup_shop_content()
@@ -80,11 +85,17 @@ func setup_background():
 
 func setup_top_panel():
 	"""Creates top panel with settings, SHOP label, and currency"""
+	# Settings CanvasLayer (higher layer = always on top)
+	var settings_layer = CanvasLayer.new()
+	settings_layer.name = "SettingsLayer"
+	settings_layer.layer = 10  # Much higher than main content (which is layer 0)
+	add_child(settings_layer)
+	
 	# Settings button (top left)
 	settings_button = create_icon_button(ICON_SETTINGS, Vector2(95, 95))
 	settings_button.position = Vector2(12, 20)
 	settings_button.pressed.connect(_on_settings_pressed)
-	add_child(settings_button)
+	settings_layer.add_child(settings_button)
 	
 	# Settings menu (hidden by default)
 	settings_menu = VBoxContainer.new()
@@ -92,18 +103,20 @@ func setup_top_panel():
 	settings_menu.add_theme_constant_override("separation", 8)
 	settings_menu.position = Vector2(12, 127)
 	settings_menu.visible = false
-	settings_menu.z_index = 100
-	add_child(settings_menu)
+	
+	settings_layer.add_child(settings_menu)
 	
 	# Sound button
 	sound_button = create_icon_button(ICON_SOUND, Vector2(95, 95))
 	sound_button.pressed.connect(_on_sound_pressed)
 	settings_menu.add_child(sound_button)
+	update_toggle_button(sound_button, sound_enabled)
 	
 	# Music button
 	music_button = create_icon_button(ICON_MUSIC, Vector2(95, 95))
 	music_button.pressed.connect(_on_music_pressed)
 	settings_menu.add_child(music_button)
+	update_toggle_button(music_button, music_enabled)
 	
 	# Info button
 	info_button = create_icon_button(ICON_INFO, Vector2(95, 95))
@@ -173,8 +186,9 @@ func setup_top_panel():
 	currency_hbox.offset_bottom = 0
 	currency_panel.add_child(currency_hbox)
 	
+	var currency = get_node("/root/Main").global_time_currency
 	currency_amount = Label.new()
-	currency_amount.text = "12500"  # Zmienione z "1251" na "12500"
+	currency_amount.text = str(currency)
 	currency_amount.add_theme_font_size_override("font_size", 24)
 	currency_amount.add_theme_color_override("font_color", Color.WHITE)
 	currency_amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -211,6 +225,7 @@ func setup_shop_content():
 	var scroll = ScrollContainer.new()
 	scroll.name = "ShopScroll"
 	scroll.set_meta("shop_content", true)
+	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(scroll)
 	
 	var vbox = VBoxContainer.new()
@@ -568,6 +583,10 @@ func create_buy_button() -> TextureButton:
 		tween.parallel().tween_property(btn, "scale", Vector2.ONE, 0.2)
 	)
 	
+	btn.pressed.connect(func():
+		get_node("/root/Main").play_btn_sound()
+	)
+	
 	return btn
 
 func create_small_purchase_boxes(parent: VBoxContainer):
@@ -737,6 +756,10 @@ func create_small_box(parent: HBoxContainer, amount: String, price: String, bonu
 	btn_bold.set_variation_embolden(0.5)
 	price_button.add_theme_font_override("font", btn_bold)
 	
+	price_button.pressed.connect(func():
+		get_node("/root/Main").play_btn_sound()
+	)
+	
 	vbox.add_child(price_button)
 
 func create_remove_ads_box(parent: VBoxContainer):
@@ -843,6 +866,10 @@ func create_remove_ads_box(parent: VBoxContainer):
 	btn_bold.set_variation_embolden(0.5)
 	price_button.add_theme_font_override("font", btn_bold)
 	
+	price_button.pressed.connect(func():
+		get_node("/root/Main").play_btn_sound()
+	)
+	
 	hbox.add_child(price_button)
 
 func setup_bottom_nav():
@@ -947,7 +974,7 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		
 		var badge_label = Label.new()
 		badge_label.text = "75% OFF"
-		badge_label.add_theme_font_size_override("font_size", 16)
+		badge_label.add_theme_font_size_override("font_size", 14)
 		badge_label.add_theme_color_override("font_color", Color.WHITE)
 		badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		badge_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1012,6 +1039,7 @@ func _on_nav_hover(panel: Panel, is_hovering: bool):
 				tween.tween_property(icon_container, "scale", Vector2.ONE, 0.2)
 
 func _on_nav_pressed(tab_name: String):
+	get_node("/root/Main").play_btn_sound()
 	update_active_tab(tab_name)
 	tab_changed.emit(tab_name)
 
@@ -1100,7 +1128,7 @@ func set_currency(amount: int):
 		currency_amount.text = str(amount)
 		
 func _on_settings_pressed():
-	"""Toggles settings menu"""
+	get_node("/root/Main").play_btn_sound()
 	settings_expanded = !settings_expanded
 	settings_menu.visible = settings_expanded
 	
@@ -1114,11 +1142,15 @@ func _on_sound_pressed():
 	"""Toggles sound"""
 	sound_enabled = !sound_enabled
 	update_toggle_button(sound_button, sound_enabled)
+	get_node("/root/Main").toggle_sound(sound_enabled)
+	get_node("/root/Main").play_btn_sound()
 
 func _on_music_pressed():
 	"""Toggles music"""
+	get_node("/root/Main").play_btn_sound()
 	music_enabled = !music_enabled
 	update_toggle_button(music_button, music_enabled)
+	get_node("/root/Main").toggle_music(music_enabled)
 
 func update_toggle_button(btn: Button, is_enabled: bool):
 	"""Updates toggle button appearance"""
@@ -1129,4 +1161,5 @@ func update_toggle_button(btn: Button, is_enabled: bool):
 
 func _on_info_pressed():
 	"""Opens info/tutorial"""
+	get_node("/root/Main").play_btn_sound()
 	print("Info pressed")

@@ -48,7 +48,7 @@ var time_owned: int = 5  # Number of time rewinds owned
 signal home_pressed
 signal retry_pressed
 signal watch_ad_pressed
-signal use_time_pressed
+signal rewind_2_turns_pressed
 
 func _ready():
 	# Set layer to be above everything (including UI)
@@ -582,7 +582,7 @@ func _on_watch_box_gui_input(event: InputEvent):
 
 func _on_use_box_gui_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		use_time_pressed.emit()
+		rewind_2_turns_pressed.emit()
 
 func create_button(text: String, icon_path: String, bg_color: Color, hover_color: Color, text_color: Color, icon_right: bool = false) -> Button:
 	var btn = Button.new()
@@ -643,10 +643,14 @@ func create_button(text: String, icon_path: String, bg_color: Color, hover_color
 
 func show_defeat(level: int):
 	"""Shows defeat popup with animation (no confetti)"""
+	get_node("/root/Main").play_defeat_sound()
 	# Update level text
 	var level_label = main_panel.get_node("Content/LevelLabel")
 	if level_label:
 		level_label.text = "Level %d" % level
+	
+	# NOWE: Sprawdź dostępność rewindów i ustaw stan boxów
+	update_rewind_boxes_state()
 	
 	# Show overlay and container
 	overlay.visible = true
@@ -684,9 +688,70 @@ func hide_popup():
 	)
 
 func _on_home_pressed():
+	get_node("/root/Main").play_btn_sound()
 	home_pressed.emit()
 	hide_popup()
 
 func _on_retry_pressed():
+	get_node("/root/Main").play_btn_sound()
 	retry_pressed.emit()
 	hide_popup()
+
+func update_rewind_boxes_state():
+	"""Aktualizuje stan use_box (niebieski) na podstawie dostępnych rewindów"""
+	if not use_box:
+		print("WARNING: use_box nie istnieje")
+		return
+	
+	# Pobierz hex_grid z rodzica
+	var hex_grid = get_parent()
+	if not hex_grid:
+		print("WARNING: Nie można znaleźć hex_grid (parent)")
+		use_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		use_box.modulate = Color(0.5, 0.5, 0.5, 0.5)
+		return
+	
+	# UIManager może być w dzieciach hex_grid (nie has_node)
+	var ui_manager = null
+	for child in hex_grid.get_children():
+		if child is UIManager:
+			ui_manager = child
+			break
+	
+	if not ui_manager:
+		print("WARNING: Nie można znaleźć UIManager w hex_grid")
+		use_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		use_box.modulate = Color(0.5, 0.5, 0.5, 0.5)
+		return
+	
+	if not ui_manager.rewind_counter:
+		print("WARNING: Brak rewind_counter w UIManager")
+		use_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		use_box.modulate = Color(0.5, 0.5, 0.5, 0.5)
+		return
+	
+	var rewind_label = ui_manager.rewind_counter.get_node_or_null("RewindLabel")
+	
+	if not rewind_label:
+		print("WARNING: Brak RewindLabel")
+		use_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		use_box.modulate = Color(0.5, 0.5, 0.5, 0.5)
+		return
+	
+	var current_rewinds = int(rewind_label.text)
+	print("DEBUG: Sprawdzam rewindy - current: %d, needed: 2" % current_rewinds)
+	
+	# Box aktywny tylko gdy mamy >= 2 rewindy
+	if current_rewinds >= 2:
+		use_box.mouse_filter = Control.MOUSE_FILTER_PASS
+		use_box.modulate = Color.WHITE
+		print("Use Time box: ENABLED (rewinds: %d)" % current_rewinds)
+	else:
+		use_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		use_box.modulate = Color(0.5, 0.5, 0.5, 0.5)
+		print("Use Time box: DISABLED (rewinds: %d, need 2)" % current_rewinds)
+	
+	# Watch box zawsze aktywny
+	if watch_box:
+		watch_box.mouse_filter = Control.MOUSE_FILTER_PASS
+		watch_box.modulate = Color.WHITE

@@ -2,7 +2,7 @@ extends CanvasLayer
 class_name MainMenu
 
 # === COLORS ===
-const BG_COLOR = Color("1A1A1A")
+const BG_COLOR = Color("121218")
 const PANEL_BG = Color("1A1A28")
 const PANEL_BORDER = Color("2A2A40")
 const TEXT_SUBTITLE = Color("6A7282")
@@ -30,7 +30,7 @@ const ICON_SOUND = "res://ui/settings/sound.png"
 const ICON_MUSIC = "res://ui/settings/music.png"
 const ICON_INFO = "res://ui/settings/howto.png"
 const ICON_TIME = "res://ui/time2.png"
-const ICON_TITLE = "res://ui/title.png"
+const ICON_TITLE = "res://ui/hex-wars.png"
 const ICON_BTN = "res://ui/btn.png"
 const ICON_H1 = "res://ui/h1.png"
 const ICON_H2 = "res://ui/h2.png"
@@ -40,9 +40,53 @@ const ICON_H4 = "res://ui/h4.png"
 const PROGRESS_PATH = "res://levels/level_progress.json"
 const LEVEL_DATA_PATH = "res://levels/level_select_data.json"
 
+# === ANIMATED BACKGROUND COLORS ===
+const HEX_COLORS = [
+	Color(0.259, 0.522, 0.957),  # blue (66, 133, 244)
+	Color(0.541, 0.310, 1.000),  # purple (138, 79, 255)
+	Color(0.859, 0.267, 0.216),  # red (219, 68, 55)
+	Color(0.957, 0.761, 0.051),  # yellow (244, 194, 13)
+	Color(0.392, 0.455, 0.545),  # slate (100, 116, 139)
+]
+
+# === BACKGROUND ANIMATION DATA ===
+class AnimatedHexagon:
+	var x: float
+	var y: float
+	var size: float
+	var opacity: float
+	var target_opacity: float
+	var color: Color
+	var rotation: float
+	var rotation_speed: float
+	var drift_x: float
+	var drift_y: float
+	var pulse_phase: float
+	var pulse_speed: float
+
+class Particle:
+	var x: float
+	var y: float
+	var vx: float
+	var vy: float
+	var size: float
+	var opacity: float
+	var color: Color
+	var life: int
+	var max_life: int
+
+class GlowOrb:
+	var base_x: float
+	var base_y: float
+	var offset_phase_x: float
+	var offset_phase_y: float
+	var radius: float
+	var color: Color
+
 # === REFS ===
 var background: ColorRect
 var hex_animation_container: Node2D
+var animated_background: Control
 var settings_button: Button
 var settings_menu: VBoxContainer
 var sound_button: Button
@@ -66,12 +110,22 @@ var current_level_number: int = 1
 var current_level_file: String = ""
 var current_level_difficulty: int = 1
 
+# Background animation state
+var animated_hexagons: Array[AnimatedHexagon] = []
+var particles: Array[Particle] = []
+var glow_orbs: Array[GlowOrb] = []
+var animation_time: float = 0.0
+
 signal tab_changed(tab_name: String)
 signal play_pressed(level_file: String, difficulty: int, level_number: int)
 
 func _ready():
-	setup_background()
-	setup_hex_animation()
+	#setup_hex_animation()
+	var main_node = get_node_or_null("/root/Main")
+	if main_node:
+		sound_enabled = main_node.sound_enabled
+		music_enabled = main_node.music_enabled
+	setup_animated_background()
 	setup_top_panel()
 	setup_center_content()
 	setup_bottom_nav()
@@ -99,6 +153,13 @@ func setup_background():
 
 func setup_hex_animation():
 	"""Creates moving hex pattern in background"""
+	# Container for hex animations (behind everything)
+	if not hex_animation_container:
+		hex_animation_container = Node2D.new()
+		hex_animation_container.name = "HexAnimation"
+		hex_animation_container.z_index = -2
+		add_child(hex_animation_container)
+	
 	var hex_size = 60.0
 	var hex_spacing = hex_size * 1.732  # sqrt(3) for perfect hex tiling
 	
@@ -139,6 +200,220 @@ func create_animated_hex() -> Polygon2D:
 	
 	return hex
 
+func setup_animated_background():
+	"""Creates advanced animated canvas background"""
+	# Background color
+	background = ColorRect.new()
+	background.name = "Background"
+	background.color = Color("121218")
+	background.anchor_right = 1.0
+	background.anchor_bottom = 1.0
+	background.z_index = -10
+	add_child(background)
+	
+	animated_background = Control.new()
+	animated_background.name = "AnimatedBackground"
+	animated_background.anchor_right = 1.0
+	animated_background.anchor_bottom = 1.0
+	animated_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	animated_background.z_index = -1
+	add_child(animated_background)
+	
+	# Initialize animation elements
+	var viewport_size = get_viewport().get_visible_rect().size
+	init_animated_hexagons(viewport_size)
+	init_particles(viewport_size)
+	init_glow_orbs(viewport_size)
+	
+	# Connect draw signal
+	animated_background.draw.connect(_draw_animated_background)
+
+func init_animated_hexagons(viewport_size: Vector2):
+	"""Initialize floating hexagons"""
+	animated_hexagons.clear()
+	var count = int((viewport_size.x * viewport_size.y) / 25000.0)
+	
+	for i in range(count):
+		var hex = AnimatedHexagon.new()
+		hex.x = randf() * viewport_size.x
+		hex.y = randf() * viewport_size.y
+		hex.size = 15.0 + randf() * 45.0
+		hex.opacity = randf() * 0.5
+		hex.target_opacity = 0.1 + randf() * 0.6
+		hex.color = HEX_COLORS[randi() % HEX_COLORS.size()]
+		hex.rotation = randf() * PI
+		hex.rotation_speed = (randf() - 0.5) * 0.003
+		hex.drift_x = (randf() - 0.5) * 0.3
+		hex.drift_y = -0.1 - randf() * 0.3
+		hex.pulse_phase = randf() * PI * 2.0
+		hex.pulse_speed = 0.005 + randf() * 0.015
+		animated_hexagons.append(hex)
+
+func init_particles(viewport_size: Vector2):
+	"""Initialize floating particles"""
+	particles.clear()
+	for i in range(50):
+		particles.append(spawn_particle(viewport_size))
+
+func spawn_particle(viewport_size: Vector2) -> Particle:
+	"""Create a new particle"""
+	var p = Particle.new()
+	p.x = randf() * viewport_size.x
+	p.y = randf() * viewport_size.y
+	p.vx = (randf() - 0.5) * 0.5
+	p.vy = (randf() - 0.5) * 0.5
+	p.size = 1.0 + randf() * 2.5
+	p.opacity = 0.3 + randf() * 0.5
+	p.color = HEX_COLORS[randi() % HEX_COLORS.size()]
+	p.life = 0
+	p.max_life = 200 + int(randf() * 400.0)
+	return p
+
+func init_glow_orbs(viewport_size: Vector2):
+	"""Initialize glow orbs"""
+	glow_orbs.clear()
+	
+	var orb1 = GlowOrb.new()
+	orb1.base_x = viewport_size.x * 0.2
+	orb1.base_y = viewport_size.y * 0.3
+	orb1.offset_phase_x = 0.003
+	orb1.offset_phase_y = 0.004
+	orb1.radius = 120.0
+	orb1.color = Color(0.259, 0.522, 0.957)  # blue
+	glow_orbs.append(orb1)
+	
+	var orb2 = GlowOrb.new()
+	orb2.base_x = viewport_size.x * 0.8
+	orb2.base_y = viewport_size.y * 0.6
+	orb2.offset_phase_x = 0.002
+	orb2.offset_phase_y = 0.003
+	orb2.radius = 100.0
+	orb2.color = Color(0.541, 0.310, 1.000)  # purple
+	glow_orbs.append(orb2)
+	
+	var orb3 = GlowOrb.new()
+	orb3.base_x = viewport_size.x * 0.5
+	orb3.base_y = viewport_size.y * 0.15
+	orb3.offset_phase_x = 0.0025
+	orb3.offset_phase_y = 0.0035
+	orb3.radius = 80.0
+	orb3.color = Color(0.859, 0.267, 0.216)  # red
+	glow_orbs.append(orb3)
+	
+	var orb4 = GlowOrb.new()
+	orb4.base_x = viewport_size.x * 0.7
+	orb4.base_y = viewport_size.y * 0.85
+	orb4.offset_phase_x = 0.002
+	orb4.offset_phase_y = 0.003
+	orb4.radius = 90.0
+	orb4.color = Color(0.957, 0.761, 0.051)  # yellow
+	glow_orbs.append(orb4)
+
+func _process(delta: float):
+	"""Update animation state"""
+	animation_time += delta
+	
+	var viewport_size = get_viewport().get_visible_rect().size
+	
+	# Update hexagons
+	for hex in animated_hexagons:
+		hex.x += hex.drift_x
+		hex.y += hex.drift_y
+		hex.rotation += hex.rotation_speed
+		hex.pulse_phase += hex.pulse_speed
+		
+		var pulse = sin(hex.pulse_phase) * 0.3
+		var current_opacity = clamp(hex.target_opacity + pulse, 0.0, 1.0)
+		hex.opacity += (current_opacity - hex.opacity) * 0.02
+		
+		# Wrap around
+		if hex.y < -hex.size * 2: hex.y = viewport_size.y + hex.size * 2
+		if hex.y > viewport_size.y + hex.size * 2: hex.y = -hex.size * 2
+		if hex.x < -hex.size * 2: hex.x = viewport_size.x + hex.size * 2
+		if hex.x > viewport_size.x + hex.size * 2: hex.x = -hex.size * 2
+	
+	# Update particles
+	for i in range(particles.size()):
+		var p = particles[i]
+		p.x += p.vx
+		p.y += p.vy
+		p.life += 1
+		
+		# Respawn if dead
+		if p.life >= p.max_life:
+			particles[i] = spawn_particle(viewport_size)
+	
+	# Request redraw
+	animated_background.queue_redraw()
+
+func _draw_animated_background():
+	"""Draw the animated background"""
+	var viewport_size = get_viewport().get_visible_rect().size
+	
+	# Draw floating hexagons
+	for hex in animated_hexagons:
+		draw_animated_hexagon(Vector2(hex.x, hex.y), hex.size, hex.rotation, hex.color, hex.opacity, true)
+	
+	# Draw particles
+	for p in particles:
+		var life_ratio = float(p.life) / float(p.max_life)
+		var fade_opacity = 1.0
+		if life_ratio < 0.1:
+			fade_opacity = life_ratio * 10.0
+		elif life_ratio > 0.8:
+			fade_opacity = (1.0 - life_ratio) * 5.0
+		
+		var final_color = p.color
+		final_color.a = p.opacity * fade_opacity
+		animated_background.draw_circle(Vector2(p.x, p.y), p.size, final_color)
+	
+	# Draw glow orbs
+	draw_glow_orbs(viewport_size)
+
+func draw_animated_hexagon(pos: Vector2, size: float, rotation: float, color: Color, opacity: float, filled: bool):
+	"""Draw a single animated hexagon"""
+	var points = PackedVector2Array()
+	
+	for i in range(6):
+		var angle = (PI / 3.0) * i - PI / 6.0 + rotation
+		var px = pos.x + size * cos(angle)
+		var py = pos.y + size * sin(angle)
+		points.append(Vector2(px, py))
+	
+	if filled:
+		var fill_color = color
+		fill_color.a = opacity * 0.15
+		animated_background.draw_colored_polygon(points, fill_color)
+	
+	# Draw outline
+	var stroke_color = color
+	stroke_color.a = opacity * 0.4
+	for i in range(6):
+		var next_i = (i + 1) % 6
+		animated_background.draw_line(points[i], points[next_i], stroke_color, 1.5)
+
+func draw_glow_orbs(viewport_size: Vector2):
+	"""Draw glowing orbs with radial gradient effect"""
+	for orb in glow_orbs:
+		var x = orb.base_x + sin(animation_time * orb.offset_phase_x) * 60.0
+		var y = orb.base_y + cos(animation_time * orb.offset_phase_y) * 40.0
+		
+		# Simulate radial gradient with multiple circles
+		var steps = 20
+		for i in range(steps, 0, -1):
+			var ratio = float(i) / float(steps)
+			var current_radius = orb.radius * ratio
+			
+			var alpha = 0.0
+			if ratio < 0.5:
+				alpha = 0.06 * (1.0 - ratio * 2.0) + 0.02
+			else:
+				alpha = 0.02 * (1.0 - (ratio - 0.5) * 2.0)
+			
+			var glow_color = orb.color
+			glow_color.a = alpha
+			animated_background.draw_circle(Vector2(x, y), current_radius, glow_color)
+
 func setup_top_panel():
 	"""Creates top panel with settings, level, and currency"""
 	# Settings button (top left)
@@ -160,11 +435,13 @@ func setup_top_panel():
 	sound_button = create_icon_button(ICON_SOUND, Vector2(95, 95))
 	sound_button.pressed.connect(_on_sound_pressed)
 	settings_menu.add_child(sound_button)
+	update_toggle_button(sound_button, sound_enabled)
 	
 	# Music button
 	music_button = create_icon_button(ICON_MUSIC, Vector2(95, 95))
 	music_button.pressed.connect(_on_music_pressed)
 	settings_menu.add_child(music_button)
+	update_toggle_button(music_button, music_enabled)
 	
 	# Info button
 	info_button = create_icon_button(ICON_INFO, Vector2(95, 95))
@@ -234,8 +511,9 @@ func setup_top_panel():
 	currency_hbox.offset_bottom = 0
 	currency_panel.add_child(currency_hbox)
 	
+	var currency = get_node("/root/Main").global_time_currency
 	currency_amount = Label.new()
-	currency_amount.text = "12500"
+	currency_amount.text = str(currency)
 	currency_amount.add_theme_font_size_override("font_size", 24)
 	currency_amount.add_theme_color_override("font_color", Color.WHITE)
 	currency_amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -283,7 +561,7 @@ func setup_center_content():
 	# Title image
 	title_image = TextureRect.new()
 	title_image.texture = load(ICON_TITLE)
-	title_image.custom_minimum_size = Vector2(225, 72)
+	title_image.custom_minimum_size = Vector2(225, 225)
 	title_image.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	title_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	title_image.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -293,7 +571,7 @@ func setup_center_content():
 	var subtitle = Label.new()
 	subtitle.text = "Conquer the battlefield"
 	subtitle.add_theme_font_size_override("font_size", 24)
-	subtitle.add_theme_color_override("font_color", TEXT_SUBTITLE)
+	subtitle.add_theme_color_override("font_color", Color("9CA3AF"))  # Jaśniejszy szary
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(subtitle)
 	
@@ -320,10 +598,6 @@ func setup_center_content():
 	tween.tween_property(cta_button, "scale", Vector2(1.08, 1.08), 1.2)
 	tween.tween_property(cta_button, "scale", Vector2.ONE, 1.2)
 	
-	# Add glow effect
-	var glow = create_glow_effect()
-	cta_button.add_child(glow)
-	
 	# Make clickable
 	var click_area = Control.new()
 	click_area.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -341,7 +615,7 @@ func setup_center_content():
 	tap_label = Label.new()
 	tap_label.text = "TAP TO PLAY"
 	tap_label.add_theme_font_size_override("font_size", 20)
-	tap_label.add_theme_color_override("font_color", TEXT_TAP)
+	tap_label.add_theme_color_override("font_color", Color("9CA3AF"))  # Jaśniejszy szary
 	tap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(tap_label)
 	
@@ -365,9 +639,9 @@ func create_glow_effect() -> Panel:
 	glow.offset_bottom = 100
 	
 	var glow_style = StyleBoxFlat.new()
-	glow_style.bg_color = Color(1, 1, 1, 0.3)
-	glow_style.shadow_size = 40
-	glow_style.shadow_color = Color(1, 1, 1, 0.5)
+	glow_style.bg_color = Color(1, 1, 1, 0.075)  # Zmniejszone o 75%
+	glow_style.shadow_size = 10  # Zmniejszone o 75%
+	glow_style.shadow_color = Color(1, 1, 1, 0.125)  # Zmniejszone o 75%
 	glow_style.corner_radius_top_left = 999
 	glow_style.corner_radius_top_right = 999
 	glow_style.corner_radius_bottom_left = 999
@@ -590,6 +864,7 @@ func _on_nav_hover(panel: Panel, is_hovering: bool):
 
 func _on_nav_pressed(tab_name: String):
 	"""Handles navigation button press"""
+	get_node("/root/Main").play_btn_sound()
 	update_active_tab(tab_name)
 	tab_changed.emit(tab_name)
 
@@ -621,6 +896,7 @@ func update_active_tab(tab_name: String):
 
 func _on_settings_pressed():
 	"""Toggles settings menu"""
+	get_node("/root/Main").play_btn_sound()
 	settings_expanded = !settings_expanded
 	settings_menu.visible = settings_expanded
 	
@@ -634,11 +910,15 @@ func _on_sound_pressed():
 	"""Toggles sound"""
 	sound_enabled = !sound_enabled
 	update_toggle_button(sound_button, sound_enabled)
+	get_node("/root/Main").toggle_sound(sound_enabled)
+	get_node("/root/Main").play_btn_sound()
 
 func _on_music_pressed():
 	"""Toggles music"""
+	get_node("/root/Main").play_btn_sound()
 	music_enabled = !music_enabled
 	update_toggle_button(music_button, music_enabled)
+	get_node("/root/Main").toggle_music(music_enabled)
 
 func update_toggle_button(btn: Button, is_enabled: bool):
 	"""Updates toggle button appearance"""
@@ -650,19 +930,25 @@ func update_toggle_button(btn: Button, is_enabled: bool):
 
 func _on_info_pressed():
 	"""Opens info/tutorial"""
+	get_node("/root/Main").play_btn_sound()
 	print("Info pressed")
 
 func _on_cta_clicked(event: InputEvent):
 	"""Handles CTA button click - starts current level"""
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		get_node("/root/Main").play_btn_sound()
 		if not current_level_file.is_empty():
 			play_pressed.emit(current_level_file, current_level_difficulty, current_level_number)
-		else:
-			print("WARNING: No level file assigned to current level!")
 
 func _on_viewport_size_changed():
 	"""Handles responsive layout"""
 	var viewport_size = get_viewport().get_visible_rect().size
+	
+	# Reinitialize animated background elements on resize
+	if animated_background:
+		init_animated_hexagons(viewport_size)
+		init_particles(viewport_size)
+		init_glow_orbs(viewport_size)
 	
 	# Position level label (center top)
 	for child in get_children():

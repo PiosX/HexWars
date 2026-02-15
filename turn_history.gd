@@ -5,20 +5,25 @@ class_name TurnHistory
 var snapshots: Array = []
 const MAX_SNAPSHOTS = 50
 
-# Licznik cofnięć
-var rewinds_remaining: int = 3
-const MAX_REWINDS = 3
+# USUNIĘTE: Nie używamy już lokalnego licznika rewindów
+# Teraz korzystamy z global_time_currency z Main
 
 func _init():
 	snapshots.clear()
-	rewinds_remaining = MAX_REWINDS
 
 func can_rewind() -> bool:
 	"""Sprawdza czy można cofnąć turę"""
-	return rewinds_remaining > 0 and snapshots.size() >= 2
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		return false
+	return main.get_currency() > 0 and snapshots.size() >= 2
 
 func get_rewinds_remaining() -> int:
-	return rewinds_remaining
+	"""Zwraca aktualną ilość waluty (używaną jako rewindy)"""
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		return 0
+	return main.get_currency()
 
 func save_turn_snapshot(hex_grid) -> void:
 	"""Zapisuje snapshot stanu gry na koniec tury"""
@@ -57,10 +62,10 @@ func save_turn_snapshot(hex_grid) -> void:
 	print("Snapshottów w historii: ", snapshots.size())
 
 func restore_previous_turn(hex_grid) -> bool:
-	"""Przywraca stan z poprzedniej tury"""
+	"""Przywraca stan z poprzedniej tury - KOSZTUJE 1 WALUTĘ"""
 	
 	if not can_rewind():
-		print("Brak dostępnych cofnięć!")
+		print("Brak dostępnych cofnięć (brak waluty)!")
 		return false
 	
 	if snapshots.is_empty():
@@ -78,9 +83,10 @@ func restore_previous_turn(hex_grid) -> bool:
 	# Pobierz poprzedni snapshot
 	var previous = snapshots[snapshots.size() - 1]
 	
+	var main = get_node("/root/Main")
 	print("=== COFANIE TURY ===")
 	print("Z rundy ", hex_grid.current_round, " do rundy ", previous.round)
-	print("Cofnięć pozostało: ", rewinds_remaining - 1)
+	print("Cofnięć pozostało: ", main.get_currency() - 1)
 	
 	# Wyczyść aktualny stan
 	_clear_current_state(hex_grid)
@@ -88,10 +94,55 @@ func restore_previous_turn(hex_grid) -> bool:
 	# Przywróć stan z snapshota
 	_restore_state(hex_grid, previous)
 	
-	# Zmniejsz licznik cofnięć
-	rewinds_remaining -= 1
+	# Zmniejsz walutę o 1
+	if not main.spend_currency(1):
+		print("ERROR: Nie udało się zużyć waluty!")
+		return false
 	
-	print("=== TURA COFNIĘTA ===")
+	print("=== TURA COFNIĘTA (pozostało waluty: %d) ===" % main.get_currency())
+	return true
+
+func restore_multiple_turns(hex_grid, num_turns: int, rewinds_cost: int = 1) -> bool:
+	"""Cofa wiele tur naraz (np. dla defeat popup)
+	num_turns - ile tur cofnąć
+	rewinds_cost - ile waluty zużyć (domyślnie 1, ale defeat popup używa 2)"""
+	
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		print("ERROR: Brak dostępu do Main!")
+		return false
+	
+	if main.get_currency() < rewinds_cost:
+		print("Nie wystarczająco waluty! Potrzeba: %d, masz: %d" % [rewinds_cost, main.get_currency()])
+		return false
+	
+	if snapshots.size() < num_turns + 1:
+		print("Za mało snapshottów w historii! Potrzeba: %d, masz: %d" % [num_turns + 1, snapshots.size()])
+		return false
+	
+	print("=== COFANIE %d TUR (koszt: %d waluty) ===" % [num_turns, rewinds_cost])
+	
+	# Usuń N ostatnich snapshottów
+	for i in range(num_turns):
+		snapshots.pop_back()
+	
+	# Pobierz snapshot do którego wracamy
+	var target = snapshots[snapshots.size() - 1]
+	
+	print("Cofanie do rundy %d, team %d" % [target.round, target.team])
+	
+	# Wyczyść aktualny stan
+	_clear_current_state(hex_grid)
+	
+	# Przywróć stan z snapshota
+	await _restore_state(hex_grid, target)
+	
+	# Zmniejsz walutę
+	if not main.spend_currency(rewinds_cost):
+		print("ERROR: Nie udało się zużyć waluty!")
+		return false
+	
+	print("=== COFNIĘTO %d TUR (pozostało waluty: %d) ===" % [num_turns, main.get_currency()])
 	return true
 
 func _serialize_units(unit_map: Dictionary) -> Dictionary:
@@ -162,7 +213,12 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	hex_grid.territory_map = snapshot.territory_map.duplicate()
 	hex_grid.team_territory_count = snapshot.team_territory_count.duplicate()
 	
-	# Najpierw przywróć kolory terytoriów
+	# NAJPIERW przywróć zamki (muszą być przed update_hex_color)
+	for coords in snapshot.castles:
+		var team = snapshot.castles[coords]
+		hex_grid.place_castle_at(coords, team)
+	
+	# POTEM przywróć kolory terytoriów (po zamkach!)
 	for coords in hex_grid.territory_map:
 		hex_grid.update_hex_color(coords)
 	
@@ -170,11 +226,6 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	for coords in hex_grid.hex_map:
 		if not hex_grid.territory_map.has(coords):
 			hex_grid.update_hex_color(coords)
-	
-	# Przywróć zamki
-	for coords in snapshot.castles:
-		var team = snapshot.castles[coords]
-		hex_grid.place_castle_at(coords, team)
 	
 	# Przywróć jednostki
 	for coords in snapshot.knights:
@@ -206,7 +257,15 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	# Odśwież UI
 	hex_grid.update_ui()
 	
-	await hex_grid.get_tree().create_timer(0.1).timeout
+	# Poczekaj chwilę aż wszystkie obiekty się załadują
+	await hex_grid.get_tree().create_timer(0.05).timeout
+	
+	# WAŻNE: Wymuś odświeżenie kolorów WSZYSTKICH hexów PO załadowaniu
+	# To naprawia problem z "duchowymi" kolorami po rewind
+	for coords in hex_grid.hex_map.keys():
+		hex_grid.update_hex_color(coords)
+	
+	await hex_grid.get_tree().create_timer(0.05).timeout
 	hex_grid.pulse_available_units()
 
 func _restore_walls_visual(hex_grid) -> void:
@@ -246,7 +305,7 @@ func _restore_walls_visual(hex_grid) -> void:
 		wall_lines[edge_key] = wall_line
 
 func reset_rewinds() -> void:
-	"""Resetuje licznik cofnięć (np. na początku nowej gry)"""
-	rewinds_remaining = MAX_REWINDS
+	"""Resetuje snapshoty (np. na początku nowej gry)
+	Waluta nie jest resetowana - jest zarządzana przez Main"""
 	snapshots.clear()
-	print("Licznik cofnięć zresetowany: ", MAX_REWINDS)
+	print("Historia tur wyczyszczona")
