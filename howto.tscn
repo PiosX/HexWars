@@ -199,7 +199,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 0
 theme_override_constants/margin_top = 136
-theme_override_constants/margin_bottom = 220
+theme_override_constants/margin_bottom = 300
 
 [node name="ContentScroll" type="ScrollContainer" parent="ContentWrapper"]
 layout_mode = 2
@@ -1548,7 +1548,7 @@ text = "- Most powerful offensive unit"
 fit_content = true
 
 [node name="Bandits" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
-custom_minimum_size = Vector2(0, 670)
+custom_minimum_size = Vector2(0, 650)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
@@ -1598,8 +1598,7 @@ theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
 theme_override_font_sizes/normal_font_size = 22
 theme_override_font_sizes/bold_font_size = 20
 bbcode_enabled = true
-text = "Bandits can appear on the map at the start or spawn during
-gameplay:"
+text = "Bandits can appear on the map at the start or spawn during gameplay:"
 fit_content = true
 
 [node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]

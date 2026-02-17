@@ -15,6 +15,11 @@ run/main_scene="uid://fb2yunxth6tv"
 config/features=PackedStringArray("4.4", "Mobile")
 config/icon="res://icon.svg"
 
+[autoload]
+
+AdMobManager="*res://scripts/admob_manager.gd"
+IAPManager="res://scripts/iap_manager.gd"
+
 [display]
 
 window/size/viewport_width=720
@@ -26,7 +31,7 @@ window/orientation="portrait"
 
 [editor_plugins]
 
-enabled=PackedStringArray()
+enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res://addons/admob/plugin.cfg")
 
 [rendering]
 

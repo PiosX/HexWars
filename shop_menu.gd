@@ -73,6 +73,11 @@ func _ready():
 	
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	
+	var admob = get_node_or_null("/root/AdMobManager")
+	if admob:
+		admob.banner_loaded_signal.connect(func(): admob.show_banner(), CONNECT_ONE_SHOT)
+		admob.show_banner()
 
 func setup_background():
 	"""Creates dark background"""
@@ -1121,7 +1126,8 @@ func _on_viewport_size_changed():
 		if child.has_meta("bottom_center"):
 			await get_tree().process_frame
 			var container_width = child.size.x if child.size.x > 0 else 600
-			child.position = Vector2(viewport_size.x / 2 - container_width / 2, viewport_size.y - 200)
+			var banner_height = 80
+			child.position = Vector2(viewport_size.x / 2 - container_width / 2, viewport_size.y - 200 - banner_height)
 
 func set_currency(amount: int):
 	if currency_amount:

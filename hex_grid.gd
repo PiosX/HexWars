@@ -1535,7 +1535,7 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 					var neighbors = get_neighbors(coords)
 					for neighbor in neighbors:
 						if has_wall_between(coords, neighbor):
-							remove_wall(coords, neighbor)
+							purge_walls_connected_to(coords)
 				
 				# Resetuj pola
 				for coords in bandit_territories:
@@ -1552,6 +1552,8 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 					player_lost = true
 				
 				remove_castle_at(to)
+				for nb in get_neighbors(to):
+					remove_wall(to, nb)
 				
 				var old_team_territories = []
 				for coords in territory_map:
@@ -1700,6 +1702,8 @@ func on_cavalry_clicked(cavalry):
 	if not game_mode:
 		return
 	if wall_placement_mode:
+		return
+	if buy_mode != "":
 		return
 	
 	if merge_mode:
@@ -1876,7 +1880,7 @@ func move_spearman(from: Vector2i, to: Vector2i):
 					var neighbors = get_neighbors(coords)
 					for neighbor in neighbors:
 						if has_wall_between(coords, neighbor):
-							remove_wall(coords, neighbor)
+							purge_walls_connected_to(coords)
 				
 				# Resetuj pola
 				for coords in bandit_territories:
@@ -1888,6 +1892,8 @@ func move_spearman(from: Vector2i, to: Vector2i):
 			elif old_team > 0 and old_team <= 4:
 				print("=== SPEARMAN PRZEJMUJE ZAMEK GRACZA ===")
 				remove_castle_at(to)
+				for nb in get_neighbors(to):
+					remove_wall(to, nb)
 				
 				var old_team_territories = []
 				for coords in territory_map:
@@ -2094,6 +2100,8 @@ func on_spearman_clicked(spearman):
 		return
 	if wall_placement_mode:
 		return
+	if buy_mode != "":
+		return
 	
 	# === NOWE: Łączenie spearmanów ===
 	if selected_unit and selected_unit is Spearman and selected_unit != spearman:
@@ -2276,7 +2284,7 @@ func move_knight(from: Vector2i, to: Vector2i):
 					var neighbors = get_neighbors(coords)
 					for neighbor in neighbors:
 						if has_wall_between(coords, neighbor):
-							remove_wall(coords, neighbor)
+							purge_walls_connected_to(coords)
 				
 				# Resetuj pola
 				for coords in bandit_territories:
@@ -2290,6 +2298,8 @@ func move_knight(from: Vector2i, to: Vector2i):
 				# NORMALNA OBSLUGA: Przejecie zamku gracza (team 1-4)
 				# ZNISZCZ zamek
 				remove_castle_at(to)
+				for nb in get_neighbors(to):
+					remove_wall(to, nb)
 				
 				# ZNISZCZ WSZYSTKIE mury starego wlasciciela
 				var old_team_territories = []
@@ -3959,6 +3969,9 @@ func on_hex_clicked(hex: Hex):
 		if team_gold[current_team] >= FARMER_COST:
 			get_node("/root/Main").play_put_sound()
 			place_farmer_at(clicked_pos, current_team)
+			var farmer = farmer_map[clicked_pos]
+			if farmer:
+				units_moved_this_turn.append(farmer)
 			team_gold[current_team] -= FARMER_COST
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""
@@ -3972,6 +3985,9 @@ func on_hex_clicked(hex: Hex):
 		if team_gold[current_team] >= SPEARMAN_COST:
 			get_node("/root/Main").play_put_sound()
 			place_spearman_at(clicked_pos, current_team)
+			var spearman = spearman_map[clicked_pos]
+			if spearman:
+				units_moved_this_turn.append(spearman)
 			team_gold[current_team] -= SPEARMAN_COST
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""
@@ -3985,6 +4001,9 @@ func on_hex_clicked(hex: Hex):
 		if team_gold[current_team] >= CAVALRY_COST:
 			get_node("/root/Main").play_put_sound()
 			place_cavalry_at(clicked_pos, current_team)
+			var cavalry = cavalry_map[clicked_pos]
+			if cavalry:
+				units_moved_this_turn.append(cavalry)
 			team_gold[current_team] -= CAVALRY_COST
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""
@@ -4004,6 +4023,9 @@ func on_hex_clicked(hex: Hex):
 					remove_farmer_at(clicked_pos)
 			
 			place_knight_at(clicked_pos, current_team)
+			var knight = knight_map[clicked_pos]
+			if knight:
+				units_moved_this_turn.append(knight)
 			team_gold[current_team] -= 20
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""
@@ -4040,6 +4062,8 @@ func on_knight_clicked(knight: Knight):
 	if not game_mode:
 		return
 	if wall_placement_mode:
+		return
+	if buy_mode != "":
 		return
 	
 	# === NOWE: Łączenie knightów ===
@@ -4089,6 +4113,8 @@ func on_farmer_clicked(farmer):
 	if not game_mode:
 		return
 	if wall_placement_mode:
+		return
+	if buy_mode != "":
 		return
 	
 	# === NOWE: Łączenie farmerów ===

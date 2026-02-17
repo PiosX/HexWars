@@ -347,6 +347,11 @@ func _ready():
 	var editor_ui = get_node_or_null("LevelEditorUI")
 	if editor_ui:
 		editor_ui.setup_for_level_select(self)
+		
+	var admob = get_node_or_null("/root/AdMobManager")
+	if admob:
+		admob.banner_loaded_signal.connect(func(): admob.show_banner(), CONNECT_ONE_SHOT)
+		admob.show_banner()
 
 func setup_background():
 	background = ColorRect.new()
@@ -374,7 +379,7 @@ func setup_panel_backgrounds():
 	bottom_panel_bg.anchor_right = 1.0
 	bottom_panel_bg.anchor_top = 1.0
 	bottom_panel_bg.anchor_bottom = 1.0
-	bottom_panel_bg.offset_top = -(BOTTOM_PANEL_HEIGHT + 20)
+	bottom_panel_bg.offset_top = -(BOTTOM_PANEL_HEIGHT + 100)
 	bottom_panel_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bottom_panel_bg.z_index = 10
 	add_child(bottom_panel_bg)
@@ -1638,7 +1643,8 @@ func _on_viewport_size_changed():
 		if child.has_meta("bottom_center"):
 			await get_tree().process_frame
 			var container_width = child.size.x if child.size.x > 0 else 600
-			child.position = Vector2(viewport_size.x / 2 - container_width / 2, viewport_size.y - 200)
+			var banner_height = 80
+			child.position = Vector2(viewport_size.x / 2 - container_width / 2, viewport_size.y - 200 - banner_height)
 
 func set_currency(amount: int):
 	if currency_amount:

@@ -488,6 +488,15 @@ func show_victory(level: int):
 			# Fade in szybko na początku
 			var fade_tw = relic_tween.tween_property(pivot, "modulate:a", 1.0, 0.15).set_delay(0.6 + i * 0.18)
 			fade_tw.set_ease(Tween.EASE_OUT)
+			
+	_show_interstitial_after_delay()
+	
+func _show_interstitial_after_delay():
+	# Poczekaj aż animacja popup się skończy, potem pokaż reklamę
+	await get_tree().create_timer(1.5).timeout
+	var admob = get_node_or_null("/root/AdMobManager")
+	if admob and admob.has_method("show_interstitial"):
+		admob.show_interstitial()
 
 func mark_level_completed(level_num: int):
 	"""Marks a level as completed in progress data"""

@@ -578,7 +578,30 @@ func _on_box_hover(box: Panel, is_hovering: bool):
 
 func _on_watch_box_gui_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		watch_ad_pressed.emit()
+		get_node("/root/Main").play_btn_sound()
+		_show_rewarded_ad()
+		
+func _show_rewarded_ad():
+	var admob = get_node_or_null("/root/AdMobManager")
+	if not admob:
+		print("AdMobManager nie znaleziony")
+		return
+	# Podłącz sygnały jednorazowo
+	if not admob.rewarded_ad_completed.is_connected(_on_rewarded_completed):
+		admob.rewarded_ad_completed.connect(_on_rewarded_completed, CONNECT_ONE_SHOT)
+	if not admob.rewarded_ad_failed.is_connected(_on_rewarded_failed):
+		admob.rewarded_ad_failed.connect(_on_rewarded_failed, CONNECT_ONE_SHOT)
+
+	admob.show_rewarded()
+	
+func _on_rewarded_completed():
+	print("Rewarded obejrzany - cofamy 2 tury!")
+	# Tutaj emitujesz sygnał który hex_grid obsługuje:
+	watch_ad_pressed.emit()
+	hide_popup()
+	
+func _on_rewarded_failed():
+	print("Reklama niedostepna - sprobuj pozniej")
 
 func _on_use_box_gui_input(event: InputEvent):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
