@@ -59,6 +59,14 @@ func _on_input_event(_viewport, event, _shape_idx):
 		
 		# W trybie gry - obsługa ataku
 		if parent.game_mode:
+			# POPRAWKA: W buy_mode bandyta powinien być obsłużony przez on_farmer_clicked (który przekieruje do on_hex_clicked)
+			if parent.buy_mode != "" and team == parent.BANDIT_TEAM:
+				print("FARMER: Bandyta w buy_mode - przekazuję do on_farmer_clicked")
+				if parent.has_method("on_farmer_clicked"):
+					parent.on_farmer_clicked(self)
+					get_viewport().set_input_as_handled()
+				return
+			
 			if parent.selected_unit != null and is_instance_valid(parent.selected_unit):
 				# Jeśli selected unit to INNA jednostka i ten farmer jest wrogi
 				if parent.selected_unit != self and parent.selected_unit.team != team:

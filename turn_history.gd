@@ -45,6 +45,10 @@ func save_turn_snapshot(hex_grid) -> void:
 		# Mury - zapisujemy dane wall_map
 		"walls": _serialize_walls(hex_grid.wall_map),
 		
+		# Kingdom system - zapisujemy IDs zamków i liczniki
+		"castle_kingdom_id": hex_grid.castle_kingdom_id.duplicate() if "castle_kingdom_id" in hex_grid else {},
+		"next_kingdom_id_per_team": hex_grid.next_kingdom_id_per_team.duplicate() if "next_kingdom_id_per_team" in hex_grid else {1:1,2:1,3:1,4:1},
+		
 		# Stany jednostek
 		"units_moved": [],
 		"cavalry_moves": {}
@@ -213,10 +217,20 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	hex_grid.territory_map = snapshot.territory_map.duplicate()
 	hex_grid.team_territory_count = snapshot.team_territory_count.duplicate()
 	
+	# Przywróć liczniki kingdom_id PRZED stawianiem zamków
+	if "next_kingdom_id_per_team" in hex_grid and snapshot.has("next_kingdom_id_per_team"):
+		hex_grid.next_kingdom_id_per_team = snapshot.next_kingdom_id_per_team.duplicate()
+	if "castle_kingdom_id" in hex_grid:
+		hex_grid.castle_kingdom_id.clear()
+	
 	# NAJPIERW przywróć zamki (muszą być przed update_hex_color)
 	for coords in snapshot.castles:
-		var team = snapshot.castles[coords]
-		hex_grid.place_castle_at(coords, team)
+		var castle_team = snapshot.castles[coords]
+		# Użyj zapisanego kingdom_id jeśli dostępny
+		var forced_kid = -1
+		if snapshot.has("castle_kingdom_id") and snapshot.castle_kingdom_id.has(coords):
+			forced_kid = snapshot.castle_kingdom_id[coords]
+		hex_grid.place_castle_at(coords, castle_team, forced_kid)
 	
 	# POTEM przywróć kolory terytoriów (po zamkach!)
 	for coords in hex_grid.territory_map:
@@ -229,20 +243,20 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	
 	# Przywróć jednostki
 	for coords in snapshot.knights:
-		var team = snapshot.knights[coords]
-		hex_grid.place_knight_at(coords, team)
+		var knight_team = snapshot.knights[coords]
+		hex_grid.place_knight_at(coords, knight_team)
 	
 	for coords in snapshot.farmers:
-		var team = snapshot.farmers[coords]
-		hex_grid.place_farmer_at(coords, team)
+		var farmer_team = snapshot.farmers[coords]
+		hex_grid.place_farmer_at(coords, farmer_team)
 	
 	for coords in snapshot.spearmen:
-		var team = snapshot.spearmen[coords]
-		hex_grid.place_spearman_at(coords, team)
+		var spearman_team = snapshot.spearmen[coords]
+		hex_grid.place_spearman_at(coords, spearman_team)
 	
 	for coords in snapshot.cavalry:
-		var team = snapshot.cavalry[coords]
-		hex_grid.place_cavalry_at(coords, team)
+		var cavalry_team = snapshot.cavalry[coords]
+		hex_grid.place_cavalry_at(coords, cavalry_team)
 	
 	# Przywróć mury
 	hex_grid.wall_map = snapshot.walls.duplicate()
@@ -264,6 +278,13 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	# To naprawia problem z "duchowymi" kolorami po rewind
 	for coords in hex_grid.hex_map.keys():
 		hex_grid.update_hex_color(coords)
+	
+	# Przelicz królestwa po restore (naprawia numerki po UNDO)
+	if hex_grid.has_method("recalculate_kingdoms"):
+		for t in [1, 2, 3, 4]:
+			hex_grid.recalculate_kingdoms(t)
+	if hex_grid.has_method("_update_bandit_camp_gold_labels"):
+		hex_grid._update_bandit_camp_gold_labels()
 	
 	await hex_grid.get_tree().create_timer(0.05).timeout
 	hex_grid.pulse_available_units()

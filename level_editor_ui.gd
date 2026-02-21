@@ -427,7 +427,7 @@ func _on_refresh_list():
 func _on_load_file(file_name: String):
 	"""Wczytuje poziom z pliku"""
 	if mode == "hex_grid" and hex_grid:
-		var success = hex_grid.load_layout_from_file(file_name)
+		var success = await hex_grid.load_layout_from_file(file_name)
 		if success:
 			info_label.text = "✅ Wczytano: " + file_name
 			info_label.add_theme_color_override("font_color", Color.GREEN)

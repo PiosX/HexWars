@@ -139,6 +139,7 @@ func analyze_game_state() -> Dictionary:
 		"my_hexes": [],
 		"my_connected_hexes": [],
 		"my_detached_groups": [],  # Grupy odłączonych pól
+		"ally_castles_to_connect": [],  # Zamki sojusznika do połączenia
 		"enemy_hexes": [],
 		"neutral_hexes": [],
 		"border_hexes": [],
@@ -177,6 +178,9 @@ func analyze_game_state() -> Dictionary:
 	
 	# Znajdź odłączone grupy terytoriów
 	state.my_detached_groups = find_detached_territory_groups(state)
+	
+	# NOWE: Znajdź odłączone zamki sojusznika (tego samego koloru) do połączenia
+	state.ally_castles_to_connect = find_ally_castles_to_connect(state)
 	
 	# Zbierz jednostki
 	collect_units(state)
@@ -262,6 +266,46 @@ func find_detached_territory_groups(state: Dictionary) -> Array:
 	)
 	
 	return groups
+
+func find_ally_castles_to_connect(state: Dictionary) -> Array:
+	"""Znajdź zamki sojusznika (ten sam kolor, inny kingdom_id) które można połączyć.
+	Zwraca listę {castle_pos, kingdom_id, distance} posortowaną po odległości."""
+	var result = []
+	
+	if not "castle_kingdom_id" in hex_grid:
+		return result
+	
+	# Znajdź wszystkie zamki tego samego teamu
+	var my_castle_ids = {}  # {kingdom_id: true}
+	var other_castle_ids = {}  # {kingdom_id: castle_pos}
+	
+	# Królestwa połączone z głównym terytorium
+	for coords in hex_grid.castle_map:
+		if hex_grid.castle_map[coords].team != team:
+			continue
+		var kid = hex_grid.castle_kingdom_id.get(coords, 0)
+		if kid <= 0:
+			continue
+		if coords in state.my_connected_hexes:
+			my_castle_ids[kid] = true
+		else:
+			other_castle_ids[kid] = coords
+	
+	# Znajdź zamki odłączone (inne kingdom_id, nie połączone z głównym)
+	for kid in other_castle_ids:
+		if my_castle_ids.has(kid):
+			continue  # Ten kid jest już połączony
+		var castle_pos = other_castle_ids[kid]
+		var dist = get_min_distance(castle_pos, state.my_connected_hexes)
+		result.append({
+			"castle_pos": castle_pos,
+			"kingdom_id": kid,
+			"distance": dist
+		})
+	
+	# Sortuj po odległości
+	result.sort_custom(func(a, b): return a.distance < b.distance)
+	return result
 
 func flood_fill_territory(start: Vector2i, owner_team: int, visited: Dictionary) -> Array:
 	"""Flood fill do znajdowania połączonych terytoriów"""
@@ -472,7 +516,17 @@ func decide_strategy(state: Dictionary):
 		print("AI %d: STRATEGIA -> DEFENSIVE (zamek zagrożony)" % team)
 		return
 	
-	# PRIORYTET 2: Połączenie odłączonych terytoriów
+	# PRIORYTET 2: Połączenie z zamkiem sojusznika (ten sam kolor)
+	if state.has("ally_castles_to_connect") and not state.ally_castles_to_connect.is_empty():
+		var nearest_ally = state.ally_castles_to_connect[0]
+		if nearest_ally.distance <= 12:  # Wystarczająco blisko
+			current_strategy = Strategy.EXPANSION
+			print("AI %d: STRATEGIA -> EXPANSION (łączenie z zamkiem sojusznika #%d, dist: %d)" % [team, nearest_ally.kingdom_id, nearest_ally.distance])
+			# Ustaw cel ekspansji w kierunku zamku sojusznika
+			memory.expansion_targets = [{"center": nearest_ally.castle_pos, "worth_connecting": true, "hexes": [], "size": 1}]
+			return
+	
+	# PRIORYTET 3: Połączenie odłączonych terytoriów
 	var worthy_groups = []
 	for group in state.my_detached_groups:
 		if group.worth_connecting:
@@ -1156,6 +1210,194 @@ func count_friendly_neighbors(hex_pos: Vector2i, owner_team: int) -> int:
 			count += 1
 	
 	return count
+
+func evaluate_move_cutoff_risk(unit_data: Dictionary, target_pos: Vector2i, state: Dictionary) -> Dictionary:
+	"""Przewiduje o 1 krok: czy po ruchu na target_pos nasza jednostka zostanie odcięta przez wroga?
+	   Zwraca:
+	   {
+		 "risk": bool,            # Czy jest ryzyko odcięcia
+		 "risk_level": float,     # 0.0 (brak) - 1.0 (pewne odcięcie)
+		 "worth_it": bool,        # Czy warto mimo ryzyka (np. farmer odcina cavalry)
+		 "blockers": Array,       # Wrogie jednostki mogące odciąć
+		 "reason": String
+	   }
+	"""
+	var result = {
+		"risk": false,
+		"risk_level": 0.0,
+		"worth_it": true,
+		"blockers": [],
+		"reason": "brak ryzyka"
+	}
+	
+	# Symuluj: po ruchu unit stoi na target_pos
+	# Sprawdź ile połączeń z własnym terytorium będzie mieć na tej pozycji
+	var connections_after = 0
+	var connection_points = []
+	
+	for neighbor in hex_grid.get_neighbors(target_pos):
+		var owner = hex_grid.territory_map.get(neighbor, 0)
+		# Po ruchu: jeśli neighbor to stara pozycja jednostki, już nie będzie naszym polem
+		# (ale pole nie zmienia właściciela - tylko unit się rusza, więc teren pozostaje)
+		if owner == team:
+			connections_after += 1
+			connection_points.append(neighbor)
+		# Jeśli idziemy na wrogie pole - przejmujemy je, więc target_pos staje się nasze
+		# ale sąsiedzi pozostają bez zmian
+	
+	# Jeśli mamy >=3 połączeń po ruchu - bezpieczne
+	if connections_after >= 3:
+		result.reason = "bezpieczna pozycja (%d połączeń)" % connections_after
+		return result
+	
+	# Sprawdź czy wrogowie mogą w następnym ruchu zająć punkty połączenia
+	var potential_blockers = []
+	
+	for conn_point in connection_points:
+		# Wróg może zająć conn_point jeśli stoi w sąsiedztwie i to pole jest osiągalne
+		var conn_neighbors = hex_grid.get_neighbors(conn_point)
+		for cn in conn_neighbors:
+			if cn == target_pos:
+				continue  # Pomijamy cel ruchu
+			# Sprawdź czy stoi tam wrogi farmer/spearman/knight/cavalry
+			for enemy in state.enemy_units:
+				if enemy.pos == cn:
+					var moves = get_possible_moves(enemy.type, cn)
+					if conn_point in moves:
+						# Ten wróg może zająć nasz punkt połączenia!
+						var already_added = false
+						for b in potential_blockers:
+							if b.enemy.pos == enemy.pos and b.target == conn_point:
+								already_added = true
+								break
+						if not already_added:
+							potential_blockers.append({
+								"enemy": enemy,
+								"target": conn_point
+							})
+	
+	if potential_blockers.is_empty():
+		result.reason = "wrogowie nie mogą odciąć (%d połączeń)" % connections_after
+		return result
+	
+	# Jest ryzyko - oceń poziom
+	result.risk = true
+	result.blockers = potential_blockers
+	
+	# risk_level zależy od: liczby połączeń i liczby wrogów mogących odciąć
+	var max_cutters = potential_blockers.size()
+	if connections_after == 1:
+		result.risk_level = 1.0  # Pewne odcięcie jeśli wróg zaatakuje jedyne połączenie
+	elif connections_after == 2:
+		result.risk_level = clamp(0.4 + max_cutters * 0.2, 0.0, 1.0)
+	else:
+		result.risk_level = clamp(max_cutters * 0.15, 0.0, 0.5)
+	
+	result.reason = "ryzyko odcięcia (połączeń: %d, blokerów: %d, poziom: %.1f)" % [connections_after, max_cutters, result.risk_level]
+	
+	# Oceń czy warto mimo ryzyka
+	var unit_value = unit_data.strength  # farmer=10, spearman=20, knight=40, cavalry=80
+	
+	# Co zyskujemy ruszając w to miejsce?
+	# - Czy przejmujemy silną wrogą jednostkę / zamek / obóz bandytów?
+	var gain_value = 0
+	var target_hex = hex_grid.get_hex_at(target_pos)
+	if target_hex and target_hex.occupied_object != null:
+		var obj = target_hex.occupied_object
+		if obj.has_method("get") and obj.get("team") != team:
+			if obj.has_meta("camp_id"):
+				gain_value = 50  # Obóz bandytów
+			elif hex_grid.knight_map.has(target_pos):
+				gain_value = 40
+			elif hex_grid.cavalry_map.has(target_pos):
+				gain_value = 80
+			elif hex_grid.spearman_map.has(target_pos):
+				gain_value = 20
+			elif hex_grid.farmer_map.has(target_pos):
+				gain_value = 10
+			elif hex_grid.castle_map.has(target_pos):
+				gain_value = 100  # Zamek = bardzo cenny
+	
+	# Zysk z terenu
+	gain_value += 5  # Podstawowy zysk za pole
+	
+	# Policz siłę potencjalnych blokerów
+	var blocker_strength = 0
+	var blocker_types = {}
+	for b in potential_blockers:
+		blocker_strength += b.enemy.strength
+		blocker_types[b.enemy.type] = true
+	
+	# Wartość oczekiwana straty = unit_value * risk_level
+	var expected_loss = unit_value * result.risk_level
+	
+	# Warto jeśli zysk > oczekiwana strata LUB jeśli jednostka jest farmerem (tania)
+	if unit_data.type == "farmer":
+		# Farmer jest tani - warto ryzykować jeśli odcina coś wartościowego
+		result.worth_it = gain_value >= 8 or result.risk_level < 0.7
+		result.reason += " | farmer: worth=%s (gain=%d, risk=%.1f)" % [result.worth_it, gain_value, result.risk_level]
+	elif gain_value >= expected_loss * 1.5:
+		# Zysk znacznie przewyższa oczekiwaną stratę
+		result.worth_it = true
+		result.reason += " | zysk %.1f > strata %.1f → WARTO" % [gain_value, expected_loss]
+	elif result.risk_level >= 0.8 and unit_value >= 40:
+		# Duże ryzyko odcięcia silnej jednostki - NIE WARTO
+		result.worth_it = false
+		result.reason += " | ZBYT RYZYKOWNE (knight/cavalry w pułapce)"
+	else:
+		result.worth_it = gain_value > expected_loss * 0.8
+		result.reason += " | bilans: gain=%d, loss_exp=%.1f → %s" % [gain_value, expected_loss, "WARTO" if result.worth_it else "NIE WARTO"]
+	
+	return result
+
+
+func find_safe_alternative_move(unit_data: Dictionary, risky_target: Vector2i, state: Dictionary) -> Vector2i:
+	"""Szuka alternatywnego bezpiecznego ruchu gdy cel jest zbyt ryzykowny.
+	   Priorytet: zablokowanie punktu odcięcia wroga, potem ekspansja bez ryzyka.
+	"""
+	var current_pos = unit_data.unit.hex_position if is_instance_valid(unit_data.unit) else unit_data.pos
+	var possible_moves = get_possible_moves(unit_data.type, current_pos)
+	
+	var best_move = Vector2i.ZERO
+	var best_score = -999999
+	
+	for move in possible_moves:
+		if move == risky_target:
+			continue
+		
+		# Sprawdź bezpieczeństwo tej pozycji
+		var risk = evaluate_move_cutoff_risk(unit_data, move, state)
+		if risk.risk_level >= 0.7:
+			continue  # Ta pozycja też jest ryzykowna
+		
+		var score = 0
+		var owner = hex_grid.territory_map.get(move, 0)
+		
+		# Bonus za zajmowanie neutralnych/wrogich pól
+		if owner == 0:
+			score += 10
+		elif owner > 0 and owner != team:
+			score += 15
+		elif owner == team:
+			score += 2  # Mało za chodzenie po własnym
+		
+		# Bonus za bliskość do pierwotnego celu (staramy się być blisko)
+		var dist_to_target = hex_distance(move, risky_target)
+		score -= dist_to_target * 3
+		
+		# Bonus za bliskość do zagrożonych punktów połączenia (budujemy "mur")
+		for threat in state.get("cutoff_threats", []):
+			for vp in threat.vulnerable_points:
+				var dist = hex_distance(move, vp.connection_point)
+				if dist <= 1:
+					score += 30  # Świetna pozycja blokująca
+		
+		if score > best_score:
+			best_score = score
+			best_move = move
+	
+	return best_move
+
 
 func evaluate_cutoff_worth(cutoff_data: Dictionary, enemy: Dictionary, state: Dictionary) -> bool:
 	"""Ocenia czy warto odcinać jednostkę"""
@@ -1938,7 +2180,8 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 		if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
 			continue
 		
-		var moves = get_possible_moves(unit_data.type, unit_data.pos)
+		var current_pos = unit_data.unit.hex_position  # ZAWSZE aktualna pozycja
+		var moves = get_possible_moves(unit_data.type, current_pos)
 		
 		if castle_pos in moves:
 			print("AI %d: %s ZAJMUJE ZAMEK %s!" % [team, unit_data.type, castle_pos])
@@ -1950,9 +2193,19 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 		if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
 			continue
 		
-		var moves = get_possible_moves(unit_data.type, unit_data.pos)
-		var best_move = find_move_towards_target(unit_data.pos, moves, castle_pos)
+		var current_pos = unit_data.unit.hex_position  # ZAWSZE aktualna pozycja
+		var moves = get_possible_moves(unit_data.type, current_pos)
+		var best_move = find_move_towards_target(current_pos, moves, castle_pos)
 		if best_move != Vector2i.ZERO:
+			# Sprawdź ryzyko odcięcia przed ruchem w stronę zamku
+			var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
+			if not risk.worth_it:
+				print("AI %d: ⚠️ %s wstrzymuje atak na zamek (ryzyko: %s)" % [team, unit_data.type, risk.reason])
+				var safe_move = find_safe_alternative_move(unit_data, best_move, state)
+				if safe_move != Vector2i.ZERO:
+					print("AI %d: %s -> bezpieczna alt %s" % [team, unit_data.type, safe_move])
+					await execute_move(unit_data.unit, unit_data, safe_move)
+				continue
 			print("AI %d: %s -> %s (cel: zamek)" % [team, unit_data.type, best_move])
 			await execute_move(unit_data.unit, unit_data, best_move)
 
@@ -1995,19 +2248,41 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 		if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
 			continue
 		
-		var moves = get_possible_moves(unit_data.type, unit_data.pos)
+		var current_pos = unit_data.unit.hex_position  # ZAWSZE aktualna pozycja
+		var moves = get_possible_moves(unit_data.type, current_pos)
 		
 		if camp_pos in moves:
+			# Sprawdź ryzyko odcięcia przed bezpośrednim przejęciem obozu
+			var risk = evaluate_move_cutoff_risk(unit_data, camp_pos, state)
+			print("AI %d: ryzyko ruchu %s -> %s: %s" % [team, unit_data.type, camp_pos, risk.reason])
+			
+			if not risk.worth_it:
+				print("AI %d: ⚠️ %s rezygnuje z ataku na obóz (zbyt ryzykowne)" % [team, unit_data.type])
+				var safe_move = find_safe_alternative_move(unit_data, camp_pos, state)
+				if safe_move != Vector2i.ZERO:
+					print("AI %d: %s wybiera bezpieczną alternatywę -> %s" % [team, unit_data.type, safe_move])
+					await execute_move(unit_data.unit, unit_data, safe_move)
+				continue
+			
 			print("AI %d: 🎯 %s ZAJMUJE OBÓZ %s!" % [team, unit_data.type, camp_pos])
 			await execute_move(unit_data.unit, unit_data, camp_pos)
 			print("AI %d: ✅ OBÓZ PRZEJĘTY!" % team)
 			return  # Obóz zdobyty, koniec!
 		else:
-			var best_move = find_move_towards_target(unit_data.pos, moves, camp_pos)
+			var best_move = find_move_towards_target(current_pos, moves, camp_pos)
 			if best_move != Vector2i.ZERO:
+				# Sprawdź ryzyko ruchu w kierunku obozu
+				var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
+				if not risk.worth_it:
+					print("AI %d: ⚠️ %s wstrzymuje marsz na obóz (ryzyko odcięcia: %s)" % [team, unit_data.type, risk.reason])
+					var safe_move = find_safe_alternative_move(unit_data, best_move, state)
+					if safe_move != Vector2i.ZERO:
+						print("AI %d: %s -> bezpieczna pozycja %s" % [team, unit_data.type, safe_move])
+						await execute_move(unit_data.unit, unit_data, safe_move)
+					continue
 				print("AI %d: ⚔️ %s -> %s (atak na obóz)" % [team, unit_data.type, best_move])
 				await execute_move(unit_data.unit, unit_data, best_move)
-				await hex_grid.get_tree().create_timer(0.1).timeout  # Krótka przerwa między ruchami
+				await hex_grid.get_tree().create_timer(0.1).timeout
 
 func surround_enemy(state: Dictionary, goal: Dictionary):
 	"""Otacza wroga aby odciąć go od zamku"""
@@ -2096,6 +2371,19 @@ func expand_aggressively(state: Dictionary):
 		var best_move = find_best_aggressive_move(unit_data, moves, state)
 		
 		if best_move != Vector2i.ZERO:
+			# NOWE: Sprawdź ryzyko odcięcia dla agresywnych ruchów
+			var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
+			if not risk.worth_it:
+				print("AI %d: ⚠️ %s: agresja zablokowana (%s) - szukam bezpiecznej pozycji" % [team, unit_data.type, risk.reason])
+				var safe_move = find_safe_alternative_move(unit_data, best_move, state)
+				if safe_move != Vector2i.ZERO:
+					print("AI %d: %s -> bezpieczna pozycja %s" % [team, unit_data.type, safe_move])
+					await execute_move(unit_data.unit, unit_data, safe_move)
+					continue
+				# Jeśli brak bezpiecznej alternatywy, wykonaj oryginalny ruch tylko dla farmerów
+				if unit_data.type != "farmer":
+					print("AI %d: %s STOI (brak bezpiecznego ruchu)" % [team, unit_data.type])
+					continue
 			print("AI %d: %s agresja -> %s" % [team, unit_data.type, best_move])
 			await execute_move(unit_data.unit, unit_data, best_move)
 		else:
@@ -2311,15 +2599,22 @@ func get_possible_moves(unit_type: String, from: Vector2i) -> Array:
 			return []
 
 func _get_connected_set() -> Dictionary:
-	"""Zwraca zbiór połączonych hexów jako słownik dla szybkiego lookup"""
-	var connected = hex_grid.get_connected_territories(team)
-	var result = {}
-	for pos in connected:
-		result[pos] = true
-	return result
+	"""Zwraca pusty słownik - wymuszamy zawsze użycie _get_local_connected_territory per jednostkę.
+	Dzięki temu AI nie myli królestw przy wielu zamkach."""
+	return {}
 
 func _get_local_connected_territory(start: Vector2i) -> Dictionary:
-	"""Zwraca lokalnie połączone terytorium wokół danej pozycji (dla odłączonych grup)"""
+	"""Zwraca lokalnie połączone terytorium od pozycji startowej.
+	Zatrzymuje się na granicach innych zamków (osobne królestwa)."""
+	# Jeśli hex_grid ma get_connected_territories_for_unit, użyj go
+	if hex_grid.has_method("get_connected_territories_for_unit"):
+		var arr = hex_grid.get_connected_territories_for_unit(start, team)
+		var result = {}
+		for pos in arr:
+			result[pos] = true
+		return result
+	
+	# Fallback: stara logika flood fill
 	var result = {}
 	var visited = {}
 	var queue = [start]
@@ -2328,29 +2623,21 @@ func _get_local_connected_territory(start: Vector2i) -> Dictionary:
 	while not queue.is_empty():
 		var current = queue.pop_front()
 		
-		# KLUCZOWE: Sprawdź czy hex w ogóle istnieje na mapie
 		if not hex_grid.hex_map.has(current):
 			continue
 		
 		var owner = hex_grid.territory_map.get(current, 0)
-		
-		# Tylko nasze terytoria
 		if owner != team:
 			continue
 		
 		result[current] = true
 		
-		# Sprawdź sąsiadów
-		var neighbors = hex_grid.get_neighbors(current)
-		for neighbor in neighbors:
+		for neighbor in hex_grid.get_neighbors(current):
 			if visited.get(neighbor, false):
 				continue
-			
-			# KLUCZOWE: Sąsiad też musi istnieć na mapie
 			if not hex_grid.hex_map.has(neighbor):
-				visited[neighbor] = true  # Oznacz jako odwiedzony żeby nie sprawdzać ponownie
+				visited[neighbor] = true
 				continue
-			
 			var neighbor_owner = hex_grid.territory_map.get(neighbor, 0)
 			if neighbor_owner == team:
 				visited[neighbor] = true
@@ -3167,7 +3454,7 @@ func find_cutoff_threats(state: Dictionary) -> Array:
 	return threats
 
 func execute_bandit_turn(state: Dictionary):
-	"""Proste AI dla bandytów - poruszają się losowo po swoich i neutralnych polach"""
+	"""AI dla bandytów - preferują pola królestw (kradzież złota), mogą też chodzić po neutralnych"""
 	print("AI Bandytów: Ruszam %d jednostek" % state.my_units.size())
 	
 	if hex_grid.ui_manager:
@@ -3179,29 +3466,50 @@ func execute_bandit_turn(state: Dictionary):
 		if unit_data.unit in hex_grid.units_moved_this_turn:
 			continue
 		
-		# NOWE: Sprawdź czy jednostka nie spawniła się w tej turze
-		# Bandyci spawniają z spawn_turn = current_round, ale current_round zwiększa się PRZED ich turą
-		# więc musimy sprawdzać czy spawn_turn == current_round - 1 (obecna runda) lub current_round (pominięto gracza 1)
 		var bandit_spawn_round = unit_data.unit.get("spawn_turn")
 		if bandit_spawn_round != null and bandit_spawn_round >= hex_grid.current_round - 1:
 			print("Bandyta @ %s pominięty - właśnie się zrespił (spawn: %d, current: %d)" % [unit_data.pos, bandit_spawn_round, hex_grid.current_round])
 			continue
 		
 		var current_pos = unit_data.unit.hex_position
-		var possible_moves = get_bandit_moves(current_pos)
+		var all_moves = get_bandit_moves(current_pos)
 		
-		if possible_moves.is_empty():
+		if all_moves.is_empty():
 			continue
 		
-		# Wybierz losowy ruch z możliwych
-		var random_move = possible_moves[randi() % possible_moves.size()]
+		# PREFERUJ pola królestw (team > 0) — kradną złoto
+		# Jeśli bandyta już stoi na polu królestwa i jest tam co rundę — pozostań jeśli brak lepszej opcji
+		var kingdom_moves = []
+		var neutral_moves = []
+		var bandit_moves_list = []
 		
-		print("Bandyta: %s -> %s" % [current_pos, random_move])
-		await execute_move(unit_data.unit, unit_data, random_move)
+		for move in all_moves:
+			var owner = hex_grid.territory_map.get(move, 0)
+			if owner > 0 and owner <= 4:
+				kingdom_moves.append(move)
+			elif owner == 0:
+				neutral_moves.append(move)
+			else:
+				bandit_moves_list.append(move)
+		
+		var chosen_move: Vector2i
+		
+		if not kingdom_moves.is_empty():
+			# Idź na pole królestwa (losowy jeśli wiele)
+			chosen_move = kingdom_moves[randi() % kingdom_moves.size()]
+		elif not neutral_moves.is_empty():
+			# Brak pól królestwa - idź na neutralne
+			chosen_move = neutral_moves[randi() % neutral_moves.size()]
+		else:
+			# Tylko pola bandyckie - losowy ruch
+			chosen_move = bandit_moves_list[randi() % bandit_moves_list.size()]
+		
+		print("Bandyta: %s -> %s (owner: %d)" % [current_pos, chosen_move, hex_grid.territory_map.get(chosen_move, 0)])
+		await execute_move(unit_data.unit, unit_data, chosen_move)
 		await hex_grid.get_tree().create_timer(0.1).timeout
-		
-		if hex_grid.ui_manager:
-			hex_grid.ui_manager.set_buttons_enabled(true)
+	
+	if hex_grid.ui_manager:
+		hex_grid.ui_manager.set_buttons_enabled(true)
 
 func get_bandit_moves(from: Vector2i) -> Array:
 	"""Ruchy bandytów - po swoich i neutralnych polach, mogą zajmować wrogie puste pola"""

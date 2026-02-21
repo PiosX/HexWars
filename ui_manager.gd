@@ -701,6 +701,19 @@ func create_team_box(team: int) -> Panel:
 	dot_style.corner_radius_bottom_left = 999
 	dot_style.corner_radius_bottom_right = 999
 	team_dot.add_theme_stylebox_override("panel", dot_style)
+	
+	# Numer królestwa wewnątrz kropki (domyślnie ukryty)
+	var kid_label = Label.new()
+	kid_label.name = "KingdomLabel"
+	kid_label.text = ""
+	kid_label.add_theme_font_size_override("font_size", 11)
+	kid_label.add_theme_color_override("font_color", Color.WHITE)
+	kid_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	kid_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	kid_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	kid_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	team_dot.add_child(kid_label)
+	
 	hbox.add_child(team_dot)
 	
 	# FIXED: coin icon proper size
@@ -1075,15 +1088,76 @@ func update_ui_data():
 					var rich_label = hbox.get_node("GoldUpkeepLabel")
 					
 					if is_instance_valid(rich_label):
-						var gold = hex_grid.team_gold.get(team, 0)
-						var upkeep = hex_grid.calculate_upkeep(team)
-						var income = hex_grid.calculate_income(team)
-						var net_income = income - upkeep
+						# --- Zbierz dane o zamkach drużyny ---
+						var castle_count_for_team = 0
+						for cpos in hex_grid.castle_map:
+							if hex_grid.castle_map[cpos].team == team:
+								castle_count_for_team += 1
+						
+						# Sprawdź czy zamki są scalone (mają ten sam kid)
+						var are_merged = false
+						if castle_count_for_team > 1:
+							var kingdom_ids_active: Array = []
+							for cpos in hex_grid.castle_map:
+								if hex_grid.castle_map[cpos].team == team:
+									var k = hex_grid.hex_kingdom_map.get(cpos, 0) if "hex_kingdom_map" in hex_grid else 0
+									if k > 0 and k not in kingdom_ids_active:
+										kingdom_ids_active.append(k)
+							are_merged = kingdom_ids_active.size() <= 1
+						
+						# Znajdź aktywne castle kingdom IDs posortowane rosnąco
+						var active_kids_for_team: Array = []
+						var castle_coords_per_kid: Dictionary = {}
+						for cpos in hex_grid.castle_map:
+							if hex_grid.castle_map[cpos].team == team:
+								var k = hex_grid.castle_kingdom_id.get(cpos, 0) if "castle_kingdom_id" in hex_grid else 0
+								if k > 0 and k not in active_kids_for_team:
+									active_kids_for_team.append(k)
+									castle_coords_per_kid[k] = cpos
+						active_kids_for_team.sort()
+						
+						# Wybierz display_kid: selected lub najniższy aktywny
+						var skpt = hex_grid.selected_kingdom_per_team if "selected_kingdom_per_team" in hex_grid else {}
+						var selected_kid = skpt.get(team, 0)
+						var kid_valid = selected_kid > 0 and selected_kid in active_kids_for_team
+						# Użyj wybranego kid dla wszystkich teamów (gracz może kliknąć zamek wroga)
+						# Jeśli selected_kid nieważny (np. nie istnieje) - użyj najniższego aktywnego
+						var display_kid = selected_kid if kid_valid else (active_kids_for_team[0] if active_kids_for_team.size() > 0 else 0)
+						
+						# Znajdź KingdomLabel w team_dot
+						var hbox2 = box.get_node_or_null("HBoxContainer")
+						var team_dot2 = hbox2.get_child(0) if hbox2 else null
+						var kid_lbl = team_dot2.get_node_or_null("KingdomLabel") if team_dot2 else null
+						
+						var gold: int
+						var income: int
+						var upkeep: int
+						var net_income: int
+						
+						if castle_count_for_team > 1 and not are_merged and display_kid > 0:
+							# Rozłączone królestwa → pokaż ekonomię konkretnego królestwa
+							income = hex_grid.calculate_income_for_kingdom(display_kid)
+							upkeep = hex_grid.calculate_upkeep_for_kingdom(display_kid)
+							net_income = income - upkeep
+							# Złoto per zamek: castle_gold = team_gold / count
+							var c_coords = castle_coords_per_kid.get(display_kid, Vector2i.ZERO)
+							if c_coords != Vector2i.ZERO and "castle_gold" in hex_grid:
+								gold = hex_grid.castle_gold.get(c_coords, 0)
+							else:
+								gold = hex_grid.team_gold.get(team, 0) / max(1, castle_count_for_team)
+							if kid_lbl:
+								kid_lbl.text = str(hex_grid.kid_to_display(display_kid) if hex_grid.has_method("kid_to_display") else display_kid)
+						else:
+							# Jeden zamek lub scalone → całkowita ekonomia teamu
+							gold = hex_grid.team_gold.get(team, 0)
+							income = hex_grid.calculate_income(team)
+							upkeep = hex_grid.calculate_upkeep(team)
+							net_income = income - upkeep
+							if kid_lbl:
+								kid_lbl.text = ""
 						
 						# Kolor dla net_income: zielony jeśli > 0, czerwony jeśli <= 0
 						var net_color = "#00FF00" if net_income > 0 else "#FF6467"
-						
-						# Format: gold (net_income) - tylko finalny wynik
 						rich_label.text = "[color=white]%d[/color] [color=%s](%+d)[/color]" % [gold, net_color, net_income]
 	
 	# Update unit buttons availability

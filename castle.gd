@@ -9,6 +9,9 @@ var area = null
 var base_scale: Vector2
 var hover_scale: Vector2
 
+# Kingdom label (stały - pokazuje ID zamku, nigdy nie zmienia się poza reinicjalizacją)
+var kingdom_label: Label = null
+
 func _ready():
 	# Znajdź Sprite2D (może mieć różne nazwy)
 	sprite = find_child_of_type(Sprite2D)
@@ -49,6 +52,42 @@ func _create_area2d():
 	area.add_child(collision)
 	
 	print("Utworzono Area2D dla zamku na pozycji: ", hex_position)
+
+func set_kingdom_label(kingdom_id: int, visible_labels: bool):
+	"""Ustawia etykietę ID królestwa na zamku (stały - tylko dla zamków niebandyckich)"""
+	if team <= 0:
+		if kingdom_label:
+			kingdom_label.visible = false
+		return
+	
+	if kingdom_id <= 0:
+		if kingdom_label:
+			kingdom_label.visible = false
+		return
+	
+	if not kingdom_label:
+		kingdom_label = Label.new()
+		kingdom_label.z_index = 30
+		add_child(kingdom_label)
+	
+	kingdom_label.text = str(kingdom_id)
+	kingdom_label.add_theme_font_size_override("font_size", 14)  # Taki sam jak hex
+	kingdom_label.add_theme_color_override("font_color", Color.WHITE)
+	kingdom_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	kingdom_label.add_theme_constant_override("shadow_offset_x", 1)
+	kingdom_label.add_theme_constant_override("shadow_offset_y", 1)
+	kingdom_label.add_theme_constant_override("shadow_as_outline", 1)
+	kingdom_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	kingdom_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	kingdom_label.size = Vector2(20, 20)
+	kingdom_label.position = Vector2(-10, 22)  # Taka sama pozycja jak na hexach
+	kingdom_label.visible = visible_labels
+
+func update_label_visibility(visible_labels: bool):
+	"""Aktualizuje widoczność etykiety"""
+	if kingdom_label:
+		# Pokaż tylko jeśli ma sensowny tekst i team > 0
+		kingdom_label.visible = visible_labels and team > 0 and kingdom_label.text != "" and kingdom_label.text != "0"
 
 func _on_input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.pressed:

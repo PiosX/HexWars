@@ -11,6 +11,9 @@ var current_color: Color = Color("#2b2b2b")
 var is_highlighted: bool = false
 var original_scale: Vector2 = Vector2.ONE
 
+# Kingdom label - pokazuje do którego królestwa należy to pole
+var kingdom_label: Label = null
+
 func _ready():
 	if not sprite:
 		push_error("Brak Sprite2D w hex.tscn!")
@@ -241,3 +244,43 @@ func set_selected_state(selected: bool):
 		# DODAJ: Przywróć current_color
 		sprite.modulate = current_color
 		animate_scale(original_scale, 0.1)
+
+# ============== KINGDOM LABEL ==============
+
+func set_kingdom_label(kingdom_id: int, show: bool):
+	"""Ustawia etykietę królestwa na hexie (dynamiczna - może się zmieniać)"""
+	if kingdom_id <= 0:
+		# Brak królestwa - ukryj etykietę
+		if kingdom_label:
+			kingdom_label.visible = false
+		return
+	
+	if not kingdom_label:
+		kingdom_label = Label.new()
+		kingdom_label.z_index = 25
+		add_child(kingdom_label)
+	
+	kingdom_label.text = str(kingdom_id)
+	kingdom_label.add_theme_font_size_override("font_size", 14)
+	kingdom_label.add_theme_color_override("font_color", Color.WHITE)
+	kingdom_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	kingdom_label.add_theme_constant_override("shadow_offset_x", 1)
+	kingdom_label.add_theme_constant_override("shadow_offset_y", 1)
+	kingdom_label.add_theme_constant_override("shadow_as_outline", 1)
+	kingdom_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	kingdom_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	kingdom_label.size = Vector2(20, 20)
+	# Dół hexa, ale żeby nie zasłaniać jednostki - lekko niżej centrum
+	kingdom_label.position = Vector2(-10, 22)
+	kingdom_label.visible = show
+
+func update_kingdom_label_visibility(show: bool):
+	"""Aktualizuje widoczność etykiety"""
+	if kingdom_label:
+		kingdom_label.visible = show and kingdom_label.text != "" and kingdom_label.text != "0"
+
+func clear_kingdom_label():
+	"""Usuwa etykietę królestwa"""
+	if kingdom_label:
+		kingdom_label.visible = false
+		kingdom_label.text = ""
