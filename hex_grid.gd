@@ -93,7 +93,7 @@ const KNIGHT_UPKEEP = 18
 const CAVALRY_COST = 80
 const CAVALRY_UPKEEP = 2
 const GOLD_PER_TERRITORY = 1
-const WALL_COST_PER_HEX = 3
+const WALL_COST_PER_HEX = 4
 
 # UI
 var buy_mode: String = ""  # "farmer", "knight", "wall"
@@ -237,6 +237,11 @@ func _ready():
 	if editor_ui:
 		editor_ui.setup_for_hex_grid(self)
 		print("✓ Panel połączony z HexGrid!")
+		
+	var map_gen_ui = get_parent().get_node_or_null("MapGeneratorUI")
+	if map_gen_ui:
+		map_gen_ui.setup_for_hex_grid(self)
+		print("✓ MapGeneratorUI połączony z HexGrid!")
 
 func _ensure_unique_kingdom_ids():
 	"""Po wczytaniu pliku: upewnij się że każdy zamek ma unikalny kingdom_id w zakresie swojego teamu.
@@ -1003,11 +1008,25 @@ func cycle_team():
 	selected_unit = null
 	
 	buy_mode = ""
-	wall_placement_mode = false
 	
-	for hex_coords in wall_hexes_selected:
-		remove_hex_outline(hex_coords)
-	wall_hexes_selected.clear()
+	# Jeśli wall_placement_mode był aktywny przy Next Turn - wykonaj dokładnie to samo
+	# co drugi klik przycisku wall (używając old_team bo current_team już się zmieniło)
+	if wall_placement_mode:
+		if wall_hexes_selected.size() > 0:
+			var cost = wall_hexes_selected.size() * WALL_COST_PER_HEX
+			if team_gold[old_team] >= cost:
+				var saved_team = current_team
+				current_team = old_team
+				create_walls_between_selected()
+				current_team = saved_team
+				team_gold[old_team] -= cost
+				print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
+			else:
+				print("Nie stac na mury przy Next Turn - anulowano")
+		for hex_coords in wall_hexes_selected:
+			remove_hex_outline(hex_coords)
+		wall_hexes_selected.clear()
+		wall_placement_mode = false
 	
 	# Reset przycisków
 	if ui_manager:
@@ -1061,6 +1080,22 @@ func check_bandits_need_camp():
 func _on_end_turn():
 	if not game_mode or game_over:
 		return
+	
+	# === FINALIZUJ MURY jeśli wall_placement_mode był aktywny ===
+	if wall_placement_mode:
+		if wall_hexes_selected.size() > 0:
+			var cost = wall_hexes_selected.size() * WALL_COST_PER_HEX
+			if team_gold[current_team] >= cost:
+				create_walls_between_selected()
+				team_gold[current_team] -= cost
+				print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
+			else:
+				print("Nie stac na mury przy Next Turn - anulowano")
+		for hex_coords in wall_hexes_selected:
+			remove_hex_outline(hex_coords)
+		wall_hexes_selected.clear()
+		wall_placement_mode = false
+	# ===
 		
 	if ui_manager:
 		ui_manager.set_buttons_enabled(false)
@@ -1354,53 +1389,171 @@ func _on_merge_button_pressed():
 		print("Tryb laczenia: Kliknij knighta aby polaczyc w cavalry")
 
 func can_attack_through_walls(attacker, target_pos: Vector2i) -> bool:
-	"""Sprawdza czy jednostka może zaatakować cel chroniony murami
-	
-	Knight może atakować przez mury tylko farmera
-	Spearman nie może atakować przez mury w ogóle
-	"""
-	
+	"""STARA FUNKCJA - zachowana dla kompatybilności. Teraz używaj try_break_walls."""
 	# Sprawdź czy cel jest otoczony murami
 	var hex = get_hex_at(target_pos)
 	if not hex or not hex.occupied_object:
 		return true
 	
 	var target = hex.occupied_object
-	
-	# Sprawdź czy cel jest chroniony murami (wszystkie 6 krawędzi)
-	var neighbors = get_neighbors(target_pos)
-	var wall_count = 0
-	
-	for neighbor in neighbors:
-		if has_wall_between(target_pos, neighbor):
-			wall_count += 1
+	var wall_count = count_walls_around(target_pos)
 	
 	# Jeśli nie ma pełnego otoczenia murami - może atakować
 	if wall_count < 6:
 		return true
 	
-	# CEL JEST OTOCZONY MURAMI - sprawdź rangę
+	# CEL JEST OTOCZONY MURAMI
 	print("Cel otoczony murami (", wall_count, "/6)")
 	
 	if attacker is Knight:
-		# Knight może zaatakować tylko farmera w murach
 		if target is Farmer:
-			print("Knight może zaatakować farmera w murach")
 			return true
 		else:
-			print("Knight NIE może zaatakować ", target.get_class(), " w murach")
 			return false
-	
 	elif attacker is Spearman:
-		# Spearman nie może atakować nikogo w murach
-		print("Spearman NIE może atakować przez mury")
 		return false
-	
 	elif attacker is Farmer:
-		# Farmer nie może atakować w ogóle
 		return false
 	
 	return false
+
+func count_walls_around(hex_pos: Vector2i) -> int:
+	"""Liczy ile murów otacza dany hex"""
+	var count = 0
+	for neighbor in get_neighbors(hex_pos):
+		if has_wall_between(hex_pos, neighbor):
+			count += 1
+	return count
+
+func get_attacker_wall_power(attacker) -> int:
+	"""Zwraca 'siłę przełamania murów' jednostki:
+	0 = nie może niszczyć murów (farmer)
+	1 = niszczy puste mury, mury z farmerem, mury ze spearmanem (spearman)
+	2 = dodatkowo mury z knightem (knight)
+	3 = dodatkowo mury z cavalry (cavalry)
+	"""
+	if attacker is Cavalry:
+		return 3
+	elif attacker is Knight:
+		return 2
+	elif attacker is Spearman:
+		return 1
+	else:
+		return 0  # Farmer
+
+func get_unit_wall_defense(unit) -> int:
+	"""Zwraca 'twardość' jednostki w murach - ile potrzeba siły by przebić.
+	0 = puste mury (spearman może)
+	1 = farmer/spearman/zamek w murach (spearman może)
+	2 = knight w murach (tylko knight+ może)
+	3 = cavalry w murach (tylko cavalry może)
+	"""
+	if unit == null:
+		return 0  # Puste mury
+	elif unit is Castle:
+		return 1  # Zamek = spearman może zniszczyć mury i przejąć
+	elif unit is Cavalry:
+		return 3
+	elif unit is Knight:
+		return 2
+	elif unit is Spearman:
+		return 1
+	elif unit is Farmer:
+		return 1
+	return 0
+
+func try_break_walls(attacker, from: Vector2i, to: Vector2i) -> bool:
+	"""Próbuje zniszczyć mury na polu docelowym.
+	
+	Nowa mechanika:
+	- Jeśli pole TO ma mury i atakujący ma wystarczającą siłę - NISZCZY MURY, jednostka zostaje
+	- Atakujący traci turę (wraca na miejsce), NIE wchodzi na pole
+	- Zwraca TRUE jeśli atak był na mury (turę pochłonięto), FALSE jeśli normalny atak
+	
+	Hierarchia siły:
+	- Farmer (0): nie może niszczyć murów w ogóle
+	- Spearman (1): niszczy puste mury, mury z farmerem/spearmanem
+	- Knight (2): + mury z knightem
+	- Cavalry (3): + mury z cavalry
+	"""
+	
+	# Sprawdź czy cel ma mury
+	var wall_count = count_walls_around(to)
+	if wall_count < 6:
+		return false  # Brak pełnych murów - normalny atak
+	
+	# Siła atakującego
+	var attacker_power = get_attacker_wall_power(attacker)
+	if attacker_power == 0:
+		# Farmer nie może niszczyć murów - blokuj ruch
+		print("Farmer nie może niszczyć murów!")
+		return true  # Pochłoń turę i zablokuj (farmer traci ruch)
+	
+	# Sprawdź co jest w środku
+	var to_hex = get_hex_at(to)
+	var defender = to_hex.occupied_object if to_hex else null
+	var defense_level = get_unit_wall_defense(defender)
+	
+	# Sprawdź czy atakujący ma wystarczającą siłę
+	if attacker_power < defense_level:
+		# Np. spearman vs knight w murach - za słaby
+		print("Za słaby by przebić mury! (siła=%d, obrona=%d)" % [attacker_power, defense_level])
+		return true  # Pochłoń turę, nie wchodź
+	
+	# Atakujący MA wystarczającą siłę - NISZCZ MURY!
+	print("=== NISZCZENIE MURÓW na %s! (siła=%d, obrona=%d) ===" % [to, attacker_power, defense_level])
+	
+	# Animacja: mury błyskają i znikają
+	if has_meta("wall_lines"):
+		var wall_lines = get_meta("wall_lines")
+		for edge_i in range(6):
+			var edge_key = "%d,%d-edge%d" % [to.x, to.y, edge_i]
+			if wall_lines.has(edge_key):
+				var wall_line = wall_lines[edge_key]
+				if is_instance_valid(wall_line):
+					var wt = create_tween()
+					wt.tween_property(wall_line, "modulate", Color(1, 0.9, 0.2, 1.0), 0.05)
+					wt.tween_property(wall_line, "modulate:a", 0.0, 0.08)
+	await get_tree().create_timer(0.13).timeout
+	
+	# Upewnij się że atakujący jest na swojej pozycji (nie leci nigdzie)
+	var from_hex_reset = get_hex_at(from)
+	if from_hex_reset and is_instance_valid(attacker):
+		attacker.position = from_hex_reset.position
+		# Resetuj sprite do normalnego stanu (nie "wciśnięty")
+		if attacker.has_method("set_selected"):
+			attacker.set_selected(false)
+		if attacker.sprite and is_instance_valid(attacker.sprite):
+			attacker.sprite.scale = Vector2.ONE
+	
+	# Zniszcz mury
+	purge_walls_connected_to(to)
+	print("Mury na %s zniszczone! Jednostka %s zostaje." % [to, defender.get_class() if defender else "brak"])
+	
+	# Zaznacz atakującego jako ruszonego (stracił turę)
+	if attacker not in units_moved_this_turn:
+		units_moved_this_turn.append(attacker)
+	
+	# Upewnij się że atakujący stoi poprawnie na swoim hexie (nie "wciśnięty")
+	var from_hex_final = get_hex_at(from)
+	if from_hex_final and is_instance_valid(attacker):
+		attacker.position = from_hex_final.position
+		if attacker.sprite and is_instance_valid(attacker.sprite):
+			attacker.sprite.scale = Vector2.ONE
+		if attacker.has_method("set_selected"):
+			attacker.set_selected(false)
+	
+	# Odśwież UI
+	get_node("/root/Main").play_put_sound()
+	if selected_unit:
+		clear_selected_unit_highlight()
+		if selected_unit.has_method("set_selected"):
+			selected_unit.set_selected(false)
+		selected_unit = null
+	clear_highlights()
+	pulse_available_units()
+	
+	return true  # Atak na mury pochłonął turę
 
 # --- KONWERSJE ---
 func hex_to_pixel(hex_coords: Vector2i) -> Vector2:
@@ -1726,24 +1879,32 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 	if not to_hex:
 		return
 	
-	# Cavalry może atakować WSZYSTKO oprócz cavalry w pełnych murach
+	# MECHANIKA MURÓW DLA CAVALRY
+	var wall_count = count_walls_around(to)
+	if wall_count >= 6:
+		var moves_done = cavalry_moves_this_turn.get(cavalry, 0)
+		if moves_done == 0:
+			purge_walls_connected_to(to)
+			cavalry_moves_this_turn[cavalry] = 1
+		else:
+			purge_walls_connected_to(to)
+			cavalry_moves_this_turn[cavalry] = 2
+			units_moved_this_turn.append(cavalry)
+			if selected_unit == cavalry:
+				clear_selected_unit_highlight()
+				cavalry.set_selected(false)
+				selected_unit = null
+			clear_highlights()
+			pulse_available_units()
+			get_node("/root/Main").play_put_sound()
+			return
+	
+	# Cavalry może atakować WSZYSTKO
 	if to_hex.occupied_object != null:
 		var target = to_hex.occupied_object
 		
-		# Cavalry VS Cavalry - WYMAGA braku pełnych murów
 		if target is Cavalry and target.team != cavalry.team:
-			var neighbors = get_neighbors(to)
-			var wall_count = 0
-			for neighbor in neighbors:
-				if has_wall_between(to, neighbor):
-					wall_count += 1
-			
-			if wall_count >= 6:
-				print("Nie można zaatakować cavalry w pełnych murach!")
-				return
 			remove_cavalry_at(to)
-		
-		# Cavalry VS inne jednostki - IGNORUJE MURY
 		elif target is Farmer and target.team != cavalry.team:
 			remove_farmer_at(to)
 		elif target is Spearman and target.team != cavalry.team:
@@ -1929,7 +2090,10 @@ func on_cavalry_clicked(cavalry):
 	if wall_placement_mode:
 		return
 	if buy_mode != "":
-		return
+		if cavalry.team != current_team:
+			return
+		_cancel_buy_mode()
+		# Kontynuuj normalnie poniżej
 	
 	if merge_mode:
 		print("Cavalry nie może być łączony!")
@@ -2030,6 +2194,13 @@ func move_spearman(from: Vector2i, to: Vector2i):
 	
 	if not to_hex:
 		return
+	
+	# NOWA MECHANIKA MURÓW
+	var wall_count = count_walls_around(to)
+	if wall_count >= 6:
+		var broke_walls = await try_break_walls(spearman, from, to)
+		if broke_walls:
+			return
 	
 	var from_owner = territory_map.get(from, 0)
 	var to_owner = territory_map.get(to, 0)
@@ -2138,25 +2309,14 @@ func move_spearman(from: Vector2i, to: Vector2i):
 		# Spearman może atakować farmera (team 1-4 I bandytów team -1)
 		if target is Farmer:
 			if target.team != spearman.team:
-				# Sprawdź mury
-				if not can_attack_through_walls(spearman, to):
-					print("Nie można zaatakować - cel chroniony murami!")
-					return
-				# Usuń farmera
+				# Usuń farmera (mury już sprawdzone przez try_break_walls)
 				remove_farmer_at(to)
 		elif target is Spearman and target.team != spearman.team:
-			# Sprawdź mury
-			if not can_attack_through_walls(spearman, to):
-				print("Nie można zaatakować - cel chroniony murami!")
-				return
 			# Usuń spearmana
 			remove_spearman_at(to)
 		elif target is Knight:
 			# NOWE: Może atakować knightów bandytów (team -1)
 			if target.team == -1:
-				if not can_attack_through_walls(spearman, to):
-					print("Nie można zaatakować - cel chroniony murami!")
-					return
 				remove_knight_at(to)
 			else:
 				print("Spearman nie może zaatakować knighta gracza!")
@@ -2167,19 +2327,6 @@ func move_spearman(from: Vector2i, to: Vector2i):
 				print("Nie można atakować własnej jednostki!")
 				return
 			return
-	
-	# Sprawdź wrogie mury przed wejściem
-	if from_owner == spearman.team and to_owner != spearman.team:
-		var enemy_neighbors = get_neighbors(to)
-		var edge_index = enemy_neighbors.find(from)
-		
-		if edge_index != -1:
-			var enemy_wall_key = "%d,%d-edge%d" % [to.x, to.y, edge_index]
-			if wall_map.has(enemy_wall_key):
-				var wall_data = wall_map[enemy_wall_key]
-				if wall_data.get("team", 0) != spearman.team:
-					print("Wrogi mur blokuje wejście!")
-					return
 	
 	# Przenieś spearmana
 	spearman_map.erase(from)
@@ -2277,7 +2424,10 @@ func on_spearman_clicked(spearman):
 	if wall_placement_mode:
 		return
 	if buy_mode != "":
-		return
+		if spearman.team != current_team:
+			return
+		_cancel_buy_mode()
+		# Kontynuuj normalnie poniżej
 	
 	# Aktualizuj wybrane królestwo dla UI (każdy spearman)
 	var kid_sp = hex_kingdom_map.get(spearman.hex_position, 0)
@@ -2382,15 +2532,17 @@ func move_knight(from: Vector2i, to: Vector2i):
 	
 	if not to_hex:
 		return
+	
+	# NOWA MECHANIKA MURÓW: Sprawdź czy cel ma pełne mury
+	# Jeśli tak - spróbuj je zniszczyć (pochłania turę, jednostka w środku zostaje)
+	var wall_count = count_walls_around(to)
+	if wall_count >= 6:
+		var broke_walls = await try_break_walls(knight, from, to)
+		if broke_walls:
+			return  # Turę pochłonięto (niszczyliśmy mury lub byliśmy za słabi)
 		
 	if to_hex.occupied_object != null:
 		var target = to_hex.occupied_object
-		
-		# Jeśli to jednostka wroga
-		if (target is Knight or target is Spearman or target is Farmer) and target.team != knight.team:
-			if not can_attack_through_walls(knight, to):
-				print("Nie można zaatakować - cel chroniony murami!")
-				return
 	
 	# ZMIANA: Jesli atakujemy zamek wroga - ZNISZCZ GO
 	var player_lost = false  # Flaga czy gracz przegrał (zamek team 1 przejęty)
@@ -2689,42 +2841,24 @@ func move_farmer(from: Vector2i, to: Vector2i):
 	var from_owner = territory_map.get(from, 0)
 	var to_owner = territory_map.get(to, 0)
 	
+	# NOWA MECHANIKA MURÓW: Farmer nie może niszczyć murów w ogóle
+	var wall_count = count_walls_around(to)
+	if wall_count >= 6:
+		print("Farmer nie może wejść na pole z murami!")
+		return
+	
 	# DODAJ: Obsługa ataku na wrogiego farmera
 	if to_hex.occupied_object != null:
 		var target = to_hex.occupied_object
 		
 		# Farmer może atakować tylko farmera (nie spearmana ani knighta)
 		if target is Farmer and target.team != farmer.team:
-			# Sprawdź mury
-			var neighbors = get_neighbors(to)
-			var wall_count = 0
-			for neighbor in neighbors:
-				if has_wall_between(to, neighbor):
-					wall_count += 1
-			
-			if wall_count >= 6:
-				print("Nie można zaatakować - cel chroniony murami!")
-				return
-			
-			# Usuń wrogiego farmera
+			# Usuń wrogiego farmera (mury już sprawdzone powyżej)
 			remove_farmer_at(to)
 		else:
 			# Nie może atakować innych jednostek
 			print("Farmer może atakować tylko farmera!")
 			return
-	
-	# TYLKO sprawdź WROGIE mury (nie swoje!)
-	if from_owner == farmer.team and to_owner != farmer.team:
-		var enemy_neighbors = get_neighbors(to)
-		var edge_index = enemy_neighbors.find(from)
-		
-		if edge_index != -1:
-			var enemy_wall_key = "%d,%d-edge%d" % [to.x, to.y, edge_index]
-			if wall_map.has(enemy_wall_key):
-				var wall_data = wall_map[enemy_wall_key]
-				if wall_data.get("team", 0) != farmer.team:
-					print("Wrogi mur blokuje wejście!")
-					return
 	
 	# Przenieś farmera
 	farmer_map.erase(from)
@@ -4102,30 +4236,9 @@ func highlight_spearman_moves(spearman_pos: Vector2i, team: int):
 		if not hex:
 			continue
 		
-		# Sprawdź czy jest wrogie jednostki
-		var can_reach = false
+		# NOWA MECHANIKA: pole blokuje tylko 6/6 pełnych murów
+		# Przy mniejszej liczbie murów - spearman może wejść lub zniszczyć
 		var neighbors = get_neighbors(coords)
-		
-		for neighbor in neighbors:
-			if territory_map.get(neighbor, 0) == team:
-				var enemy_has_wall = false
-				var enemy_neighbors = get_neighbors(coords)
-				var edge_index = enemy_neighbors.find(neighbor)
-				
-				if edge_index != -1:
-					var enemy_wall_key = "%d,%d-edge%d" % [coords.x, coords.y, edge_index]
-					if wall_map.has(enemy_wall_key):
-						var wall_data = wall_map[enemy_wall_key]
-						if wall_data.get("team", 0) != team:
-							enemy_has_wall = true
-				
-				if not enemy_has_wall:
-					can_reach = true
-					break
-		
-		if not can_reach:
-			continue
-		
 		var owner = territory_map.get(coords, 0)
 		var highlight_color = HIGHLIGHT_COLOR_CAPTURE
 		
@@ -4163,11 +4276,20 @@ func highlight_spearman_moves(spearman_pos: Vector2i, team: int):
 			
 			# NOWE: Inni spearmani (team 1-4)
 			if unit is Spearman and unit.team != team and unit.team > 0 and unit.team <= 4:
-				# Sprawdź mury
-				if can_attack_through_walls(selected_unit, coords):
+				# Nowa mechanika: spearman może zniszczyć mury z farmerem/spearmanem
+				var wc = count_walls_around(coords)
+				if wc < 6:
 					highlight_color = TEAM_COLORS[int(unit.team)].lightened(0.3)
 					hex.highlight(highlight_color)
 					highlighted_hexes.append(hex)
+				else:
+					# Mury pełne - sprawdź czy możemy je zniszczyć
+					var attacker_power = get_attacker_wall_power(selected_unit)
+					var defense = get_unit_wall_defense(unit)
+					if attacker_power >= defense and attacker_power > 0:
+						# Pokaż jako "możliwe zniszczenie murów" - lekko przyciemnione
+						hex.highlight(TEAM_COLORS[int(unit.team)].lightened(0.3).darkened(0.3))
+						highlighted_hexes.append(hex)
 				continue
 				
 		if castle_map.has(coords):
@@ -4258,12 +4380,20 @@ func highlight_knight_moves(knight_pos: Vector2i, team: int):
 				if unit.team != team and unit.team > 0 and unit.team <= 4:
 					if unit is Cavalry:
 						continue
-					if can_attack_through_walls(selected_unit, coords):
+					# Nowa mechanika murów: pokaż czy możemy zniszczyć mury
+					var wc = count_walls_around(coords)
+					if wc < 6:
 						highlight_color = TEAM_COLORS[int(unit.team)].lightened(0.3)
 						hex.highlight(highlight_color)
 						highlighted_hexes.append(hex)
 					else:
-						continue
+						var attacker_power = get_attacker_wall_power(selected_unit)
+						var defense = get_unit_wall_defense(unit)
+						if attacker_power >= defense and attacker_power > 0:
+							# Możemy zniszczyć mury - pokaż przyciemnione (zajmie turę)
+							hex.highlight(TEAM_COLORS[int(unit.team)].lightened(0.3).darkened(0.3))
+							highlighted_hexes.append(hex)
+					continue
 		hex.highlight(highlight_color)
 		highlighted_hexes.append(hex)
 	
@@ -4343,34 +4473,8 @@ func highlight_farmer_moves(farmer_pos: Vector2i, team: int):
 		if not hex or hex.occupied_object != null:
 			continue
 		
-		# Sprawdz czy JAKIEKOLWIEK pole naszego teamu sasiada z tym polem BEZ WROGIEGO MURU
-		var can_reach = false
-		var neighbors = get_neighbors(coords)
-		
-		for neighbor in neighbors:
-			# Jesli sasiad jest naszym terytorium
-			if territory_map.get(neighbor, 0) == team:
-				# Sprawdz czy na granicy jest WROGI mur (coords to wrogie/neutralne pole)
-				var enemy_has_wall = false
-				
-				# Sprawdz czy WROGIE pole (coords) ma mur w kierunku naszego pola (neighbor)
-				var enemy_neighbors = get_neighbors(coords)
-				var edge_index = enemy_neighbors.find(neighbor)
-				
-				if edge_index != -1:
-					var enemy_wall_key = "%d,%d-edge%d" % [coords.x, coords.y, edge_index]
-					if wall_map.has(enemy_wall_key):
-						var wall_data = wall_map[enemy_wall_key]
-						# Jesli wrogie pole ma mur i NIE jest nasz - blokuj
-						if wall_data.get("team", 0) != team:
-							enemy_has_wall = true
-				
-				# Jesli NIE MA wrogiego muru - mozemy przejsc
-				if not enemy_has_wall:
-					can_reach = true
-					break
-		
-		if not can_reach:
+		# Tylko 6/6 pełnych murów blokuje ruch farmera
+		if count_walls_around(coords) >= 6:
 			continue
 		
 		var owner = territory_map.get(coords, 0)
@@ -4567,81 +4671,116 @@ func on_hex_clicked(hex: Hex):
 	
 	# Obsluga zakupu jednostek
 	if buy_mode == "farmer" and hex in highlighted_hexes:
-		if team_gold[current_team] >= FARMER_COST:
+		if count_walls_around(clicked_pos) >= 6:
+			return
+		var obj = hex.occupied_object
+		if obj != null and is_instance_valid(obj) and obj is Farmer and obj.team == current_team:
+			if team_gold[current_team] >= FARMER_COST:
+				team_gold[current_team] -= FARMER_COST
+				_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+				var t = obj.team
+				remove_farmer_at(clicked_pos)
+				place_spearman_at(clicked_pos, t)
+				var sp = spearman_map.get(clicked_pos)
+				if sp: units_moved_this_turn.append(sp)
+				capture_territory(clicked_pos, current_team)
+				buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+				if ui_manager: ui_manager.reset_all_buy_buttons()
+				get_node("/root/Main").play_put_sound()
+		elif obj == null and team_gold[current_team] >= FARMER_COST:
 			get_node("/root/Main").play_put_sound()
 			place_farmer_at(clicked_pos, current_team)
-			var farmer = farmer_map[clicked_pos]
-			if farmer:
-				units_moved_this_turn.append(farmer)
+			var f = farmer_map.get(clicked_pos)
+			if f: units_moved_this_turn.append(f)
 			team_gold[current_team] -= FARMER_COST
-			_redistribute_castle_gold(current_team)
-			_update_castle_gold_labels()
+			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
 			capture_territory(clicked_pos, current_team)
-			buy_mode = ""
-			clear_highlights()
-			update_ui()
-			pulse_available_units()
-			print("Kupiono farmera")
+			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+			if ui_manager: ui_manager.reset_all_buy_buttons()
 		return
-		
+
 	if buy_mode == "spearman" and hex in highlighted_hexes:
-		if team_gold[current_team] >= SPEARMAN_COST:
+		if count_walls_around(clicked_pos) >= 6:
+			return
+		var obj = hex.occupied_object
+		if obj != null and is_instance_valid(obj) and obj is Spearman and obj.team == current_team:
+			if team_gold[current_team] >= SPEARMAN_COST:
+				team_gold[current_team] -= SPEARMAN_COST
+				_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+				var t = obj.team
+				remove_spearman_at(clicked_pos)
+				place_knight_at(clicked_pos, t)
+				var kn = knight_map.get(clicked_pos)
+				if kn: units_moved_this_turn.append(kn)
+				capture_territory(clicked_pos, current_team)
+				buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+				if ui_manager: ui_manager.reset_all_buy_buttons()
+				get_node("/root/Main").play_put_sound()
+			return
+		if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
+			if team_gold[current_team] >= SPEARMAN_COST:
+				if _buy_attack(clicked_pos, "spearman"): return
+		if obj == null and team_gold[current_team] >= SPEARMAN_COST:
 			get_node("/root/Main").play_put_sound()
 			place_spearman_at(clicked_pos, current_team)
-			var spearman = spearman_map[clicked_pos]
-			if spearman:
-				units_moved_this_turn.append(spearman)
+			var sp = spearman_map.get(clicked_pos)
+			if sp: units_moved_this_turn.append(sp)
 			team_gold[current_team] -= SPEARMAN_COST
-			_redistribute_castle_gold(current_team)
-			_update_castle_gold_labels()
+			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
 			capture_territory(clicked_pos, current_team)
-			buy_mode = ""
-			clear_highlights()
-			update_ui()
-			pulse_available_units()
-			print("Kupiono spearmana")
+			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+			if ui_manager: ui_manager.reset_all_buy_buttons()
 		return
-		
+
 	if buy_mode == "cavalry" and hex in highlighted_hexes:
-		if team_gold[current_team] >= CAVALRY_COST:
+		if count_walls_around(clicked_pos) >= 6:
+			return
+		var obj = hex.occupied_object
+		if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
+			if team_gold[current_team] >= CAVALRY_COST:
+				if _buy_attack(clicked_pos, "cavalry"): return
+		if obj == null and team_gold[current_team] >= CAVALRY_COST:
 			get_node("/root/Main").play_put_sound()
 			place_cavalry_at(clicked_pos, current_team)
-			var cavalry = cavalry_map[clicked_pos]
-			if cavalry:
-				units_moved_this_turn.append(cavalry)
 			team_gold[current_team] -= CAVALRY_COST
-			_redistribute_castle_gold(current_team)
-			_update_castle_gold_labels()
+			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
 			capture_territory(clicked_pos, current_team)
-			buy_mode = ""
-			clear_highlights()
-			update_ui()
-			pulse_available_units()
-			print("Kupiono cavalry")
+			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+			if ui_manager: ui_manager.reset_all_buy_buttons()
 		return
-	
+
 	if buy_mode == "knight" and hex in highlighted_hexes:
-		if team_gold[current_team] >= 20:
+		if count_walls_around(clicked_pos) >= 6:
+			return
+		var obj = hex.occupied_object
+		if obj != null and is_instance_valid(obj) and obj is Knight and obj.team == current_team:
+			if team_gold[current_team] >= KNIGHT_COST:
+				team_gold[current_team] -= KNIGHT_COST
+				_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+				var t = obj.team
+				remove_knight_at(clicked_pos)
+				place_cavalry_at(clicked_pos, t)
+				capture_territory(clicked_pos, current_team)
+				buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+				if ui_manager: ui_manager.reset_all_buy_buttons()
+				get_node("/root/Main").play_put_sound()
+			return
+		if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
+			if team_gold[current_team] >= KNIGHT_COST:
+				if _buy_attack(clicked_pos, "knight"): return
+		if team_gold[current_team] >= KNIGHT_COST:
 			get_node("/root/Main").play_put_sound()
-			if hex.occupied_object:
-				if knight_map.has(clicked_pos):
-					remove_knight_at(clicked_pos)
-				elif farmer_map.has(clicked_pos):
-					remove_farmer_at(clicked_pos)
-			
+			if obj != null and is_instance_valid(obj):
+				if knight_map.has(clicked_pos): remove_knight_at(clicked_pos)
+				elif farmer_map.has(clicked_pos): remove_farmer_at(clicked_pos)
 			place_knight_at(clicked_pos, current_team)
-			var knight = knight_map[clicked_pos]
-			if knight:
-				units_moved_this_turn.append(knight)
-			team_gold[current_team] -= 20
-			_redistribute_castle_gold(current_team)
-			_update_castle_gold_labels()
+			var kn = knight_map.get(clicked_pos)
+			if kn: units_moved_this_turn.append(kn)
+			team_gold[current_team] -= KNIGHT_COST
+			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
 			capture_territory(clicked_pos, current_team)
-			buy_mode = ""
-			clear_highlights()
-			update_ui()
-			pulse_available_units()
-			print("Kupiono knighta")
+			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+			if ui_manager: ui_manager.reset_all_buy_buttons()
 		return
 	
 	# Tryb laczenia
@@ -4673,7 +4812,10 @@ func on_knight_clicked(knight: Knight):
 	if wall_placement_mode:
 		return
 	if buy_mode != "":
-		return
+		if knight.team != current_team:
+			return
+		_cancel_buy_mode()
+		# Kontynuuj normalnie poniżej
 	
 	# Aktualizuj wybrane królestwo dla UI
 	var kid_kn = hex_kingdom_map.get(knight.hex_position, 0)
@@ -4727,8 +4869,12 @@ func on_farmer_clicked(farmer):
 		return
 	if wall_placement_mode:
 		return
+	# Anuluj buy mode i pozwól na normalny ruch
 	if buy_mode != "":
-		return
+		if farmer.team != current_team:
+			return
+		_cancel_buy_mode()
+		# Kontynuuj normalnie poniżej
 	
 	# Aktualizuj wybrane królestwo dla UI
 	var kid_fm = hex_kingdom_map.get(farmer.hex_position, 0)
@@ -5179,6 +5325,278 @@ func load_layout_from_file(file_name: String) -> bool:
 	
 	return true
 
+func is_friendly_unit(obj) -> bool:
+	"""Sprawdza czy obiekt jest własną jednostką"""
+	if obj == null:
+		return false
+	if obj.has_method("get"):
+		var team_val = obj.get("team")
+		if team_val != null:
+			return team_val == current_team
+	return false
+
+func _buy_attack(target_pos: Vector2i, unit_type: String) -> bool:
+	"""W trybie zakupu: kup jednostkę i od razu zaatakuj/zastąp wrogą jednostkę/obóz.
+	Zwraca true jeśli atak się powiódł."""
+	var hex = get_hex_at(target_pos)
+	if not hex:
+		return false
+	var obj = hex.occupied_object
+	if obj == null:
+		return false
+	
+	var cost = 0
+	match unit_type:
+		"farmer":   cost = FARMER_COST
+		"spearman": cost = SPEARMAN_COST
+		"knight":   cost = KNIGHT_COST
+		"cavalry":  cost = CAVALRY_COST
+	
+	if team_gold[current_team] < cost:
+		return false
+	
+	# Sprawdź czy możemy zaatakować tę jednostkę tym typem
+	var can_attack = false
+	if obj is Farmer and obj.team != current_team:
+		can_attack = unit_type in ["farmer", "spearman", "knight", "cavalry"]
+	elif obj is Spearman and obj.team != current_team:
+		can_attack = unit_type in ["spearman", "knight", "cavalry"]
+	elif obj is Knight and obj.team != current_team:
+		can_attack = unit_type in ["knight", "cavalry"]
+	elif obj is Cavalry and obj.team != current_team:
+		can_attack = unit_type == "cavalry"
+	elif obj is Castle:
+		var castle = obj as Castle
+		if castle.team == BANDIT_TEAM:
+			can_attack = unit_type in ["spearman", "knight", "cavalry"]
+		elif castle.team != current_team and castle.team > 0:
+			can_attack = unit_type in ["spearman", "knight", "cavalry"]
+	
+	if not can_attack:
+		return false
+	
+	get_node("/root/Main").play_put_sound()
+	
+	# Usuń wrogą jednostkę (zamki obsługujemy przez capture)
+	if obj is Farmer:
+		remove_farmer_at(target_pos)
+	elif obj is Spearman:
+		remove_spearman_at(target_pos)
+	elif obj is Knight:
+		remove_knight_at(target_pos)
+	elif obj is Cavalry:
+		remove_cavalry_at(target_pos)
+	elif obj is Castle:
+		var castle = obj as Castle
+		if castle.team == BANDIT_TEAM:
+			# Przejęcie obozu bandytów
+			team_gold[current_team] += BANDIT_CAMP_REWARD
+			var camp_id = castle.get_meta("camp_id", -1)
+			remove_castle_at(target_pos)
+			if camp_id > 0:
+				bandit_camp_ownership.erase(camp_id)
+		else:
+			capture_castle(target_pos, current_team, castle.team)
+	
+	# Postaw swoją jednostkę
+	match unit_type:
+		"farmer":   place_farmer_at(target_pos, current_team)
+		"spearman": place_spearman_at(target_pos, current_team)
+		"knight":   place_knight_at(target_pos, current_team)
+		"cavalry":  place_cavalry_at(target_pos, current_team)
+	
+	# Oznacz jako ruszaną
+	match unit_type:
+		"farmer":
+			if farmer_map.has(target_pos): units_moved_this_turn.append(farmer_map[target_pos])
+		"spearman":
+			if spearman_map.has(target_pos): units_moved_this_turn.append(spearman_map[target_pos])
+		"knight":
+			if knight_map.has(target_pos): units_moved_this_turn.append(knight_map[target_pos])
+		"cavalry":
+			if cavalry_map.has(target_pos): units_moved_this_turn.append(cavalry_map[target_pos])
+	
+	team_gold[current_team] -= cost
+	_redistribute_castle_gold(current_team)
+	_update_castle_gold_labels()
+	capture_territory(target_pos, current_team)
+	buy_mode = ""
+	clear_highlights()
+	update_ui()
+	pulse_available_units()
+	return true
+
+func _highlight_merge_targets_for(farmer_unit: Farmer):
+	"""Podświetl sąsiadów farmerów dla merge (zielone)"""
+	for nb in get_neighbors(farmer_unit.hex_position):
+		if farmer_map.has(nb) and farmer_map[nb].team == current_team:
+			var hex = get_hex_at(nb)
+			if hex:
+				hex.highlight(Color("#10B981"))
+				highlighted_hexes.append(hex)
+
+func _highlight_merge_targets_for_knight(knight_unit: Knight):
+	"""Podświetl sąsiadów knightów dla merge (zielone)"""
+	for nb in get_neighbors(knight_unit.hex_position):
+		if knight_map.has(nb) and knight_map[nb].team == current_team:
+			var hex = get_hex_at(nb)
+			if hex:
+				hex.highlight(Color("#10B981"))
+				highlighted_hexes.append(hex)
+
+func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
+	"""Zwraca listę hexów które powinny być podświetlone dla danego trybu zakupu.
+	
+	Zasady:
+	- Własne puste pola połączone z zamkiem: TAK (zielone)
+	- Granica (neutralne/wrogie puste): TAK (pomarańczowe/kolor wroga)
+	- Wrogie jednostki na granicy (farmer/spearman gdy kupujemy unit zdolny do ataku): TAK
+	- Obozy bandytów na granicy: TAK
+	- Pola z murami (6/6): NIE (trzeba najpierw zniszczyć mury)
+	"""
+	var result = []
+	var connected = get_connected_territories(current_team)
+	var connected_set = {}
+	for c in connected:
+		connected_set[c] = true
+	
+	# Własne puste pola (bez murów)
+	for coords in connected:
+		var hex = get_hex_at(coords)
+		if not hex:
+			continue
+		if hex.occupied_object != null:
+			continue  # zajęte
+		if count_walls_around(coords) >= 6:
+			continue  # mury - nie można postawić
+		result.append({
+			"hex": hex,
+			"coords": coords,
+			"color": TEAM_COLORS[current_team].lightened(0.3),
+			"type": "own"
+		})
+	
+	# Granica
+	var border = get_border_of_connected_territories(current_team, connected)
+	for coords in border:
+		var hex = get_hex_at(coords)
+		if not hex:
+			continue
+		if count_walls_around(coords) >= 6:
+			continue  # mury blokują
+		
+		var owner = territory_map.get(coords, 0)
+		var obj = hex.occupied_object
+		
+		if obj == null:
+			# Puste pole na granicy
+			var col = HIGHLIGHT_COLOR_CAPTURE
+			if owner > 0 and owner <= 4 and owner != current_team:
+				col = TEAM_COLORS[int(owner)].lightened(0.3)
+			result.append({"hex": hex, "coords": coords, "color": col, "type": "border_empty"})
+		
+		elif obj is Castle:
+			# Obóz bandytów lub wrogi zamek
+			var castle = obj as Castle
+			if castle.team == BANDIT_TEAM:
+				# Obozy bandytów - wszystkie jednostki mogą atakować
+				result.append({"hex": hex, "coords": coords, "color": BANDIT_CAMP_COLOR.lightened(0.4), "type": "bandit_camp"})
+			elif castle.team != current_team and castle.team > 0:
+				match unit_type:
+					"knight", "cavalry", "spearman":
+						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(castle.team)].lightened(0.3), "type": "enemy_castle"})
+		
+		elif obj is Farmer:
+			var farmer_u = obj as Farmer
+			if farmer_u.team == BANDIT_TEAM:
+				# Bandyta na granicy - wszystkie jednostki mogą
+				result.append({"hex": hex, "coords": coords, "color": BANDIT_COLOR.lightened(0.3), "type": "bandit"})
+			elif farmer_u.team != current_team and farmer_u.team > 0:
+				match unit_type:
+					"farmer", "spearman", "knight", "cavalry":
+						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(farmer_u.team)].lightened(0.3), "type": "enemy_farmer"})
+		
+		elif obj is Spearman:
+			var spear_u = obj as Spearman
+			if spear_u.team == BANDIT_TEAM:
+				result.append({"hex": hex, "coords": coords, "color": BANDIT_COLOR.lightened(0.3), "type": "bandit"})
+			elif spear_u.team != current_team and spear_u.team > 0:
+				match unit_type:
+					"spearman", "knight", "cavalry":
+						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(spear_u.team)].lightened(0.3), "type": "enemy_spearman"})
+		
+		elif obj is Knight:
+			var knight_u = obj as Knight
+			if knight_u.team == BANDIT_TEAM:
+				result.append({"hex": hex, "coords": coords, "color": BANDIT_COLOR.lightened(0.3), "type": "bandit"})
+			elif knight_u.team != current_team and knight_u.team > 0:
+				match unit_type:
+					"knight", "cavalry":
+						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(knight_u.team)].lightened(0.3), "type": "enemy_knight"})
+		
+		elif obj is Cavalry:
+			var cav_u = obj as Cavalry
+			if cav_u.team != current_team and cav_u.team > 0:
+				if unit_type == "cavalry":
+					result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(cav_u.team)].lightened(0.3), "type": "enemy_cavalry"})
+	
+	return result
+
+func _apply_buy_mode_highlights(unit_type: String):
+	"""Podświetla pola w trybie zakupu + własne jednostki do mergu (zielono)"""
+	clear_highlights()
+	clear_unit_pulses()
+	
+	var hex_list = _get_buy_mode_highlighted_hexes(unit_type)
+	for entry in hex_list:
+		entry.hex.highlight(entry.color)
+		highlighted_hexes.append(entry.hex)
+	
+	if unit_type == "farmer":
+		for coords in farmer_map:
+			var u = farmer_map[coords]
+			if is_instance_valid(u) and u.team == current_team:
+				var hex = get_hex_at(coords)
+				if hex:
+					hex.highlight(Color("#10B981"))
+					if hex not in highlighted_hexes:
+						highlighted_hexes.append(hex)
+	elif unit_type == "spearman":
+		for coords in spearman_map:
+			var u = spearman_map[coords]
+			if is_instance_valid(u) and u.team == current_team:
+				var hex = get_hex_at(coords)
+				if hex:
+					hex.highlight(Color("#10B981"))
+					if hex not in highlighted_hexes:
+						highlighted_hexes.append(hex)
+	elif unit_type == "knight":
+		for coords in knight_map:
+			var u = knight_map[coords]
+			if is_instance_valid(u) and u.team == current_team:
+				var hex = get_hex_at(coords)
+				if hex:
+					hex.highlight(Color("#10B981"))
+					if hex not in highlighted_hexes:
+						highlighted_hexes.append(hex)
+
+func _cancel_buy_mode():
+	"""Anuluje tryb zakupu, czyści podświetlenia, resetuje przyciski UI"""
+	if buy_mode == "":
+		return
+	buy_mode = ""
+	merge_mode = false
+	clear_highlights()
+	if selected_unit:
+		clear_selected_unit_highlight()
+		if selected_unit.has_method("set_selected"):
+			selected_unit.set_selected(false)
+		selected_unit = null
+	if ui_manager:
+		ui_manager.reset_all_buy_buttons()
+	update_ui()
+	pulse_available_units()
+
 func _on_buy_farmer():
 	if wall_placement_mode:
 		wall_placement_mode = false
@@ -5189,16 +5607,7 @@ func _on_buy_farmer():
 			ui_manager.reset_wall_button()
 			
 	if buy_mode == "farmer":
-		buy_mode = ""
-		clear_highlights()
-		if selected_unit:
-			clear_selected_unit_highlight()
-			if selected_unit.has_method("set_selected"):
-				selected_unit.set_selected(false)
-			selected_unit = null
-		update_ui()
-		pulse_available_units()
-		print("Tryb kupna farmera wyłączony")
+		_cancel_buy_mode()
 		return
 	
 	if team_gold[current_team] < FARMER_COST:
@@ -5211,36 +5620,8 @@ func _on_buy_farmer():
 		selected_unit = null
 
 	buy_mode = "farmer"
-	clear_highlights()
-	
-	# Pobierz pola POLACZONE z zamkiem
-	var connected = get_connected_territories(current_team)
-	
-	# Podswietl TYLKO polaczone pola (puste)
-	for coords in connected:
-		var hex = get_hex_at(coords)
-		if hex and hex.occupied_object == null:
-			hex.highlight(TEAM_COLORS[current_team].lightened(0.3))
-			highlighted_hexes.append(hex)
-	
-	# Podswietl SASIADOW polaczenych pol (granica)
-	var border = get_border_of_connected_territories(current_team, connected)
-	for coords in border:
-		var hex = get_hex_at(coords)
-		if not hex or hex.occupied_object != null:
-			continue
-		
-		var owner = territory_map.get(coords, 0)
-		var highlight_color = HIGHLIGHT_COLOR_CAPTURE  # Pomaranczowy dla neutralnych
-		
-		# Jesli wrogie pole - uzywamy koloru wroga (rozjasnionego)
-		if owner > 0 and owner <= 4 and owner != current_team:
-			highlight_color = TEAM_COLORS[int(owner)].lightened(0.3)
-		
-		hex.highlight(highlight_color)
-		highlighted_hexes.append(hex)
-	
-	print("Tryb zakupu: Farmer - kliknij pole")
+	_apply_buy_mode_highlights("farmer")
+	if ui_manager: ui_manager.set_buy_button_active("farmer", true)
 	
 func _on_buy_cavalry():
 	if wall_placement_mode:
@@ -5252,16 +5633,7 @@ func _on_buy_cavalry():
 			ui_manager.reset_wall_button()
 			
 	if buy_mode == "cavalry":
-		buy_mode = ""
-		clear_highlights()
-		if selected_unit:
-			clear_selected_unit_highlight()
-			if selected_unit.has_method("set_selected"):
-				selected_unit.set_selected(false)
-			selected_unit = null
-		update_ui()
-		pulse_available_units()
-		print("Tryb kupna cavalry wyłączony")
+		_cancel_buy_mode()
 		return
 	
 	if team_gold[current_team] < CAVALRY_COST:
@@ -5274,39 +5646,8 @@ func _on_buy_cavalry():
 		selected_unit = null
 	
 	buy_mode = "cavalry"
-	clear_highlights()
-	
-	var connected = get_connected_territories(current_team)
-	
-	for coords in connected:
-		var hex = get_hex_at(coords)
-		if hex and hex.occupied_object == null:
-			hex.highlight(TEAM_COLORS[current_team].lightened(0.3))
-			highlighted_hexes.append(hex)
-	
-	var border = get_border_of_connected_territories(current_team, connected)
-	for coords in border:
-		var hex = get_hex_at(coords)
-		if not hex:
-			continue
-		
-		var owner = territory_map.get(coords, 0)
-		var highlight_color = HIGHLIGHT_COLOR_CAPTURE
-		
-		if owner > 0 and owner <= 4 and owner != current_team:
-			highlight_color = TEAM_COLORS[int(owner)].lightened(0.3)
-		
-		# Cavalry może zastąpić DOWOLNĄ jednostkę
-		if hex.occupied_object == null:
-			hex.highlight(highlight_color)
-			highlighted_hexes.append(hex)
-		elif hex.occupied_object is Knight or hex.occupied_object is Farmer or hex.occupied_object is Spearman or hex.occupied_object is Cavalry:
-			var unit = hex.occupied_object
-			if unit.team != current_team and unit.team > 0 and unit.team <= 4:
-				hex.highlight(TEAM_COLORS[int(unit.team)].lightened(0.3))
-				highlighted_hexes.append(hex)
-	
-	print("Tryb zakupu: Cavalry - kliknij pole")
+	_apply_buy_mode_highlights("cavalry")
+	if ui_manager: ui_manager.set_buy_button_active("cavalry", true)
 	
 func _on_buy_spearman():
 	if wall_placement_mode:
@@ -5318,16 +5659,7 @@ func _on_buy_spearman():
 			ui_manager.reset_wall_button()
 			
 	if buy_mode == "spearman":
-		buy_mode = ""
-		clear_highlights()
-		if selected_unit:
-			clear_selected_unit_highlight()
-			if selected_unit.has_method("set_selected"):
-				selected_unit.set_selected(false)
-			selected_unit = null
-		update_ui()
-		pulse_available_units()
-		print("Tryb kupna spearmana wyłączony")
+		_cancel_buy_mode()
 		return
 	
 	if team_gold[current_team] < SPEARMAN_COST:
@@ -5340,32 +5672,8 @@ func _on_buy_spearman():
 		selected_unit = null
 	
 	buy_mode = "spearman"
-	clear_highlights()
-	
-	var connected = get_connected_territories(current_team)
-	
-	for coords in connected:
-		var hex = get_hex_at(coords)
-		if hex and hex.occupied_object == null:
-			hex.highlight(TEAM_COLORS[current_team].lightened(0.3))
-			highlighted_hexes.append(hex)
-	
-	var border = get_border_of_connected_territories(current_team, connected)
-	for coords in border:
-		var hex = get_hex_at(coords)
-		if not hex or hex.occupied_object != null:
-			continue
-		
-		var owner = territory_map.get(coords, 0)
-		var highlight_color = HIGHLIGHT_COLOR_CAPTURE
-		
-		if owner > 0 and owner <= 4 and owner != current_team:
-			highlight_color = TEAM_COLORS[int(owner)].lightened(0.3)
-		
-		hex.highlight(highlight_color)
-		highlighted_hexes.append(hex)
-	
-	print("Tryb zakupu: Spearman - kliknij pole")
+	_apply_buy_mode_highlights("spearman")
+	if ui_manager: ui_manager.set_buy_button_active("spearman", true)
 
 func _on_buy_knight():
 	if wall_placement_mode:
@@ -5377,19 +5685,10 @@ func _on_buy_knight():
 			ui_manager.reset_wall_button()
 			
 	if buy_mode == "knight":
-		buy_mode = ""
-		clear_highlights()
-		if selected_unit:
-			clear_selected_unit_highlight()
-			if selected_unit.has_method("set_selected"):
-				selected_unit.set_selected(false)
-			selected_unit = null
-		update_ui()
-		pulse_available_units()
-		print("Tryb kupna knighta wyłączony")
+		_cancel_buy_mode()
 		return
 	
-	if team_gold[current_team] < 20:
+	if team_gold[current_team] < KNIGHT_COST:
 		return
 		
 	if selected_unit:
@@ -5399,46 +5698,8 @@ func _on_buy_knight():
 		selected_unit = null
 	
 	buy_mode = "knight"
-	clear_highlights()
-	
-	# Pobierz pola POLACZONE z zamkiem
-	var connected = get_connected_territories(current_team)
-	
-	# Podswietl TYLKO polaczone pola (puste)
-	for coords in connected:
-		var hex = get_hex_at(coords)
-		if hex and hex.occupied_object == null:
-			hex.highlight(TEAM_COLORS[current_team].lightened(0.3))
-			highlighted_hexes.append(hex)
-	
-	# Podswietl SASIADOW polaczenych pol
-	var border = get_border_of_connected_territories(current_team, connected)
-	for coords in border:
-		var hex = get_hex_at(coords)
-		if not hex:
-			continue
-		
-		var owner = territory_map.get(coords, 0)
-		
-		# Knight moze na puste pole LUB na wrogie jednostki
-		if hex.occupied_object == null:
-			# Puste pole
-			var highlight_color = HIGHLIGHT_COLOR_CAPTURE  # Pomaranczowy dla neutralnych
-			
-			# Jesli wrogie terytorium - kolor wroga
-			if owner > 0 and owner <= 4 and owner != current_team:
-				highlight_color = TEAM_COLORS[int(owner)].lightened(0.3)
-			
-			hex.highlight(highlight_color)
-			highlighted_hexes.append(hex)
-		elif hex.occupied_object is Knight or hex.occupied_object is Farmer:
-			# Wroga jednostka - kolor jej druzyny
-			var unit = hex.occupied_object
-			if unit.team != current_team and unit.team > 0 and unit.team <= 4:
-				hex.highlight(TEAM_COLORS[int(unit.team)].lightened(0.3))
-				highlighted_hexes.append(hex)
-	
-	print("Tryb zakupu: Knight - kliknij pole")
+	_apply_buy_mode_highlights("knight")
+	if ui_manager: ui_manager.set_buy_button_active("knight", true)
 
 func _on_buy_wall():
 	print("=== _on_buy_wall wywolane ===")

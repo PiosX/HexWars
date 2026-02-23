@@ -268,7 +268,7 @@ func setup_ui():
 		{"name": "Spearman", "icon": ICON_SPEARMAN, "cost": 20, "upkeep": 6, "id": "spearman"},
 		{"name": "Knight", "icon": ICON_KNIGHT, "cost": 40, "upkeep": 18, "id": "knight"},
 		{"name": "Cavalry", "icon": ICON_CAVALRY, "cost": 80, "upkeep": 2, "id": "cavalry"},
-		{"name": "Wall", "icon": ICON_WALL, "cost": 3, "upkeep": 0, "id": "wall"}
+		{"name": "Wall", "icon": ICON_WALL, "cost": 4, "upkeep": 0, "id": "wall"}
 	]
 
 	for unit_data in units_data:
@@ -1178,7 +1178,7 @@ func update_ui_data():
 						"cavalry":
 							btn.disabled = current_gold < 80
 						"wall":
-							btn.disabled = current_gold < 3
+							btn.disabled = current_gold < 4
 	
 	# Update dominance bar
 	update_dominance_bar()
@@ -1245,13 +1245,54 @@ func update_dominance_bar():
 
 func _on_undo_pressed():
 	get_node("/root/Main").play_btn_sound()
+	reset_all_buy_buttons()
 	if hex_grid:
 		hex_grid._on_rewind_turn()
 
 func _on_next_pressed():
 	get_node("/root/Main").play_btn_sound()
+	reset_all_buy_buttons()
 	if hex_grid:
 		hex_grid._on_end_turn()
+
+func reset_all_buy_buttons():
+	"""Resetuje wszystkie przyciski zakupu do stanu nieaktywnego"""
+	for id in unit_buttons:
+		var container = unit_buttons[id]
+		if container.has_meta("button"):
+			var btn = container.get_meta("button")
+			if is_instance_valid(btn):
+				var style = StyleBoxFlat.new()
+				style.bg_color = BG_BOX
+				style.border_width_left = 1; style.border_width_right = 1
+				style.border_width_top = 1; style.border_width_bottom = 1
+				style.border_color = BORDER_COLOR
+				style.corner_radius_top_left = 999; style.corner_radius_top_right = 999
+				style.corner_radius_bottom_left = 999; style.corner_radius_bottom_right = 999
+				btn.add_theme_stylebox_override("normal", style)
+				var style_h = style.duplicate()
+				style_h.bg_color = BORDER_COLOR
+				btn.add_theme_stylebox_override("hover", style_h)
+
+func set_buy_button_active(id: String, active: bool):
+	"""Ustawia jeden przycisk zakupu jako aktywny/nieaktywny, resztę resetuje"""
+	reset_all_buy_buttons()
+	if not active:
+		return
+	if id in unit_buttons and unit_buttons[id].has_meta("button"):
+		var btn = unit_buttons[id].get_meta("button")
+		if is_instance_valid(btn):
+			var style = StyleBoxFlat.new()
+			style.bg_color = Color("#10B981", 0.25)
+			style.border_width_left = 2; style.border_width_right = 2
+			style.border_width_top = 2; style.border_width_bottom = 2
+			style.border_color = Color("#10B981", 0.7)
+			style.corner_radius_top_left = 999; style.corner_radius_top_right = 999
+			style.corner_radius_bottom_left = 999; style.corner_radius_bottom_right = 999
+			btn.add_theme_stylebox_override("normal", style)
+			var style_h = style.duplicate()
+			style_h.bg_color = Color("#10B981", 0.35)
+			btn.add_theme_stylebox_override("hover", style_h)
 
 func _on_settings_pressed():
 	get_node("/root/Main").play_btn_sound()
@@ -1354,53 +1395,14 @@ func _on_home_pressed():
 	_on_close_settings()
 			
 func reset_wall_button():
+	"""Resetuje przycisk murów — używa ogólnego reset"""
 	get_node("/root/Main").play_select_sound()
-	"""Resetuje przycisk murów do stanu początkowego"""
-	if "wall" in unit_buttons and unit_buttons["wall"].has_meta("button"):
-		var container = unit_buttons["wall"]
-		var btn = container.get_meta("button")
-		if is_instance_valid(btn):
-			# Przywróć normalny styl
-			var style_normal = StyleBoxFlat.new()
-			style_normal.bg_color = BG_BOX
-			style_normal.border_width_left = 1
-			style_normal.border_width_right = 1
-			style_normal.border_width_top = 1
-			style_normal.border_width_bottom = 1
-			style_normal.border_color = BORDER_COLOR
-			style_normal.corner_radius_top_left = 999
-			style_normal.corner_radius_top_right = 999
-			style_normal.corner_radius_bottom_left = 999
-			style_normal.corner_radius_bottom_right = 999
-			btn.add_theme_stylebox_override("normal", style_normal)
-			
+	reset_all_buy_buttons()
+	
 func set_wall_button_active(active: bool):
-	get_node("/root/Main").play_select_sound()
 	"""Ustawia przycisk murów jako aktywny/nieaktywny"""
-	if "wall" in unit_buttons and unit_buttons["wall"].has_meta("button"):
-		var container = unit_buttons["wall"]
-		var btn = container.get_meta("button")
-		if is_instance_valid(btn):
-			if active:
-				# POPRAWKA: Niebieski kolor (jak drużyna niebieska)
-				var style_active = StyleBoxFlat.new()
-				style_active.bg_color = Color("2B7FFF", 0.2)  # Niebieski
-				style_active.border_width_left = 2
-				style_active.border_width_right = 2
-				style_active.border_width_top = 2
-				style_active.border_width_bottom = 2
-				style_active.border_color = Color("2B7FFF", 0.4)
-				style_active.corner_radius_top_left = 999
-				style_active.corner_radius_top_right = 999
-				style_active.corner_radius_bottom_left = 999
-				style_active.corner_radius_bottom_right = 999
-				btn.add_theme_stylebox_override("normal", style_active)
-				
-				var style_hover = style_active.duplicate()
-				style_hover.bg_color = Color("2B7FFF", 0.3)
-				btn.add_theme_stylebox_override("hover", style_hover)
-			else:
-				reset_wall_button()
+	get_node("/root/Main").play_select_sound()
+	set_buy_button_active("wall", active)
 				
 func set_buttons_enabled(enabled: bool):
 	"""Blokuje/odblokuje przyciski Next Round i Undo"""

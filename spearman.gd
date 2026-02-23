@@ -51,19 +51,34 @@ func _on_input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var parent = get_parent()
 		
-		# W trybie gry - jeśli jest selected unit, który może atakować
-		if parent is HexGrid and parent.game_mode:
+		if not (parent is HexGrid):
+			return
+		
+		if parent.game_mode:
+			# BUY MODE
+			if parent.buy_mode != "":
+				var hex = parent.get_hex_at(hex_position)
+				# Własna jednostka poza podświetlonymi → anuluj buy mode i zaznacz
+				if team == parent.current_team and hex and hex not in parent.highlighted_hexes:
+					if parent.has_method("on_spearman_clicked"):
+						parent.on_spearman_clicked(self)
+						get_viewport().set_input_as_handled()
+					return
+				# Inaczej → obsłuż jako klik w buy mode
+				if hex:
+					parent.on_hex_clicked(hex)
+					get_viewport().set_input_as_handled()
+				return
+			
+			# ATAK: zaznaczona wroga jednostka atakuje tego spearmana
 			if parent.selected_unit != null and is_instance_valid(parent.selected_unit):
-				# Jeśli selected unit to INNA jednostka i ten spearman jest wrogi
 				if parent.selected_unit != self and parent.selected_unit.team != team:
-					# WYWOŁAJ ATAK BEZPOŚREDNIO zamiast return
-					print("SPEARMAN: Wywołuję atak na mnie")
 					var hex = parent.get_hex_at(hex_position)
 					if hex:
 						parent.on_hex_clicked(hex)
 					return
 		
-		# W przeciwnym razie - normalnie zaznacz spearmana
+		# Normalny przypadek: zaznacz spearmana
 		print("SPEARMAN: Wywołuję on_spearman_clicked")
 		if parent.has_method("on_spearman_clicked"):
 			parent.on_spearman_clicked(self)

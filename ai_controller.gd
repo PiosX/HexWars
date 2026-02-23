@@ -1443,54 +1443,43 @@ func update_memory(state: Dictionary):
 # ============================================================================
 
 func merge_units(state: Dictionary):
+	"""Łączy jednostki. Merguje ile może w tej turze (nie tylko 1!)."""
+	
 	# PRIORYTET 0: Wróg jest PRZY NASZYM ZAMKU - natychmiast merguj żeby móc atakować
 	for castle_pos in state.my_castles:
 		var enemy_adjacent = false
-		var adjacent_enemy = null
 		for neighbor in hex_grid.get_neighbors(castle_pos):
 			if hex_grid.knight_map.has(neighbor) and hex_grid.knight_map[neighbor].team != team:
-				enemy_adjacent = true
-				adjacent_enemy = neighbor
-				break
+				enemy_adjacent = true; break
 			if hex_grid.spearman_map.has(neighbor) and hex_grid.spearman_map[neighbor].team != team:
-				enemy_adjacent = true
-				adjacent_enemy = neighbor
-				break
+				enemy_adjacent = true; break
 			if hex_grid.cavalry_map.has(neighbor) and hex_grid.cavalry_map[neighbor].team != team:
-				enemy_adjacent = true
-				adjacent_enemy = neighbor
-				break
+				enemy_adjacent = true; break
 			if hex_grid.farmer_map.has(neighbor) and hex_grid.farmer_map[neighbor].team != team and hex_grid.farmer_map[neighbor].team != -1:
-				enemy_adjacent = true
-				adjacent_enemy = neighbor
-				break
+				enemy_adjacent = true; break
 		
 		if enemy_adjacent:
 			print("AI %d: WRÓG PRZY ZAMKU %s - priorytetowy merge!" % [team, castle_pos])
-			# Znajdź farmerów blisko zamku i merguj natychmiast
 			var farmers_near = []
 			for unit_data in state.my_units:
 				if unit_data.type == "farmer":
-					var dist = hex_distance(unit_data.unit.hex_position if is_instance_valid(unit_data.unit) else unit_data.pos, castle_pos)
-					if dist <= 3:
-						farmers_near.append(unit_data.unit.hex_position if is_instance_valid(unit_data.unit) else unit_data.pos)
+					var pos = unit_data.unit.hex_position if is_instance_valid(unit_data.unit) else unit_data.pos
+					if hex_distance(pos, castle_pos) <= 3:
+						farmers_near.append(pos)
 			
-			# Merguj parami
 			for i in range(farmers_near.size()):
 				var pos1 = farmers_near[i]
-				if not hex_grid.farmer_map.has(pos1):
-					continue
+				if not hex_grid.farmer_map.has(pos1): continue
 				for j in range(i + 1, farmers_near.size()):
 					var pos2 = farmers_near[j]
-					if not hex_grid.farmer_map.has(pos2):
-						continue
+					if not hex_grid.farmer_map.has(pos2): continue
 					if are_hexes_adjacent(pos1, pos2):
 						print("AI %d: Merguje farmerów %s+%s -> spearman (obrona zamku!)" % [team, pos1, pos2])
 						hex_grid.merge_farmers_to_spearman(pos1, pos2)
 						await hex_grid.get_tree().create_timer(0.2).timeout
-						return
+						# Nie return - merguj więcej!
 			
-			# Merguj knightów jeśli są
+			# Merguj knightów
 			var knights_near = []
 			for unit_data in state.my_units:
 				if unit_data.type == "knight":
@@ -1500,22 +1489,46 @@ func merge_units(state: Dictionary):
 			
 			for i in range(knights_near.size()):
 				var pos1 = knights_near[i]
-				if not hex_grid.knight_map.has(pos1):
-					continue
+				if not hex_grid.knight_map.has(pos1): continue
 				for j in range(i + 1, knights_near.size()):
 					var pos2 = knights_near[j]
-					if not hex_grid.knight_map.has(pos2):
-						continue
+					if not hex_grid.knight_map.has(pos2): continue
 					if are_hexes_adjacent(pos1, pos2):
 						print("AI %d: Merguje knightów %s+%s -> cavalry (obrona zamku!)" % [team, pos1, pos2])
 						hex_grid.merge_knights_to_cavalry(pos1, pos2)
 						await hex_grid.get_tree().create_timer(0.2).timeout
-						return
 	
-	# PRIORYTET 1: Połącz farmerów BLISKO WROGIEGO ZAMKU
+	# PRIORYTET 1: Knights -> Cavalry (wysoky priorytet - cavalry bardzo silne!)
+	# Merguj WSZYSTKIE pary knightów które sąsiadują
+	var merged_any_knight = true
+	while merged_any_knight:
+		merged_any_knight = false
+		var knights_positions = hex_grid.knight_map.keys().filter(func(pos):
+			return hex_grid.knight_map.has(pos) and hex_grid.knight_map[pos].team == team
+		)
+		
+		for i in range(knights_positions.size()):
+			var pos1 = knights_positions[i]
+			if not hex_grid.knight_map.has(pos1): continue
+			if hex_grid.knight_map[pos1].team != team: continue
+			
+			for j in range(i + 1, knights_positions.size()):
+				var pos2 = knights_positions[j]
+				if not hex_grid.knight_map.has(pos2): continue
+				if hex_grid.knight_map[pos2].team != team: continue
+				
+				if are_hexes_adjacent(pos1, pos2):
+					print("AI %d: Merguje knightów %s + %s -> cavalry" % [team, pos1, pos2])
+					hex_grid.merge_knights_to_cavalry(pos1, pos2)
+					await hex_grid.get_tree().create_timer(0.2).timeout
+					merged_any_knight = true
+					break
+			if merged_any_knight:
+				break
+	
+	# PRIORYTET 2: Połącz farmerów BLISKO WROGIEGO ZAMKU
 	for castle_pos in state.undefended_enemy_castles:
 		var distance = get_min_unit_distance_to(castle_pos, state.my_units)
-		
 		if distance <= 2:
 			var farmers_near_castle = []
 			for unit_data in state.my_units:
@@ -1526,61 +1539,47 @@ func merge_units(state: Dictionary):
 			
 			for i in range(farmers_near_castle.size()):
 				var pos1 = farmers_near_castle[i]
-				if not hex_grid.farmer_map.has(pos1):
-					continue
+				if not hex_grid.farmer_map.has(pos1): continue
 				for j in range(i + 1, farmers_near_castle.size()):
 					var pos2 = farmers_near_castle[j]
-					if not hex_grid.farmer_map.has(pos2):
-						continue
+					if not hex_grid.farmer_map.has(pos2): continue
 					if are_hexes_adjacent(pos1, pos2):
 						print("AI %d: Łączę farmerów %s + %s -> spearman (ATAK NA ZAMEK!)" % [team, pos1, pos2])
 						hex_grid.merge_farmers_to_spearman(pos1, pos2)
 						await hex_grid.get_tree().create_timer(0.2).timeout
-						return
 	
-	# Standardowe łączenie Farmers -> Spearman
-	var farmers_by_pos = {}
-	for unit_data in state.my_units:
-		if unit_data.type == "farmer":
-			var pos = unit_data.unit.hex_position if is_instance_valid(unit_data.unit) else unit_data.pos
-			farmers_by_pos[pos] = unit_data
+	# PRIORYTET 3: Standardowe łączenie Farmers -> Spearman
+	# Łącz WSZYSTKIE przylegające pary farmerów (nie tylko jedną na turę!)
+	var merged_any_farmer = true
+	var farmer_merge_count = 0
+	while merged_any_farmer:
+		merged_any_farmer = false
+		var farmers_positions = hex_grid.farmer_map.keys().filter(func(pos):
+			return hex_grid.farmer_map.has(pos) and hex_grid.farmer_map[pos].team == team
+		)
+		
+		for i in range(farmers_positions.size()):
+			var pos1 = farmers_positions[i]
+			if not hex_grid.farmer_map.has(pos1): continue
+			if hex_grid.farmer_map[pos1].team != team: continue
+			
+			for j in range(i + 1, farmers_positions.size()):
+				var pos2 = farmers_positions[j]
+				if not hex_grid.farmer_map.has(pos2): continue
+				if hex_grid.farmer_map[pos2].team != team: continue
+				
+				if are_hexes_adjacent(pos1, pos2):
+					print("AI %d: Łączę farmerów %s + %s -> spearman" % [team, pos1, pos2])
+					hex_grid.merge_farmers_to_spearman(pos1, pos2)
+					await hex_grid.get_tree().create_timer(0.2).timeout
+					merged_any_farmer = true
+					farmer_merge_count += 1
+					break
+			if merged_any_farmer:
+				break
 	
-	var farmers_positions = farmers_by_pos.keys()
-	for i in range(farmers_positions.size()):
-		var pos1 = farmers_positions[i]
-		if not hex_grid.farmer_map.has(pos1):
-			continue
-		for j in range(i + 1, farmers_positions.size()):
-			var pos2 = farmers_positions[j]
-			if not hex_grid.farmer_map.has(pos2):
-				continue
-			if are_hexes_adjacent(pos1, pos2):
-				print("AI %d: Łączę farmerów %s + %s -> spearman" % [team, pos1, pos2])
-				hex_grid.merge_farmers_to_spearman(pos1, pos2)
-				await hex_grid.get_tree().create_timer(0.2).timeout
-				return  # Tylko jeden merge na turę
-	
-	# Knights -> Cavalry
-	var knights_by_pos = {}
-	for unit_data in state.my_units:
-		if unit_data.type == "knight":
-			var pos = unit_data.unit.hex_position if is_instance_valid(unit_data.unit) else unit_data.pos
-			knights_by_pos[pos] = unit_data
-	
-	var knights_positions = knights_by_pos.keys()
-	for i in range(knights_positions.size()):
-		var pos1 = knights_positions[i]
-		if not hex_grid.knight_map.has(pos1):
-			continue
-		for j in range(i + 1, knights_positions.size()):
-			var pos2 = knights_positions[j]
-			if not hex_grid.knight_map.has(pos2):
-				continue
-			if are_hexes_adjacent(pos1, pos2):
-				print("AI %d: Łączę knightów %s + %s -> cavalry" % [team, pos1, pos2])
-				hex_grid.merge_knights_to_cavalry(pos1, pos2)
-				await hex_grid.get_tree().create_timer(0.2).timeout
-				return
+	if farmer_merge_count > 0:
+		print("AI %d: Łącznie zmergowano %d par farmerów" % [team, farmer_merge_count])
 
 # ============================================================================
 # BUY UNITS
@@ -1686,113 +1685,157 @@ func buy_units(state: Dictionary):
 		await hex_grid.get_tree().create_timer(0.1).timeout
 
 func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
-	"""Planuje zakup jednostek w zależności od strategii"""
+	"""Planuje zakup jednostek.
+	
+	Filozofia:
+	- Wczesna gra (mało pól, mało dochodu): farmerzy = ekspansja = dochód
+	- Średnia gra: mieszaj farmerów z knightami gdy masz nadwyżkę
+	- Duże złoto (>40) lub duży dochód (>15): czas na knightów / cavalry
+	- Nigdy nie trzymaj złota bezczynnie!
+	"""
 	var purchases = []
 	var spawn_positions = find_best_spawn_positions(state)
 	
 	if spawn_positions.is_empty():
+		print("AI %d: Brak pozycji spawnu - pomijam zakup" % team)
 		return purchases
 	
 	var remaining_budget = budget
+	var my_hex_count = state.my_connected_hexes.size()
+	var my_farmer_count = 0
+	var my_knight_count = 0
+	var my_cavalry_count = 0
+	var my_spearman_count = 0
 	
-	# NOWE: Oceń zagrożenie
+	for u in state.my_units:
+		match u.type:
+			"farmer":   my_farmer_count += 1
+			"knight":   my_knight_count += 1
+			"cavalry":  my_cavalry_count += 1
+			"spearman": my_spearman_count += 1
+	
+	var my_combat_count = my_knight_count + my_cavalry_count + my_spearman_count
+	
+	# Policz siłę wroga
 	var threat_level = 0
-	var has_strong_enemies = false
+	var enemy_knight_near = false
+	var enemy_cavalry_near = false
+	var enemy_total_strength = 0
 	
 	if not state.my_castles.is_empty():
 		var castle_pos = state.my_castles[0]
 		for enemy in state.enemy_units:
+			enemy_total_strength += enemy.strength
 			var dist = hex_distance(enemy.pos, castle_pos)
-			if dist <= 6:
-				if enemy.type == "knight":
-					threat_level += 3
-					has_strong_enemies = true
-				elif enemy.type == "cavalry":
-					threat_level += 5
-					has_strong_enemies = true
-				elif enemy.type == "spearman":
-					threat_level += 2
-				else:
-					threat_level += 1
+			if dist <= 8:
+				match enemy.type:
+					"knight":
+						threat_level += 3
+						if dist <= 5: enemy_knight_near = true
+					"cavalry":
+						threat_level += 5
+						if dist <= 6: enemy_cavalry_near = true
+					"spearman": threat_level += 2
+					_: threat_level += 1
 	
-	print("AI %d: Poziom zagrożenia: %d (mocne jednostki: %s)" % [team, threat_level, has_strong_enemies])
+	# Policz mój dochód i czy mam nadwyżkę
+	var net_income = state.income - state.upkeep
+	var is_rich = remaining_budget >= 40  # Sporo złota = czas na upgrade
+	var has_good_income = net_income >= 15  # Dochód pozwala na drogie jednostki
 	
-	# Zamek zagrożony - kupuj obronę
-	if memory.castle_under_attack:
-		while remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < 3 and purchases.size() < spawn_positions.size():
-			var pos = spawn_positions[purchases.size()]
-			purchases.append({
-				"type": "knight",
-				"position": pos,
-				"cost": hex_grid.KNIGHT_COST
-			})
+	print("AI %d: plan_purchases: budżet=%d, pola=%d, farmerzy=%d, bojowe=%d, zagrożenie=%d, bogaty=%s, dochód=%d" % 
+		[team, remaining_budget, my_hex_count, my_farmer_count, my_combat_count, threat_level, is_rich, net_income])
+	
+	# ============================================================
+	# FAZA 1: SYTUACJE KRYZYSOWE
+	# ============================================================
+	
+	# Zamek pod atakiem: kup knightów do obrony
+	if memory.castle_under_attack and not state.cutoff_opportunities.is_empty() == false:
+		var bought_defense = 0
+		while remaining_budget >= hex_grid.KNIGHT_COST and bought_defense < 2 and purchases.size() < spawn_positions.size():
+			purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
 			remaining_budget -= hex_grid.KNIGHT_COST
-		return purchases
+			bought_defense += 1
+		if not purchases.is_empty():
+			print("AI %d: Obrona zamku - kupuję %d knightów" % [team, bought_defense])
 	
-	# NOWE: Duże zagrożenie + mocne jednostki wroga
-	if threat_level >= 3 and has_strong_enemies:
-		# Sprawdź czy można odciąć farmerami
-		var can_block_with_farmers = false
-		if state.cutoff_opportunities.size() > 0:
-			for opp in state.cutoff_opportunities:
-				if opp.get("units_to_use", []).size() <= 2:
-					can_block_with_farmers = true
-					break
+	# Wróg atakuje mocnymi jednostkami i nie można odciąć - kup kontrę
+	elif (enemy_cavalry_near or (enemy_knight_near and my_combat_count == 0)):
+		# Cavalry blisko = pilne zagrożenie
+		if enemy_cavalry_near and remaining_budget >= hex_grid.CAVALRY_COST and purchases.size() < spawn_positions.size():
+			purchases.append({"type": "cavalry", "position": spawn_positions[purchases.size()], "cost": hex_grid.CAVALRY_COST})
+			remaining_budget -= hex_grid.CAVALRY_COST
+			print("AI %d: Cavalry wroga blisko - kupuję cavalry!" % team)
+		elif remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < spawn_positions.size():
+			purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
+			remaining_budget -= hex_grid.KNIGHT_COST
+			print("AI %d: Knight wroga blisko - kupuję knight!" % team)
+	
+	# ============================================================
+	# FAZA 2: STRATEGIA GŁÓWNA - na podstawie bogactwa i sytuacji
+	# ============================================================
+	
+	# BOGATA GRA (>40 złota) lub DOBRY DOCHÓD (>15): inwestuj w mocne jednostki
+	if is_rich or has_good_income:
+		# Jesli mamy dużo farmerów i mało bojowych - czas na upgrade
+		var should_buy_combat = (my_combat_count == 0 or 
+			(my_farmer_count >= 2 and my_combat_count < my_farmer_count / 2) or
+			is_rich)
 		
-		if not can_block_with_farmers:
-			print("AI %d: WYSOKIE ZAGROŻENIE - kupuję mocne jednostki!" % team)
-			
-			# Kup cavalry jeśli bardzo duże zagrożenie
-			if threat_level >= 5 and remaining_budget >= hex_grid.CAVALRY_COST and purchases.size() < spawn_positions.size():
-				var pos = spawn_positions[purchases.size()]
-				purchases.append({
-					"type": "cavalry",
-					"position": pos,
-					"cost": hex_grid.CAVALRY_COST
-				})
+		if should_buy_combat:
+			# Cavalry gdy bardzo bogaty lub wróg ma cavalry
+			if remaining_budget >= hex_grid.CAVALRY_COST and (remaining_budget >= 80 or enemy_cavalry_near) and purchases.size() < spawn_positions.size():
+				purchases.append({"type": "cavalry", "position": spawn_positions[purchases.size()], "cost": hex_grid.CAVALRY_COST})
 				remaining_budget -= hex_grid.CAVALRY_COST
+				print("AI %d: Bogata gra - kupuję cavalry!" % team)
 			
-			# Kup knightów
-			while remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < 2 and purchases.size() < spawn_positions.size():
-				var pos = spawn_positions[purchases.size()]
-				purchases.append({
-					"type": "knight",
-					"position": pos,
-					"cost": hex_grid.KNIGHT_COST
-				})
+			# Knighci - zawsze warto gdy mamy kasę
+			var knights_to_buy = 0
+			if remaining_budget >= hex_grid.KNIGHT_COST * 2:
+				knights_to_buy = 2  # 2 knighty jeśli stać
+			elif remaining_budget >= hex_grid.KNIGHT_COST:
+				knights_to_buy = 1
+			
+			var bought_knights = 0
+			while bought_knights < knights_to_buy and remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < spawn_positions.size():
+				purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
 				remaining_budget -= hex_grid.KNIGHT_COST
+				bought_knights += 1
 			
-			# Reszta - spearmen lub farmers
-			while remaining_budget >= hex_grid.SPEARMAN_COST and purchases.size() < 3 and purchases.size() < spawn_positions.size():
-				var pos = spawn_positions[purchases.size()]
-				purchases.append({
-					"type": "spearman",
-					"position": pos,
-					"cost": hex_grid.SPEARMAN_COST
-				})
-				remaining_budget -= hex_grid.SPEARMAN_COST
+			if bought_knights > 0:
+				print("AI %d: Bogata gra - kupuję %d knight(ów)" % [team, bought_knights])
 	
-	# Strategia agresywna - więcej knightów (jeśli nie było zagrożenia)
-	if current_strategy == Strategy.AGGRESSIVE and threat_level < 3:
+	# STRATEGIA AGRESYWNA: zawsze knighty
+	elif current_strategy == Strategy.AGGRESSIVE and my_combat_count < 2:
 		while remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < 2 and purchases.size() < spawn_positions.size():
-			var pos = spawn_positions[purchases.size()]
-			purchases.append({
-				"type": "knight",
-				"position": pos,
-				"cost": hex_grid.KNIGHT_COST
-			})
+			purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
 			remaining_budget -= hex_grid.KNIGHT_COST
 	
-	# Reszta - farmerzy
-	while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 5 and purchases.size() < spawn_positions.size():
-		var pos = spawn_positions[purchases.size()]
-		purchases.append({
-			"type": "farmer",
-			"position": pos,
-			"cost": hex_grid.FARMER_COST
-		})
-		remaining_budget -= hex_grid.FARMER_COST
+	# ============================================================
+	# FAZA 3: RESZTA BUDŻETU - farmerzy / spearmani
+	# Nigdy nie zostaw złota! Zawsze coś kup.
+	# ============================================================
 	
+	# Rozważ spearmana zamiast 2 farmerów gdy mamy już kilku farmerów
+	var farmer_saturation = float(my_farmer_count) / max(1.0, float(my_hex_count))
+	
+	while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 6 and purchases.size() < spawn_positions.size():
+		var next_pos = spawn_positions[purchases.size()]
+		
+		# Spearman zamiast 2 farmerów: gdy mamy już >30% pól obsadzonych przez farmerów
+		# LUB gdy mamy zagrożenie i chcemy szybko czegoś bojowego
+		if remaining_budget >= hex_grid.SPEARMAN_COST and (farmer_saturation > 0.25 or threat_level >= 2) and my_combat_count == 0:
+			purchases.append({"type": "spearman", "position": next_pos, "cost": hex_grid.SPEARMAN_COST})
+			remaining_budget -= hex_grid.SPEARMAN_COST
+			my_combat_count += 1
+			print("AI %d: Kupuję spearmana (farmer_sat=%.2f, threat=%d)" % [team, farmer_saturation, threat_level])
+		else:
+			purchases.append({"type": "farmer", "position": next_pos, "cost": hex_grid.FARMER_COST})
+			remaining_budget -= hex_grid.FARMER_COST
+			my_farmer_count += 1
+	
+	print("AI %d: Zaplanowano %d zakupów, zostaje %d złota" % [team, purchases.size(), remaining_budget])
 	return purchases
 
 func find_best_spawn_positions(state: Dictionary) -> Array:
@@ -1940,26 +1983,29 @@ func build_walls(state: Dictionary):
 		await hex_grid.get_tree().create_timer(0.1).timeout
 
 func plan_hexes_for_walling(state: Dictionary) -> Array:
-	"""Zwraca listę hexów które powinny dostać mury"""
+	"""Zwraca listę hexów które powinny dostać mury - TYLKO gdy zagrożeni!"""
 	var hexes = []
 	
-	# PRIORYTET 1: Zamek zagrożony
+	# TYLKO gdy zamek jest pod atakiem - otocz zamek murami
 	if memory.castle_under_attack:
 		for castle_pos in state.my_castles:
 			if count_walls_around(castle_pos) < 6:
 				hexes.append(castle_pos)
 	
-	# PRIORYTET 2: Cavalry i Knights
-	for unit_data in state.my_units:
-		if unit_data.type in ["cavalry", "knight"]:
-			if count_walls_around(unit_data.pos) < 6:
-				hexes.append(unit_data.pos)
+	# Gdy cavalry/knight wroga jest blisko zamku (dist ≤ 4) - otocz zamek
+	if not state.my_castles.is_empty():
+		var castle_pos = state.my_castles[0]
+		var strong_threat_close = false
+		for enemy in state.enemy_units:
+			if enemy.type in ["cavalry", "knight"]:
+				if hex_distance(enemy.pos, castle_pos) <= 4:
+					strong_threat_close = true
+					break
+		if strong_threat_close:
+			if count_walls_around(castle_pos) < 6:
+				hexes.append(castle_pos)
 	
-	# PRIORYTET 3: Wąskie gardła (ekspansja do odłączonych terytoriów)
-	if current_strategy == Strategy.EXPANSION:
-		# TODO: Znajdź kluczowe pola na trasie do odłączonych terytoriów
-		pass
-	
+	# NIE muruj własnych jednostek proaktywnie - to tylko marnowanie złota
 	return hexes
 
 # ============================================================================
@@ -2335,7 +2381,7 @@ func expand_around_castle(state: Dictionary):
 				await execute_move(unit_data.unit, unit_data, best_move)
 
 func expand_aggressively(state: Dictionary):
-	"""Agresywna ekspansja - WSZYSTKIE jednostki MUSZĄ się ruszyć"""
+	"""Agresywna ekspansja - leapfrog: tylne jednostki wypełniają luki po przednich"""
 	print("AI %d: AGRESYWNA EKSPANSJA" % team)
 	
 	var units_to_move = []
@@ -2346,10 +2392,22 @@ func expand_aggressively(state: Dictionary):
 	if units_to_move.is_empty():
 		return
 	
-	# Sortuj: jednostki bliżej wrogów idą pierwsze (używaj aktualnych pozycji)
+	# Sortuj: najpierw jednostki NAJBLIŻEJ WROGA (czołowe) - one idą pierwsze i wychodzą na ekspansję
+	# Potem tylne mogą zająć pola które opuściły czołowe
+	# To tworzy efekt "slinky" - łańcuch który przesuwa się do przodu
 	units_to_move.sort_custom(func(a, b):
 		var a_pos = a.unit.hex_position if is_instance_valid(a.unit) else a.pos
 		var b_pos = b.unit.hex_position if is_instance_valid(b.unit) else b.pos
+		
+		# Policz ile pól expnsji ma każda jednostka
+		var a_own = hex_grid.territory_map.get(a_pos, 0) == team
+		var b_own = hex_grid.territory_map.get(b_pos, 0) == team
+		
+		# Jednostki na obcym/neutralnym terenie idą pierwsze (najbardziej wysunięte)
+		if a_own != b_own:
+			return not a_own  # nie-własne terytorium = wyższy priorytet
+		
+		# Wśród jednostek tego samego statusu - bliżej wroga idzie pierwsze
 		var a_to_enemy = 999999
 		var b_to_enemy = 999999
 		for enemy in state.enemy_units:
@@ -2371,7 +2429,6 @@ func expand_aggressively(state: Dictionary):
 		var best_move = find_best_aggressive_move(unit_data, moves, state)
 		
 		if best_move != Vector2i.ZERO:
-			# NOWE: Sprawdź ryzyko odcięcia dla agresywnych ruchów
 			var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
 			if not risk.worth_it:
 				print("AI %d: ⚠️ %s: agresja zablokowana (%s) - szukam bezpiecznej pozycji" % [team, unit_data.type, risk.reason])
@@ -2380,7 +2437,6 @@ func expand_aggressively(state: Dictionary):
 					print("AI %d: %s -> bezpieczna pozycja %s" % [team, unit_data.type, safe_move])
 					await execute_move(unit_data.unit, unit_data, safe_move)
 					continue
-				# Jeśli brak bezpiecznej alternatywy, wykonaj oryginalny ruch tylko dla farmerów
 				if unit_data.type != "farmer":
 					print("AI %d: %s STOI (brak bezpiecznego ruchu)" % [team, unit_data.type])
 					continue
@@ -2509,14 +2565,16 @@ func find_best_aggressive_move(unit_data: Dictionary, moves: Array, state: Dicti
 				score += 1
 		elif owner > 0 and owner != team:
 			# WROGIE TERYTORIUM - najwyższy priorytet
-			score += 50
+			score += 80
 		elif owner == 0:
 			# NEUTRALNE - wysoki priorytet
-			score += 35
+			score += 60
 		elif owner == team:
-			# WŁASNE - DUŻA KARA za bierność (zamiast +5 teraz -20)
-			# AI powinno EKSPANDOWAĆ, nie krążyć po swoim królestwie
-			score -= 20
+			# WŁASNE - BARDZO DUŻA KARA - AI powinno zawsze iść do przodu!
+			if has_expansion_move:
+				score -= 50  # Silna kara gdy jest możliwość ekspansji
+			else:
+				score -= 5   # Mała kara gdy nie ma wyjścia
 		
 		# KARA: Pole zajęte przez sojusznika (nie wchodź tam gdzie stoi ally)
 		if ally_positions.has(move):
@@ -2528,9 +2586,11 @@ func find_best_aggressive_move(unit_data: Dictionary, moves: Array, state: Dicti
 			min_ally_dist = min(min_ally_dist, hex_distance(move, ally_pos))
 		
 		if min_ally_dist >= 2:
-			score += 40
+			score += 30  # Bonus za rozproszenie
 		elif min_ally_dist == 1:
-			score -= 20  # Kara za stackowanie obok sojusznika
+			score -= 30  # Silna kara za stackowanie obok sojusznika (blokowanie)
+		elif min_ally_dist == 0:
+			score -= 100  # To jest pozycja sojusznika - nie chodź tam
 		
 		# BONUS: Blisko wrogów
 		if not state.enemy_units.is_empty():
@@ -2538,7 +2598,7 @@ func find_best_aggressive_move(unit_data: Dictionary, moves: Array, state: Dicti
 			for enemy in state.enemy_units:
 				var dist = hex_distance(move, enemy.pos)
 				min_enemy_dist = min(min_enemy_dist, dist)
-			score += max(0, 20 - min_enemy_dist * 3)
+			score += max(0, 20 - min_enemy_dist * 2)
 		
 		if score > best_score:
 			best_score = score

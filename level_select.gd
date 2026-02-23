@@ -67,6 +67,12 @@ const PROGRESS_PATH = "res://levels/level_progress.json"
 var level_data: Dictionary = {}  # {Vector2i: {level: int, difficulty: int, level_file: String}}
 var progress_data: Dictionary = {}  # {level_number: {completed: bool}}
 
+# Nazwy grup – klucz to najniższy numer poziomu w grupie (int)
+var group_names: Dictionary = {}  # {min_level_in_group: String}
+
+# Węzeł do rysowania linii i etykiet grup
+var group_visuals_node: Node2D = null
+
 # === REFS ===
 var background: ColorRect
 var settings_button: Button
@@ -185,7 +191,7 @@ class LevelHex extends Area2D:
 		
 		original_scale = scale
 		
-		# IMPORTANT: Set z_index to be above background
+		# IMPORTANT: Set z_index to be above lines (which have z_index=1)
 		z_index = 1
 	
 	func set_level_data(level: int, diff: int, file: String, comp: bool, curr: bool, locked: bool):
@@ -339,6 +345,10 @@ func _ready():
 	load_progress_data()
 	load_level_data()
 	update_all_hexes_from_progress()
+	
+	# Wycentruj na aktualnym poziomie (pierwszym nieukończonym)
+	await get_tree().process_frame
+	center_camera_on_current_level()
 	
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -521,11 +531,19 @@ func setup_hex_grid():
 	hex_horiz_spacing = HEX_WIDTH * 0.866 * (1.0 + HEX_GAP)
 	hex_vert_spacing = HEX_HEIGHT * 0.75 * (1.0 + HEX_GAP)
 	
-	# Create hex container
+	# Create hex container – rysuje linie przerywane przez własny draw signal
+	# Rodzic rysuje się PRZED dziećmi, więc linie będą zawsze pod hexami
 	hex_container = Node2D.new()
 	hex_container.name = "HexContainer"
-	hex_container.z_index = 0  # Above background but below UI
+	hex_container.z_index = 0
+	hex_container.draw.connect(_on_hex_container_draw)
 	add_child(hex_container)
+	
+	# group_visuals_node używamy tylko do Label'i (nazwy grup) – nie do linii
+	group_visuals_node = Node2D.new()
+	group_visuals_node.name = "GroupLabels"
+	group_visuals_node.z_index = 0
+	hex_container.add_child(group_visuals_node)
 	
 	# Create camera (separate from hex_container)
 	camera = Camera2D.new()
@@ -535,8 +553,19 @@ func setup_hex_grid():
 	camera.position = Vector2(0, 0)
 	add_child(camera)
 
+# Dane linii do narysowania – aktualizowane przez rebuild_group_visuals()
+var _dash_line_segments: Array = []  # Array of [Vector2, Vector2]
+
+func _on_hex_container_draw():
+	"""Rysuje linie przerywane bezpośrednio w hex_container.
+	Rodzic rysuje się przed dziećmi → linie zawsze pod hexami."""
+	var line_color = Color(1.0, 1.0, 1.0, 0.35)
+	var line_width = 4.0
+	for seg in _dash_line_segments:
+		hex_container.draw_line(seg[0], seg[1], line_color, line_width, true)
+
 func center_camera_on_hexes():
-	"""Centers hex_container to show all hexes"""
+	"""Centers hex_container to show all hexes – używane tylko przy pierwszym ładowaniu."""
 	if hex_map.is_empty():
 		hex_container.position = Vector2(0, 0)
 		return
@@ -547,6 +576,45 @@ func center_camera_on_hexes():
 	# Center the hex container so bounds center is at screen center
 	var offset = viewport_size / 2 - bounds.get_center()
 	hex_container.position = offset
+
+func center_camera_on_current_level():
+	"""
+	Centruje kamerę na aktualnym poziomie (pierwszy nieukończony).
+	Jeśli wszystko ukończone – na ostatnim hexie.
+	Jeśli nic nie ma – na środku mapy.
+	"""
+	if hex_map.is_empty():
+		hex_container.position = Vector2(0, 0)
+		return
+	
+	# Znajdź hex z aktualnym poziomem (is_current = true)
+	var target_hex: Node2D = null
+	for hex in hex_map.values():
+		if hex.is_current:
+			target_hex = hex
+			break
+	
+	# Fallback: ostatni hex wg numeru poziomu
+	if not target_hex:
+		var max_level = 0
+		for hex in hex_map.values():
+			if hex.level_number > max_level:
+				max_level = hex.level_number
+				target_hex = hex
+	
+	# Fallback: środek mapy
+	if not target_hex:
+		center_camera_on_hexes()
+		return
+	
+	var viewport_size = get_viewport().get_visible_rect().size
+	# Wycentruj tak żeby target_hex był na środku ekranu (z uwzględnieniem top/bottom paneli)
+	var safe_center_y = (TOP_PANEL_HEIGHT + (viewport_size.y - BOTTOM_PANEL_HEIGHT)) / 2
+	var offset = Vector2(
+		viewport_size.x / 2 - target_hex.position.x,
+		safe_center_y - target_hex.position.y
+	)
+	hex_container.position = clamp_to_bounds(offset)
 
 func calculate_map_bounds() -> Rect2:
 	"""Calculate bounds of the hex map"""
@@ -904,7 +972,7 @@ func show_selection_box(hex: LevelHex):
 	selection_box.add_theme_stylebox_override("panel", box_style)
 	
 	# Position above bottom menu
-	selection_box.position = Vector2(20, viewport_size.y - 360)
+	selection_box.position = Vector2(20, viewport_size.y - 460)
 	add_child(selection_box)
 	
 	var hbox = HBoxContainer.new()
@@ -1281,7 +1349,11 @@ func set_edit_stage(stage: int):
 	title_label.text = stage_names[stage]
 	
 	if stage == 1:
-		number_counter = 1
+		# Startuj od max istniejącego numeru +1, żeby nowe grupy kontynuowały inkrementację
+		var max_level = 0
+		for data in level_data.values():
+			max_level = max(max_level, int(data.get("level", 0)))
+		number_counter = max_level + 1
 	elif stage == 3:
 		print_available_level_files()
 
@@ -1301,7 +1373,8 @@ func place_hex_at_mouse(screen_pos: Vector2):
 	
 	if not hex_map.has(grid_pos):
 		create_hex_at(grid_pos)
-		center_camera_on_hexes()
+		# NIE resetujemy kamery w trybie edytora – tylko przy pierwszym ładowaniu
+		rebuild_group_visuals()
 
 func remove_hex_at_mouse(screen_pos: Vector2):
 	# Convert screen position to hex_container local position
@@ -1315,13 +1388,298 @@ func remove_hex_at_mouse(screen_pos: Vector2):
 	
 	var grid_pos = Vector2i(int(col), int(row))
 	remove_hex_at(grid_pos)
-	center_camera_on_hexes()
+	# NIE resetujemy kamery w trybie edytora
+	rebuild_group_visuals()
 
-# === SAVE/LOAD ===
+# ===== GRUPY POZIOMÓW – wykrywanie, rysowanie, nazwy =====
+
+func detect_groups() -> Array:
+	"""
+	BFS po sąsiadujących hexach – zwraca listę grup.
+	Każda grupa to Array[Vector2i].
+	Sąsiedzi w offset hex grid (takie same dir jak hex_grid.gd).
+	"""
+	var visited = {}
+	var groups = []
+	
+	for grid_pos in hex_map.keys():
+		if visited.has(grid_pos):
+			continue
+		# BFS
+		var group = []
+		var queue = [grid_pos]
+		visited[grid_pos] = true
+		while not queue.is_empty():
+			var cur = queue.pop_front()
+			group.append(cur)
+			for nb in _hex_neighbors(cur):
+				if hex_map.has(nb) and not visited.has(nb):
+					visited[nb] = true
+					queue.append(nb)
+		groups.append(group)
+	
+	return groups
+
+func _hex_neighbors(coords: Vector2i) -> Array:
+	var q = coords.x
+	var dirs: Array
+	if q % 2 == 0:
+		dirs = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,-1), Vector2i(0,1), Vector2i(1,-1), Vector2i(-1,-1)]
+	else:
+		dirs = [Vector2i(1,0), Vector2i(-1,0), Vector2i(0,-1), Vector2i(0,1), Vector2i(1,1), Vector2i(-1,1)]
+	var result = []
+	for d in dirs:
+		result.append(coords + d)
+	return result
+
+func _group_key(group: Array) -> int:
+	"""Klucz grupy = najniższy numer poziomu w grupie (lub -1 jeśli brak danych)."""
+	var min_level = 999999
+	for gp in group:
+		var lvl = level_data.get(gp, {}).get("level", 999999)
+		min_level = min(min_level, int(lvl))
+	return min_level if min_level < 999999 else -1
+
+func _group_center_pixel(group: Array) -> Vector2:
+	"""Środek pikselowy grupy – średnia pozycji hexów."""
+	var sum = Vector2.ZERO
+	for gp in group:
+		var hex = get_hex_at(gp)
+		if hex:
+			sum += hex.position
+	return sum / group.size()
+
+func _group_bottom_pixel(group: Array) -> Vector2:
+	"""Najniższy punkt grupy (max Y) + offset."""
+	var max_y = -INF
+	var cx = 0.0
+	for gp in group:
+		var hex = get_hex_at(gp)
+		if hex:
+			max_y = max(max_y, hex.position.y)
+			cx += hex.position.x
+	cx /= group.size()
+	return Vector2(cx, max_y + HEX_HEIGHT * 0.6)
+
+func _group_edge_distance(group: Array, center: Vector2, toward_dir: Vector2) -> float:
+	"""
+	Zwraca odległość od środka grupy do najbliższego hexa w kierunku toward_dir.
+	Używane do dynamicznego skracania linii – linia zatrzymuje się przy krawędzi grupy.
+	"""
+	var max_proj = 0.0
+	for gp in group:
+		var hex = get_hex_at(gp)
+		if not hex:
+			continue
+		# Rzut pozycji hexa na kierunek linii (względem środka grupy)
+		var proj = (hex.position - center).dot(toward_dir)
+		if proj > max_proj:
+			max_proj = proj
+	return max_proj
+
+func rebuild_group_visuals():
+	"""Usuwa stare etykiety i tworzy nowe. Linie rysowane przez hex_container._draw()."""
+	if not group_visuals_node:
+		return
+	for child in group_visuals_node.get_children():
+		child.queue_free()
+	
+	_dash_line_segments = []
+	
+	var groups = detect_groups()
+	if groups.is_empty():
+		hex_container.queue_redraw()
+		return
+	
+	# Sortuj grupy wg klucza (min level) – 1→2→3→...
+	groups.sort_custom(func(a, b): return _group_key(a) < _group_key(b))
+	
+	# Użyj środka geometrycznego każdej grupy jako punktu startowego linii
+	var centers = []
+	for g in groups:
+		centers.append(_group_center_pixel(g))
+	
+	# Linia i→i+1 – segmenty są przycinane żeby nie nachodziły na żaden hex
+	for i in range(groups.size() - 1):
+		var from_center = centers[i]
+		var to_center   = centers[i + 1]
+		if from_center.distance_to(to_center) < 20:
+			continue
+		_build_dash_segments_clipped(from_center, to_center)
+	
+	hex_container.queue_redraw()
+	
+	for i in range(groups.size()):
+		var key = _group_key(groups[i])
+		var name_text = group_names.get(key, "")
+		_draw_group_label(groups[i], name_text, key)
+
+func _build_dash_segments_clipped(from: Vector2, to: Vector2):
+	"""
+	Buduje segmenty przerywanych linii od from do to,
+	pomijając odcinki które nachodzą na jakikolwiek hex (promień = HEX_WIDTH * 0.5).
+	"""
+	var dash_len  = 16.0
+	var gap_len   = 10.0
+	var hex_r     = HEX_WIDTH * 0.50  # Promień strefy niewidzialności wokół hexa
+
+	var total_dist = from.distance_to(to)
+	if total_dist < 1.0:
+		return
+
+	var dir = (to - from).normalized()
+
+	# Zbierz wszystkie hexy jako okręgi blokujące [center, radius]
+	var blockers: Array = []
+	for hex in hex_map.values():
+		blockers.append(hex.position)
+
+	# Podziel trasę na małe kroki i sprawdzaj czy punkt jest w hexie
+	var step = 4.0  # co 4px sprawdzamy
+	var traveled = 0.0
+	var drawing   = true   # aktualny stan dash/gap
+	var dash_rem  = dash_len  # ile zostało w bieżącym dashu
+	var seg_start = -1.0   # gdzie zaczął się bieżący widoczny segment
+
+	while traveled <= total_dist:
+		var pt = from + dir * traveled
+		
+		# Czy punkt jest wewnątrz jakiegoś hexa?
+		var in_hex = false
+		for bc in blockers:
+			if pt.distance_to(bc) < hex_r:
+				in_hex = true
+				break
+		
+		var visible = drawing and not in_hex
+		
+		if visible and seg_start < 0.0:
+			seg_start = traveled
+		elif not visible and seg_start >= 0.0:
+			_dash_line_segments.append([from + dir * seg_start, from + dir * traveled])
+			seg_start = -1.0
+		
+		# Advance – zarządzaj dash/gap rytmem
+		traveled += step
+		if drawing:
+			dash_rem -= step
+			if dash_rem <= 0.0:
+				drawing = false
+				dash_rem = gap_len
+		else:
+			dash_rem -= step
+			if dash_rem <= 0.0:
+				drawing = true
+				dash_rem = dash_len
+	
+	# Zamknij ostatni segment
+	if seg_start >= 0.0:
+		_dash_line_segments.append([from + dir * seg_start, from + dir * min(traveled, total_dist)])
+
+func _draw_group_label(group: Array, name_text: String, group_key: int):
+	"""Tworzy Label z nazwą grupy pod grupą hexów. Klikalny w trybie edytora."""
+	var bottom = _group_bottom_pixel(group)
+	
+	var lbl = Label.new()
+	lbl.text = name_text if not name_text.is_empty() else ("+ dodaj nazwę" if editor_mode else "")
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 22)
+	lbl.add_theme_color_override("font_color",
+		Color(1.0, 1.0, 1.0, 0.85) if not name_text.is_empty() else Color(0.5, 0.5, 0.6, 0.7))
+	lbl.position = bottom - Vector2(200, 0)
+	lbl.size = Vector2(400, 36)
+	lbl.z_index = 3
+	lbl.mouse_filter = Control.MOUSE_FILTER_STOP if editor_mode else Control.MOUSE_FILTER_IGNORE
+	lbl.set_meta("group_key", group_key)
+	group_visuals_node.add_child(lbl)
+	
+	if editor_mode:
+		lbl.gui_input.connect(func(event):
+			if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+				_prompt_group_name(group_key)
+		)
+
+func _prompt_group_name(group_key: int):
+	"""Pokazuje dialog do wpisania nazwy grupy (prosty popup z LineEdit)."""
+	# Usuń stary popup jeśli istnieje
+	var old = get_node_or_null("GroupNamePopup")
+	if old:
+		old.queue_free()
+	
+	var viewport_size = get_viewport().get_visible_rect().size
+	
+	var popup = Panel.new()
+	popup.name = "GroupNamePopup"
+	popup.custom_minimum_size = Vector2(420, 160)
+	popup.position = Vector2(viewport_size.x / 2 - 210, viewport_size.y / 2 - 80)
+	popup.z_index = 200
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("1A1A28")
+	style.border_width_left = 2; style.border_width_right = 2
+	style.border_width_top = 2;  style.border_width_bottom = 2
+	style.border_color = Color("4D99FF")
+	style.corner_radius_top_left = 12; style.corner_radius_top_right = 12
+	style.corner_radius_bottom_left = 12; style.corner_radius_bottom_right = 12
+	popup.add_theme_stylebox_override("panel", style)
+	add_child(popup)
+	
+	var vbox = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	vbox.anchor_left = 0.0; vbox.anchor_right = 1.0
+	vbox.anchor_top = 0.0;  vbox.anchor_bottom = 1.0
+	vbox.offset_left = 16; vbox.offset_right = -16
+	vbox.offset_top = 14;  vbox.offset_bottom = -14
+	popup.add_child(vbox)
+	
+	var title_lbl = Label.new()
+	title_lbl.text = "Nazwa grupy poziomów:"
+	title_lbl.add_theme_font_size_override("font_size", 16)
+	title_lbl.add_theme_color_override("font_color", Color.WHITE)
+	vbox.add_child(title_lbl)
+	
+	var line_edit = LineEdit.new()
+	line_edit.text = group_names.get(group_key, "")
+	line_edit.placeholder_text = "np. Kraina Lodu"
+	line_edit.custom_minimum_size = Vector2(0, 40)
+	line_edit.grab_focus()
+	vbox.add_child(line_edit)
+	
+	var hbox = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 10)
+	hbox.alignment = BoxContainer.ALIGNMENT_END
+	vbox.add_child(hbox)
+	
+	var cancel_btn = Button.new()
+	cancel_btn.text = "Anuluj"
+	cancel_btn.custom_minimum_size = Vector2(90, 34)
+	cancel_btn.pressed.connect(func(): popup.queue_free())
+	hbox.add_child(cancel_btn)
+	
+	var ok_btn = Button.new()
+	ok_btn.text = "Zapisz"
+	ok_btn.custom_minimum_size = Vector2(90, 34)
+	hbox.add_child(ok_btn)
+	
+	var _save_name = func():
+		var new_name = line_edit.text.strip_edges()
+		if new_name.is_empty():
+			group_names.erase(group_key)
+		else:
+			group_names[group_key] = new_name
+		popup.queue_free()
+		save_level_data()
+		rebuild_group_visuals()
+	
+	ok_btn.pressed.connect(_save_name)
+	line_edit.text_submitted.connect(func(_t): _save_name.call())
+
+# ===== SAVE/LOAD
 func save_level_data():
 	var save_dict = {
 		"hex_positions": [],
-		"level_data": {}
+		"level_data": {},
+		"group_names": {}
 	}
 	
 	for grid_pos in hex_map.keys():
@@ -1330,6 +1688,10 @@ func save_level_data():
 	for grid_pos in level_data.keys():
 		var key = "%d,%d" % [grid_pos.x, grid_pos.y]
 		save_dict.level_data[key] = level_data[grid_pos]
+	
+	# Zapisz nazwy grup
+	for gk in group_names.keys():
+		save_dict.group_names[str(gk)] = group_names[gk]
 	
 	var file = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1384,8 +1746,16 @@ func load_level_data() -> bool:
 		
 		level_data[grid_pos] = data
 	
-	center_camera_on_hexes()
+	center_camera_on_current_level()
 	print("Level data loaded from ", SAVE_PATH)
+	
+	# Wczytaj nazwy grup
+	group_names.clear()
+	if save_dict.has("group_names"):
+		for gk in save_dict.group_names.keys():
+			group_names[int(gk)] = save_dict.group_names[gk]
+	
+	rebuild_group_visuals()
 	return true
 
 func create_default_levels():
@@ -1475,6 +1845,9 @@ func update_all_hexes_from_progress():
 			is_current,
 			is_locked
 		)
+	
+	# Odśwież linie i etykiety grup po każdej zmianie hexów
+	rebuild_group_visuals()
 
 func save_progress_data():
 	var file = FileAccess.open(PROGRESS_PATH, FileAccess.WRITE)

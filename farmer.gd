@@ -57,27 +57,39 @@ func _on_input_event(_viewport, event, _shape_idx):
 		if not (parent is HexGrid):
 			return
 		
-		# W trybie gry - obsługa ataku
 		if parent.game_mode:
-			# POPRAWKA: W buy_mode bandyta powinien być obsłużony przez on_farmer_clicked (który przekieruje do on_hex_clicked)
-			if parent.buy_mode != "" and team == parent.BANDIT_TEAM:
-				print("FARMER: Bandyta w buy_mode - przekazuję do on_farmer_clicked")
-				if parent.has_method("on_farmer_clicked"):
-					parent.on_farmer_clicked(self)
+			# BUY MODE
+			if parent.buy_mode != "":
+				var hex = parent.get_hex_at(hex_position)
+				# Własna jednostka poza podświetlonymi → anuluj buy mode i zaznacz
+				if team == parent.current_team and hex and hex not in parent.highlighted_hexes:
+					if parent.has_method("on_farmer_clicked"):
+						parent.on_farmer_clicked(self)
+						get_viewport().set_input_as_handled()
+					return
+				# Inaczej → obsłuż jako klik w buy mode
+				if hex:
+					parent.on_hex_clicked(hex)
 					get_viewport().set_input_as_handled()
 				return
 			
+			# MERGE MODE: kliknięcie na własnego farmera w trybie łączenia
+			if parent.merge_mode and team == parent.current_team:
+				var hex = parent.get_hex_at(hex_position)
+				if hex:
+					parent.on_hex_clicked(hex)
+					get_viewport().set_input_as_handled()
+				return
+			
+			# ATAK: zaznaczona wroga jednostka atakuje tego farmera
 			if parent.selected_unit != null and is_instance_valid(parent.selected_unit):
-				# Jeśli selected unit to INNA jednostka i ten farmer jest wrogi
 				if parent.selected_unit != self and parent.selected_unit.team != team:
-					# Wrogi unit atakuje tego farmera
-					print("FARMER: Wywołuję atak na mnie przez ", parent.selected_unit)
 					var hex = parent.get_hex_at(hex_position)
 					if hex:
 						parent.on_hex_clicked(hex)
-					return  # ← KRYTYCZNE: Zatrzymaj tu!
+					return
 		
-		# W przeciwnym razie - zaznacz tego farmera
+		# Normalny przypadek: zaznacz tego farmera
 		print("FARMER: Wywołuję on_farmer_clicked")
 		if parent.has_method("on_farmer_clicked"):
 			parent.on_farmer_clicked(self)
