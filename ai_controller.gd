@@ -124,8 +124,10 @@ func execute_turn():
 	else:
 		print("AI %d: Bankructwo - pomijam kupowanie jednostek" % team)
 	
-	# Buduj mury
-	if not is_bankrupt:
+	# Buduj mury - tylko gdy mamy dodatni przychód netto
+	var income_ai = hex_grid.calculate_income(team)
+	var upkeep_ai = hex_grid.calculate_upkeep(team)
+	if not is_bankrupt and income_ai - upkeep_ai > 0:
 		await build_walls(state)
 	
 	print("=== AI (Team %d) kończy turę ===" % team)
@@ -612,6 +614,51 @@ func find_attackable_kingdom(state: Dictionary, my_strength: Dictionary) -> Dict
 
 func set_strategic_goals(state: Dictionary):
 	strategic_goals.clear()
+	
+	# PRIORYTET #0: ELIMINACJA SILNYCH JEDNOSTEK (knight/cavalry AI sąsiaduje z knight/cavalry wroga)
+	# Silna jednostka AI powinna zlikwidować silnego wroga zanim pójdzie na zamek
+	for unit_data in state.my_units:
+		if not is_instance_valid(unit_data.unit):
+			continue
+		if unit_data.type not in ["knight", "cavalry"]:
+			continue
+		
+		var attacker_pos = unit_data.unit.hex_position
+		var moves = get_possible_moves(unit_data.type, attacker_pos)
+		
+		for move_pos in moves:
+			# Sprawdź czy na tym polu jest silna wroga jednostka (knight lub cavalry)
+			var target_unit = null
+			var target_type = ""
+			if hex_grid.knight_map.has(move_pos):
+				var k = hex_grid.knight_map[move_pos]
+				if is_instance_valid(k) and k.team != team and k.team > 0:
+					target_unit = k
+					target_type = "knight"
+			elif hex_grid.cavalry_map.has(move_pos):
+				var c = hex_grid.cavalry_map[move_pos]
+				if is_instance_valid(c) and c.team != team and c.team > 0:
+					# Cavalry może zaatakować cavalry tylko cavalry
+					if unit_data.type == "cavalry":
+						target_unit = c
+						target_type = "cavalry"
+			
+			if target_unit != null:
+				# Upewnij się że knight nie atakuje cavalry (niemożliwe mechanicznie)
+				if unit_data.type == "knight" and target_type == "cavalry":
+					continue
+				
+				var priority = 430  # Wysoki priorytet - wyższy niż capture_castle
+				strategic_goals.append({
+					"type": "eliminate_high_value_target",
+					"attacker": unit_data,
+					"attacker_pos": attacker_pos,
+					"target_pos": move_pos,
+					"target_type": target_type,
+					"priority": priority
+				})
+				print("AI %d: 🎯 WYKRYTO CEL ELIMINACJI: %s @ %s może zabić %s @ %s (priorytet: %d)" % [team, unit_data.type, attacker_pos, target_type, move_pos, priority])
+				break  # Jedna eliminacja per jednostka
 	
 	# PRIORYTET #0: OCHRONA PRZED ODCIĘCIEM (bardzo wysoki!)
 	if state.has("cutoff_threats") and not state.cutoff_threats.is_empty():
@@ -1587,7 +1634,10 @@ func merge_units(state: Dictionary):
 
 func buy_units(state: Dictionary):
 	var gold = state.gold
-	var reserve = params[difficulty].economy_reserve
+	# Dynamiczna rezerwa: tylko tyle żeby opłacić utrzymanie + mały bufor
+	# Stała rezerwa 30 powodowała chomikowanie złota
+	var upkeep = state.upkeep
+	var reserve = max(upkeep + 5, 5)
 	var available_gold = max(0, gold - reserve)
 	
 	print("AI %d: Złoto: %d, Rezerwacja: %d, Dostępne: %d" % [team, gold, reserve, available_gold])
@@ -1634,7 +1684,7 @@ func buy_units(state: Dictionary):
 					continue
 				
 				hex_grid.place_farmer_at(spawn_pos, team)
-				hex_grid.team_gold[team] -= cost_per_unit
+				hex_grid.deduct_selected_kingdom_gold(team, cost_per_unit)
 				hex_grid.capture_territory(spawn_pos, team)
 				print("AI %d: ✓ FARMER na %s DO ODCIĘCIA!" % [team, spawn_pos])
 				bought += 1
@@ -1740,8 +1790,10 @@ func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
 	
 	# Policz mój dochód i czy mam nadwyżkę
 	var net_income = state.income - state.upkeep
-	var is_rich = remaining_budget >= 40  # Sporo złota = czas na upgrade
-	var has_good_income = net_income >= 15  # Dochód pozwala na drogie jednostki
+	# is_rich: efektywny budżet (już po odjęciu rezerwy) >= 30
+	var is_rich = remaining_budget >= 30
+	# Dobry dochód = 18+ netto → AI stać na drogie jednostki
+	var has_good_income = net_income >= 18
 	
 	print("AI %d: plan_purchases: budżet=%d, pola=%d, farmerzy=%d, bojowe=%d, zagrożenie=%d, bogaty=%s, dochód=%d" % 
 		[team, remaining_budget, my_hex_count, my_farmer_count, my_combat_count, threat_level, is_rich, net_income])
@@ -1776,24 +1828,22 @@ func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
 	# FAZA 2: STRATEGIA GŁÓWNA - na podstawie bogactwa i sytuacji
 	# ============================================================
 	
-	# BOGATA GRA (>40 złota) lub DOBRY DOCHÓD (>15): inwestuj w mocne jednostki
+	# BOGATA GRA (>=30 efektywnego złota) lub DOBRY DOCHÓD (>=18 netto)
 	if is_rich or has_good_income:
-		# Jesli mamy dużo farmerów i mało bojowych - czas na upgrade
-		var should_buy_combat = (my_combat_count == 0 or 
-			(my_farmer_count >= 2 and my_combat_count < my_farmer_count / 2) or
-			is_rich)
+		# Cavalry: kup jeśli mamy >=60 lub wróg ma cavalry
+		if remaining_budget >= hex_grid.CAVALRY_COST and (remaining_budget >= 60 or enemy_cavalry_near) and purchases.size() < spawn_positions.size():
+			purchases.append({"type": "cavalry", "position": spawn_positions[purchases.size()], "cost": hex_grid.CAVALRY_COST})
+			remaining_budget -= hex_grid.CAVALRY_COST
+			print("AI %d: Bogata gra - kupuję cavalry!" % team)
 		
-		if should_buy_combat:
-			# Cavalry gdy bardzo bogaty lub wróg ma cavalry
-			if remaining_budget >= hex_grid.CAVALRY_COST and (remaining_budget >= 80 or enemy_cavalry_near) and purchases.size() < spawn_positions.size():
-				purchases.append({"type": "cavalry", "position": spawn_positions[purchases.size()], "cost": hex_grid.CAVALRY_COST})
-				remaining_budget -= hex_grid.CAVALRY_COST
-				print("AI %d: Bogata gra - kupuję cavalry!" % team)
-			
-			# Knighci - zawsze warto gdy mamy kasę
+		# Knighci: zawsze gdy mamy kasę i brak wystarczającej siły bojowej
+		# Priorytet: combat_count < 2 (zawsze chcemy mieć minimum 2 units bojowych)
+		# lub mamy dużo farmerów bez ochrony
+		var want_knights = (my_combat_count < 2) or (my_farmer_count >= 3 and my_combat_count < my_farmer_count / 2) or is_rich
+		if want_knights:
 			var knights_to_buy = 0
 			if remaining_budget >= hex_grid.KNIGHT_COST * 2:
-				knights_to_buy = 2  # 2 knighty jeśli stać
+				knights_to_buy = 2
 			elif remaining_budget >= hex_grid.KNIGHT_COST:
 				knights_to_buy = 1
 			
@@ -1801,8 +1851,8 @@ func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
 			while bought_knights < knights_to_buy and remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < spawn_positions.size():
 				purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
 				remaining_budget -= hex_grid.KNIGHT_COST
+				my_combat_count += 1
 				bought_knights += 1
-			
 			if bought_knights > 0:
 				print("AI %d: Bogata gra - kupuję %d knight(ów)" % [team, bought_knights])
 	
@@ -1811,20 +1861,19 @@ func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
 		while remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < 2 and purchases.size() < spawn_positions.size():
 			purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
 			remaining_budget -= hex_grid.KNIGHT_COST
+			my_combat_count += 1
 	
 	# ============================================================
 	# FAZA 3: RESZTA BUDŻETU - farmerzy / spearmani
 	# Nigdy nie zostaw złota! Zawsze coś kup.
 	# ============================================================
 	
-	# Rozważ spearmana zamiast 2 farmerów gdy mamy już kilku farmerów
 	var farmer_saturation = float(my_farmer_count) / max(1.0, float(my_hex_count))
 	
 	while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 6 and purchases.size() < spawn_positions.size():
 		var next_pos = spawn_positions[purchases.size()]
 		
-		# Spearman zamiast 2 farmerów: gdy mamy już >30% pól obsadzonych przez farmerów
-		# LUB gdy mamy zagrożenie i chcemy szybko czegoś bojowego
+		# Spearman zamiast farmerów: gdy mamy zagrożenie i zero jednostek bojowych
 		if remaining_budget >= hex_grid.SPEARMAN_COST and (farmer_saturation > 0.25 or threat_level >= 2) and my_combat_count == 0:
 			purchases.append({"type": "spearman", "position": next_pos, "cost": hex_grid.SPEARMAN_COST})
 			remaining_budget -= hex_grid.SPEARMAN_COST
@@ -1961,6 +2010,10 @@ func build_walls(state: Dictionary):
 	
 	if hexes_to_wall.is_empty():
 		return
+		
+	var net_income = state.income - state.upkeep
+	if net_income <= 0:
+		return
 	
 	var walls_built = 0
 	var max_hexes = 3
@@ -2063,6 +2116,8 @@ func move_all_units(state: Dictionary):
 			break
 		
 		match goal.type:
+			"eliminate_high_value_target":
+				await eliminate_high_value_target(state, goal)
 			"defend_from_cutoff":
 				await defend_from_cutoff(state, goal)
 			"connect_territory":
@@ -2193,6 +2248,41 @@ func connect_detached_territory(state: Dictionary, goal: Dictionary):
 		if best_move != Vector2i.ZERO:
 			print("AI %d: %s -> %s (kierunek: odłączona grupa)" % [team, unit_data.type, best_move])
 			await execute_move(unit_data.unit, unit_data, best_move)
+
+func eliminate_high_value_target(state: Dictionary, goal: Dictionary):
+	"""Silna jednostka AI (knight/cavalry) atakuje silną jednostkę wroga (knight/cavalry) w zasięgu 1"""
+	var attacker_data = goal.attacker
+	var target_pos = goal.target_pos
+	var target_type = goal.target_type
+	
+	# Sprawdź że jednostka atakująca nadal istnieje i nie ruszyła się
+	if not is_instance_valid(attacker_data.unit) or attacker_data.unit in hex_grid.units_moved_this_turn:
+		return
+	
+	# Sprawdź że cel nadal istnieje
+	var target_still_exists = false
+	if target_type == "knight" and hex_grid.knight_map.has(target_pos):
+		var k = hex_grid.knight_map[target_pos]
+		if is_instance_valid(k) and k.team != team:
+			target_still_exists = true
+	elif target_type == "cavalry" and hex_grid.cavalry_map.has(target_pos):
+		var c = hex_grid.cavalry_map[target_pos]
+		if is_instance_valid(c) and c.team != team:
+			target_still_exists = true
+	
+	if not target_still_exists:
+		print("AI %d: Cel eliminacji %s @ %s już nie istnieje" % [team, target_type, target_pos])
+		return
+	
+	# Sprawdź że cel jest nadal w zasięgu
+	var current_pos = attacker_data.unit.hex_position
+	var moves = get_possible_moves(attacker_data.type, current_pos)
+	if target_pos not in moves:
+		print("AI %d: Cel %s @ %s poza zasięgiem %s" % [team, target_type, target_pos, attacker_data.type])
+		return
+	
+	print("AI %d: ⚔️ ELIMINACJA: %s @ %s zabija %s @ %s!" % [team, attacker_data.type, current_pos, target_type, target_pos])
+	await execute_move(attacker_data.unit, attacker_data, target_pos)
 
 func capture_castle(state: Dictionary, goal: Dictionary):
 	"""Próbuje zdobyć wrogi zamek"""

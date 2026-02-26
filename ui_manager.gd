@@ -1056,7 +1056,9 @@ func update_ui_data():
 	if is_instance_valid(undo_button) and undo_button.has_meta("button"):
 		var undo_btn = undo_button.get_meta("button")
 		if is_instance_valid(undo_btn):
-			undo_btn.disabled = not hex_grid.turn_history.can_rewind()
+			# NAPRAWKA: Zablokuj UNDO gdy AI gra lub nie można cofnąć
+			var ai_playing = hex_grid.ai_is_playing
+			undo_btn.disabled = ai_playing or not hex_grid.turn_history.can_rewind()
 			
 	var active_teams_count = 0
 	for team in [1, 2, 3, 4]:
@@ -1095,16 +1097,6 @@ func update_ui_data():
 								castle_count_for_team += 1
 						
 						# Sprawdź czy zamki są scalone (mają ten sam kid)
-						var are_merged = false
-						if castle_count_for_team > 1:
-							var kingdom_ids_active: Array = []
-							for cpos in hex_grid.castle_map:
-								if hex_grid.castle_map[cpos].team == team:
-									var k = hex_grid.hex_kingdom_map.get(cpos, 0) if "hex_kingdom_map" in hex_grid else 0
-									if k > 0 and k not in kingdom_ids_active:
-										kingdom_ids_active.append(k)
-							are_merged = kingdom_ids_active.size() <= 1
-						
 						# Znajdź aktywne castle kingdom IDs posortowane rosnąco
 						var active_kids_for_team: Array = []
 						var castle_coords_per_kid: Dictionary = {}
@@ -1115,6 +1107,9 @@ func update_ui_data():
 									active_kids_for_team.append(k)
 									castle_coords_per_kid[k] = cpos
 						active_kids_for_team.sort()
+						
+						# Scalone = wszystkie zamki tego teamu mają ten sam kid
+						var are_merged = active_kids_for_team.size() <= 1
 						
 						# Wybierz display_kid: selected lub najniższy aktywny
 						var skpt = hex_grid.selected_kingdom_per_team if "selected_kingdom_per_team" in hex_grid else {}
@@ -1141,15 +1136,12 @@ func update_ui_data():
 							net_income = income - upkeep
 							# Złoto per zamek: castle_gold = team_gold / count
 							var c_coords = castle_coords_per_kid.get(display_kid, Vector2i.ZERO)
-							if c_coords != Vector2i.ZERO and "castle_gold" in hex_grid:
-								gold = hex_grid.castle_gold.get(c_coords, 0)
-							else:
-								gold = hex_grid.team_gold.get(team, 0) / max(1, castle_count_for_team)
+							gold = hex_grid.kingdom_gold.get(display_kid, 0) if "kingdom_gold" in hex_grid else 0
 							if kid_lbl:
 								kid_lbl.text = str(hex_grid.kid_to_display(display_kid) if hex_grid.has_method("kid_to_display") else display_kid)
 						else:
-							# Jeden zamek lub scalone → całkowita ekonomia teamu
-							gold = hex_grid.team_gold.get(team, 0)
+							# Jeden zamek lub scalone → złoto wybranego królestwa
+							gold = hex_grid.kingdom_gold.get(display_kid, 0) if "kingdom_gold" in hex_grid else hex_grid.team_gold.get(team, 0)
 							income = hex_grid.calculate_income(team)
 							upkeep = hex_grid.calculate_upkeep(team)
 							net_income = income - upkeep
@@ -1162,7 +1154,8 @@ func update_ui_data():
 	
 	# Update unit buttons availability
 	if hex_grid.current_team in hex_grid.team_gold:
-		var current_gold = hex_grid.team_gold[hex_grid.current_team]
+		# NAPRAWKA: Sprawdzaj złoto wybranego królestwa (nie całego teamu)
+		var current_gold = hex_grid.get_selected_kingdom_gold(hex_grid.current_team)
 		
 		for unit_id in ["farmer", "spearman", "knight", "cavalry", "wall"]:
 			if unit_id in unit_buttons and unit_buttons[unit_id].has_meta("button"):

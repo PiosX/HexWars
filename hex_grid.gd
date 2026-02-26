@@ -76,12 +76,14 @@ const BANDIT_CAMP_REWARD = 10
 var ai_controllers: Dictionary = {}
 var ai_teams: Array = []
 var game_over: bool = false  # Flaga zatrzymująca grę po defeat
+var ai_is_playing: bool = false  # Flaga: AI wykonuje swoją turę (blokuje UNDO)
 
 var main_node: Node
 
 # Ekonomia
 var team_gold: Dictionary = {1: 8, 2: 8, 3: 8, 4: 8, 5: 0}
 var castle_gold: Dictionary = {}  # {castle_coords: gold} - złoto przechowywane w zamku
+var kingdom_gold: Dictionary = {}  # {kingdom_id: gold} - złoto per królestwo (główne źródło prawdy gdy zamki rozłączone)
 var team_territory_count: Dictionary = {1: 0, 2: 0, 3: 0, 4: 0}
 
 const FARMER_COST = 10
@@ -94,6 +96,7 @@ const CAVALRY_COST = 80
 const CAVALRY_UPKEEP = 2
 const GOLD_PER_TERRITORY = 1
 const WALL_COST_PER_HEX = 4
+const WALL_UPKEEP = 1
 
 # UI
 var buy_mode: String = ""  # "farmer", "knight", "wall"
@@ -130,7 +133,6 @@ var show_kingdom_labels: bool = true
 # Wybrany zamek/pole do wyświetlania ekonomii w UI (hex_coords)
 var selected_kingdom_per_team: Dictionary = {1: 1, 2: 1, 3: 1, 4: 1}  # {team: kingdom_id}
 # Ekonomia per królestwo (wypełniana przez recalculate_kingdoms)
-var kingdom_gold: Dictionary = {}  # {kingdom_id: gold}
 
 func _ready():
 	main_node = get_node("/root/Main")
@@ -203,10 +205,14 @@ func _ready():
 	# Inicjalizuj złoto: każdy zamek dostaje 8 (team_gold = suma zamków * 8)
 	team_gold = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
 	castle_gold = {}
+	kingdom_gold = {}
 	for coords in castle_map:
 		var t = castle_map[coords].team
 		if t > 0 and t <= 4:
 			team_gold[t] = team_gold.get(t, 0) + 8
+			var kid = castle_kingdom_id.get(coords, 0)
+			if kid > 0:
+				kingdom_gold[kid] = kingdom_gold.get(kid, 0) + 8
 	# Redistribute shows castle_gold = team_gold / num_castles (8 per castle for equal start)
 	for t in [1, 2, 3, 4]:
 		_redistribute_castle_gold(t)
@@ -242,6 +248,51 @@ func _ready():
 	if map_gen_ui:
 		map_gen_ui.setup_for_hex_grid(self)
 		print("✓ MapGeneratorUI połączony z HexGrid!")
+	
+	# Wyśrodkuj kamerę na zamku gracza (team 1) lub środku mapy
+	center_camera_on_start()
+
+func center_camera_on_start():
+	"""Wyśrodkowuje kamerę na zamku gracza (team 1) lub środku mapy na starcie gry.
+	Używa tych samych granic co dragging, żeby nie przeskakiwać po pierwszym ruchu."""
+	var camera = get_meta("game_camera") if has_meta("game_camera") else null
+	if not camera:
+		return
+	if hex_map.is_empty():
+		return
+	
+	var viewport_size = get_viewport_rect().size
+	var zoom = camera.zoom
+	
+	# Ustal punkt docelowy: zamek gracza (team 1) lub środek mapy
+	var target_world_pos = Vector2.ZERO
+	var player_castle_pos = Vector2i.ZERO
+	for coords in castle_map:
+		if castle_map[coords].team == 1:
+			player_castle_pos = coords
+			break
+	
+	if player_castle_pos != Vector2i.ZERO:
+		target_world_pos = hex_to_pixel(player_castle_pos)
+		print("📷 Kamera: cel = zamek gracza @ %s" % player_castle_pos)
+	else:
+		# Fallback: środek geometryczny mapy
+		var sum = Vector2.ZERO
+		for coords in hex_map:
+			sum += hex_to_pixel(coords)
+		target_world_pos = sum / hex_map.size()
+		print("📷 Kamera: cel = środek mapy")
+	
+	# Oblicz pozycję self.position tak żeby target był na środku ekranu
+	var desired = (viewport_size / 2.0) - target_world_pos * zoom
+	
+	# Ogranicz do tych samych granic co dragging (calculate_map_bounds)
+	var bounds = calculate_map_bounds()
+	desired.x = clamp(desired.x, -bounds.end.x, -bounds.position.x)
+	desired.y = clamp(desired.y, -bounds.end.y, -bounds.position.y)
+	
+	self.position = desired
+	print("📷 Kamera ustawiona: %s" % self.position)
 
 func _ensure_unique_kingdom_ids():
 	"""Po wczytaniu pliku: upewnij się że każdy zamek ma unikalny kingdom_id w zakresie swojego teamu.
@@ -279,6 +330,12 @@ func _ensure_unique_kingdom_ids():
 			var kid = selected_kingdom_per_team[t]
 			if remap.has(kid):
 				selected_kingdom_per_team[t] = remap[kid]
+		# Zaktualizuj kingdom_gold kluczy
+		var new_kingdom_gold: Dictionary = {}
+		for kid in kingdom_gold:
+			var new_kid = remap.get(kid, kid)
+			new_kingdom_gold[new_kid] = new_kingdom_gold.get(new_kid, 0) + kingdom_gold[kid]
+		kingdom_gold = new_kingdom_gold
 
 func kid_to_display(kid: int) -> int:
 	"""Konwertuje wewnętrzny kingdom_id na numer wyświetlany (101→1, 102→2, 201→1 itd.)"""	
@@ -293,23 +350,143 @@ func kid_to_display(kid: int) -> int:
 	else:
 		return kid - 300    # Team 4: 301→1, 302→2...
 
+func _rebuild_team_gold(team: int):
+	"""Przebudowuje team_gold[team] jako sumę kingdom_gold wszystkich królestw teamu."""
+	var total = 0
+	for coords in castle_map:
+		if castle_map[coords].team == team:
+			var kid = castle_kingdom_id.get(coords, 0)
+			if kid > 0:
+				total += kingdom_gold.get(kid, 0)
+	team_gold[team] = total
+
 func _redistribute_castle_gold(team: int):
-	"""Dzieli team_gold równo między wszystkie zamki tego teamu (dla etykiet)."""
-	var team_castles_list: Array = []
-	for c in castle_map:
-		if castle_map[c].team == team and team > 0 and team <= 4:
-			team_castles_list.append(c)
-	
-	if team_castles_list.is_empty():
+	"""Synchronizuje castle_gold (do wyświetlania) z kingdom_gold.
+	Scalone zamki (ten sam kid) dzielą złoto po równo — reszta idzie do zamku z najniższym kid."""
+	_rebuild_team_gold(team)
+	# Zbierz zamki per kid, posortowane po coords dla deterministyczności
+	var kid_castles: Dictionary = {}  # {kid: [coords...]}
+	for coords in castle_map:
+		if castle_map[coords].team == team:
+			var kid = castle_kingdom_id.get(coords, 0)
+			if kid > 0:
+				if not kid_castles.has(kid):
+					kid_castles[kid] = []
+				kid_castles[kid].append(coords)
+	# Przypisz castle_gold = kingdom_gold / count, reszta do pierwszego (min coords)
+	for kid in kid_castles:
+		var castles = kid_castles[kid]
+		castles.sort()  # deterministyczna kolejność
+		var total = kingdom_gold.get(kid, 0)
+		var count = castles.size()
+		var per = total / count
+		var remainder = total % count
+		for i in range(count):
+			castle_gold[castles[i]] = per + (1 if i == 0 and remainder > 0 else 0)
+
+func get_selected_kingdom_gold(team: int) -> int:
+	"""Zwraca złoto wybranego królestwa (lub całego teamu jeśli 1 zamek)."""
+	var kid = selected_kingdom_per_team.get(team, -1)
+	if kid > 0 and kingdom_gold.has(kid):
+		return kingdom_gold[kid]
+	# Fallback: zwróć team_gold
+	return team_gold.get(team, 0)
+
+func deduct_selected_kingdom_gold(team: int, amount: int):
+	"""Odejmuje złoto z wybranego królestwa i synchronizuje team_gold."""
+	var kid = selected_kingdom_per_team.get(team, -1)
+	if kid > 0 and kingdom_gold.has(kid):
+		kingdom_gold[kid] = max(0, kingdom_gold[kid] - amount)
+	else:
+		team_gold[team] = max(0, team_gold.get(team, 0) - amount)
+	_rebuild_team_gold(team)
+	_redistribute_castle_gold(team)
+	_update_castle_gold_labels()
+
+func _deduct_gold(team: int, amount: int):
+	"""Odejmuje złoto z wybranego królestwa teamu. Główna funkcja do zakupów."""
+	var kid = selected_kingdom_per_team.get(team, -1)
+	if kid > 0 and kingdom_gold.has(kid):
+		kingdom_gold[kid] = max(0, kingdom_gold[kid] - amount)
+	else:
+		team_gold[team] = max(0, team_gold.get(team, 0) - amount)
+	_rebuild_team_gold(team)
+	_redistribute_castle_gold(team)
+	_update_castle_gold_labels()
+
+func _can_afford(team: int, amount: int) -> bool:
+	"""Sprawdza czy wybrane królestwo teamu ma dość złota."""
+	var kid = selected_kingdom_per_team.get(team, -1)
+	if kid > 0 and kingdom_gold.has(kid):
+		return kingdom_gold[kid] >= amount
+	return team_gold.get(team, 0) >= amount
+
+func _add_gold_to_selected_kingdom(team: int, amount: int):
+	"""Dodaje złoto do wybranego królestwa teamu."""
+	var kid = selected_kingdom_per_team.get(team, -1)
+	if kid > 0:
+		kingdom_gold[kid] = kingdom_gold.get(kid, 0) + amount
+	else:
+		team_gold[team] = team_gold.get(team, 0) + amount
+	_rebuild_team_gold(team)
+	_redistribute_castle_gold(team)
+
+func _add_gold_to_unit_kingdom(unit: Node, amount: int):
+	"""Dodaje złoto do królestwa w którym stoi jednostka."""
+	if not is_instance_valid(unit):
 		return
-	
-	var total = team_gold.get(team, 0)
-	var per_castle = total / team_castles_list.size()
-	var remainder = total % team_castles_list.size()
-	
-	for i in range(team_castles_list.size()):
-		var c = team_castles_list[i]
-		castle_gold[c] = per_castle + (1 if i < remainder else 0)
+	var team = unit.team
+	if team <= 0 or team > 4:
+		return
+	var kid = hex_kingdom_map.get(unit.hex_position, 0)
+	if kid <= 0:
+		kid = selected_kingdom_per_team.get(team, -1)
+	if kid > 0:
+		kingdom_gold[kid] = kingdom_gold.get(kid, 0) + amount
+	else:
+		team_gold[team] = team_gold.get(team, 0) + amount
+	_rebuild_team_gold(team)
+	_redistribute_castle_gold(team)
+	"""Jak get_connected_territories ale tylko dla pól należących do danego kingdom_id.
+	Używane w trybie zakupu żeby podświetlać tylko pola wybranego królestwa."""
+	if kid <= 0:
+		return get_connected_territories(team)
+	var result: Array = []
+	var added: Dictionary = {}
+	for coords in hex_kingdom_map.keys():
+		if territory_map.get(coords, 0) == team and hex_kingdom_map[coords] == kid:
+			result.append(coords)
+			added[coords] = true
+	# Dodaj też pola zamku jeśli jeszcze nie ma
+	for coords in castle_kingdom_id.keys():
+		if added.has(coords):
+			continue
+		if castle_map.has(coords) and castle_map[coords].team == team:
+			var ckid = hex_kingdom_map.get(coords, castle_kingdom_id.get(coords, 0))
+			if ckid == kid:
+				result.append(coords)
+	return result
+
+func get_connected_territories_for_kingdom(team: int, kid: int) -> Array:
+	"""Jak get_connected_territories ale tylko dla pól należących do danego kingdom_id.
+	Używane w trybie zakupu żeby podświetlać tylko pola wybranego królestwa."""
+	if kid <= 0:
+		return get_connected_territories(team)
+	var result: Array = []
+	var added: Dictionary = {}
+	for coords in hex_kingdom_map.keys():
+		if territory_map.get(coords, 0) == team and hex_kingdom_map[coords] == kid:
+			result.append(coords)
+			added[coords] = true
+	# Dodaj też pola zamku jeśli jeszcze nie ma
+	for coords in castle_kingdom_id.keys():
+		if added.has(coords):
+			continue
+		if castle_map.has(coords) and castle_map[coords].team == team:
+			var ckid = hex_kingdom_map.get(coords, castle_kingdom_id.get(coords, 0))
+			if ckid == kid:
+				result.append(coords)
+	return result
 
 func _update_castle_gold_labels():
 	"""Aktualizuje etykiety złota na zamkach (team 1-4)."""
@@ -350,18 +527,33 @@ func _set_castle_gold_label(castle: Node, gold: int):
 
 func _collect_castle_gold_on_capture(castle_coords: Vector2i, new_team: int, old_team: int = -999):
 	"""Przejmujący team dostaje złoto ze zdobytego zamku.
-	Jeśli new_team == old_team (scalanie własnych zamków), złoto zostaje w team_gold (już wliczone)."""	
-	var captured_gold = castle_gold.get(castle_coords, 0)
-	if captured_gold > 0:
-		if new_team != old_team:
-			# Prawdziwe przejęcie - dodaj złoto do nowego właściciela
+	Jeśli new_team == old_team (scalanie własnych zamków), złoto zostaje w kingdom_gold (już wliczone)."""	
+	var old_kid = castle_kingdom_id.get(castle_coords, 0)
+	# Policz ile zamków dzieli ten sam kid (scalone)
+	var sibling_count = 0
+	for coords in castle_map:
+		if castle_map[coords].team == old_team and castle_kingdom_id.get(coords, 0) == old_kid:
+			sibling_count += 1
+	sibling_count = max(sibling_count, 1)
+	# Captured gold = proporcjonalna część kingdom_gold (1/count)
+	var captured_gold = kingdom_gold.get(old_kid, 0) / sibling_count
+	
+	if captured_gold > 0 and new_team != old_team:
+		# Prawdziwe przejęcie - złoto idzie do wybranego królestwa nowego właściciela
+		var new_kid = selected_kingdom_per_team.get(new_team, 0)
+		if new_kid > 0:
+			kingdom_gold[new_kid] = kingdom_gold.get(new_kid, 0) + captured_gold
+		else:
 			team_gold[new_team] = team_gold.get(new_team, 0) + captured_gold
-			# Odejmij od starego właściciela (złoto już nie należy do niego)
-			if old_team > 0 and old_team <= 4 and old_team in team_gold:
-				team_gold[old_team] = max(0, team_gold.get(old_team, 0) - captured_gold)
-		# else: scalanie własnych zamków - team_gold już zawiera to złoto, tylko usuń castle_gold
-		castle_gold.erase(castle_coords)
+		# Odejmij od starego królestwa
+		if old_kid > 0:
+			kingdom_gold[old_kid] = max(0, kingdom_gold.get(old_kid, 0) - captured_gold)
 		print("Zebrano ", captured_gold, " złota z zamku (new_team=", new_team, " old_team=", old_team, ")")
+	castle_gold.erase(castle_coords)
+	if new_team > 0 and new_team <= 4:
+		_rebuild_team_gold(new_team)
+	if old_team > 0 and old_team <= 4 and old_team != new_team:
+		_rebuild_team_gold(old_team)
 
 func update_ui():
 	if ui_manager:
@@ -377,13 +569,7 @@ func calculate_income(team: int) -> int:
 		if not castle_map.has(coords):  # Pole zamku nie daje dochodu z terytorium
 			territory_income += GOLD_PER_TERRITORY
 	
-	# Dodaj zloto za kazdy zamek
-	var castle_income = 0
-	for coords in castle_map:
-		if castle_map[coords].team == team:
-			castle_income += 2
-	
-	return territory_income + castle_income
+	return territory_income
 
 func calculate_upkeep(team: int) -> int:
 	if team == 5 or team == BANDIT_TEAM:
@@ -408,6 +594,9 @@ func calculate_upkeep(team: int) -> int:
 	for farmer in farmer_map.values():
 		if farmer.team == team and connected_set.has(farmer.hex_position):
 			cost += FARMER_UPKEEP
+	for coords in connected:
+		if count_walls_around(coords) >= 6:
+			cost += WALL_UPKEEP
 	return cost
 
 func update_territory_counts():
@@ -834,8 +1023,8 @@ func handle_wall_placement(hex_coords: Vector2i):
 		if game_mode:
 			var current_cost = wall_hexes_selected.size() * WALL_COST_PER_HEX
 			var new_cost = current_cost + WALL_COST_PER_HEX
-			if new_cost > team_gold[current_team]:
-				print("Nie stac cie na wiecej scian! Masz: ", team_gold[current_team], " zlota")
+			if not _can_afford(current_team, new_cost):
+				print("Nie stac cie na wiecej scian! Masz: ", get_selected_kingdom_gold(current_team), " zlota")
 				return
 		
 		wall_hexes_selected.append(hex_coords)
@@ -984,22 +1173,6 @@ func cycle_team():
 		current_round += 1
 		print("=== KONIEC RUNDY ===")
 		
-		# POPRAWKA: Rozdaj pieniądze WSZYSTKIM drużynom na początku rundy
-		print("Rozdzielanie pieniędzy dla wszystkich drużyn...")
-		for team in [1, 2, 3, 4]:
-			var income = calculate_income(team)
-			var upkeep = calculate_upkeep(team)
-			var net_income = income - upkeep
-			team_gold[team] += net_income
-			
-			print("Drużyna ", team, ": +", income, " -", upkeep, " = ", net_income, " (razem: ", team_gold[team], ")")
-			
-			# Sprawdź bankructwo
-			if team_gold[team] < 0:
-				print("BANKRUCTWO! Drużyna ", team, " nie może płacić jednostkom!")
-				handle_bankruptcy(team)
-				team_gold[team] = 0
-		
 		print("=== Sprawdzam bankructwa ===")
 		process_bankruptcies()
 	
@@ -1014,12 +1187,12 @@ func cycle_team():
 	if wall_placement_mode:
 		if wall_hexes_selected.size() > 0:
 			var cost = wall_hexes_selected.size() * WALL_COST_PER_HEX
-			if team_gold[old_team] >= cost:
+			if _can_afford(old_team, cost):
 				var saved_team = current_team
 				current_team = old_team
 				create_walls_between_selected()
 				current_team = saved_team
-				team_gold[old_team] -= cost
+				_deduct_gold(old_team, cost)
 				print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
 			else:
 				print("Nie stac na mury przy Next Turn - anulowano")
@@ -1085,9 +1258,9 @@ func _on_end_turn():
 	if wall_placement_mode:
 		if wall_hexes_selected.size() > 0:
 			var cost = wall_hexes_selected.size() * WALL_COST_PER_HEX
-			if team_gold[current_team] >= cost:
+			if _can_afford(current_team, cost):
 				create_walls_between_selected()
-				team_gold[current_team] -= cost
+				_deduct_gold(current_team, cost)
 				print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
 			else:
 				print("Nie stac na mury przy Next Turn - anulowano")
@@ -1102,27 +1275,48 @@ func _on_end_turn():
 	# === EKONOMIA - TYLKO NA KOŃCU RUNDY (gdy current_team == 4) ===
 	# Sprawdź bankructwa PRZED zapisem (zawsze)
 	var teams_to_check = [1, 2, 3, 4]
+	
+	# Sprawdź bankructwa per-kingdom PRZED naliczeniem
 	for t in teams_to_check:
-		var gold = team_gold.get(t, 0)
-		var upkeep = calculate_upkeep(t)
-		
-		if gold < upkeep:
-			print("⚠ Drużyna %d bankrutuje! (Złoto: %d, Koszty: %d)" % [t, gold, upkeep])
-			handle_bankruptcy(t)
+		var all_kids_t: Array = []
+		for coords in castle_map:
+			if castle_map[coords].team == t:
+				var k = castle_kingdom_id.get(coords, 0)
+				if k > 0 and k not in all_kids_t:
+					all_kids_t.append(k)
+		for kid in all_kids_t:
+			var k_gold = kingdom_gold.get(kid, 0)
+			var k_upkeep = calculate_upkeep_for_kingdom(kid)
+			if k_gold < k_upkeep:
+				print("⚠ Kingdom %d (team %d) bankrutuje! (Złoto: %d, Koszty: %d)" % [kid, t, k_gold, k_upkeep])
+				handle_bankruptcy(t)
 	
 	# WAŻNE: Nalicz złoto/koszty TYLKO gdy kończy się cała runda (current_team == 4)
 	if current_team == 4:
-		print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII ===" % current_round)
+		print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII PER KINGDOM ===" % current_round)
 		for t in teams_to_check:
-			var income = calculate_income(t)
-			var upkeep = calculate_upkeep(t)
-			var net = income - upkeep
-			team_gold[t] += net
+			# Zbierz wszystkie kingdoms teamu
+			var all_kids: Array = []
+			for coords in castle_map:
+				if castle_map[coords].team == t:
+					var k = castle_kingdom_id.get(coords, 0)
+					if k > 0 and k not in all_kids:
+						all_kids.append(k)
 			
-			if team_gold[t] < 0:
-				team_gold[t] = 0
+			if all_kids.is_empty():
+				continue
 			
-			print("Team %d: +%d dochód, -%d koszty = %d (saldo: %d)" % [t, income, upkeep, net, team_gold[t]])
+			for kid in all_kids:
+				var income = calculate_income_for_kingdom(kid)
+				var upkeep = calculate_upkeep_for_kingdom(kid)
+				var net = income - upkeep
+				kingdom_gold[kid] = max(0, kingdom_gold.get(kid, 0) + net)
+				print("  Kingdom %d (team %d): +%d dochód, -%d koszty = net %d → złoto: %d" % [kid, t, income, upkeep, net, kingdom_gold[kid]])
+			
+			# Zsynchronizuj team_gold
+			_rebuild_team_gold(t)
+			_redistribute_castle_gold(t)
+			print("  Team %d łącznie: %d złota" % [t, team_gold[t]])
 	# === KONIEC ZMIANY EKONOMII ===
 	
 	# === BANDYCI: dochód z okupacji i spawn z obozów ===
@@ -1135,7 +1329,7 @@ func _on_end_turn():
 	bandits_copy.assign(bandits_need_camp)
 	for coords in bandits_copy:
 		var farmer = farmer_map.get(coords)
-		if farmer and farmer.team == BANDIT_TEAM:
+		if farmer and is_instance_valid(farmer) and farmer.team == BANDIT_TEAM:
 			var camp_id = find_nearest_bandit_camp(coords)
 			if camp_id > 0:
 				unit_to_camp[farmer] = camp_id
@@ -1209,6 +1403,8 @@ func _on_end_turn():
 	# === DODAJ TUTAJ - wykonaj turę AI jeśli potrzeba ===
 	if is_next_ai and ai_controllers.has(current_team):
 		# Przyciski już zablokowane na początku funkcji
+		ai_is_playing = true
+		if ui_manager: ui_manager.update_ui_data()  # Odśwież żeby zablokować UNDO
 		await get_tree().create_timer(0.5).timeout
 		await ai_controllers[current_team].execute_turn()
 		# Po zakończeniu tury AI - przelicz królestwa (naprawia znikające numerki)
@@ -1220,9 +1416,11 @@ func _on_end_turn():
 		_update_castle_gold_labels()
 		# automatycznie zakończ turę
 		await get_tree().create_timer(0.5).timeout
+		ai_is_playing = false
 		_on_end_turn()
 	else:
 		# Nie ma AI - odblokuj przyciski
+		ai_is_playing = false
 		if ui_manager:
 			ui_manager.set_buttons_enabled(true)
 	# === KONIEC DODANIA ===
@@ -1243,6 +1441,7 @@ func _on_rewind_turn():
 	
 	# Wyczyść aktualny stan UI
 	clear_highlights()
+	clear_unit_pulses()
 	merge_mode = false
 	selected_unit = null
 	buy_mode = ""
@@ -1256,11 +1455,25 @@ func _on_rewind_turn():
 	if ui_manager:
 		ui_manager.reset_wall_button()
 	
-	# Cofnij turę
-	var success = turn_history.restore_previous_turn(self)
+	# Cofnij turę — zawsze cofaj o 1 pełną rundę żeby wrócić do team 1
+	# num_teams = liczba AI + gracz (np. 3 AI + 1 = 4 tury na rundę)
+	var num_teams = ai_teams.size() + 1
+	var success = await turn_history.restore_multiple_turns(self, num_teams, 1)
 	
 	if success:
 		print("✓ Tura cofnięta pomyślnie!")
+		# NAPRAWKA: Wymuś reset is_highlighted na WSZYSTKICH hexach
+		# i odśwież sprite.modulate z aktualnego current_color
+		for coords in hex_map.keys():
+			var hex = hex_map[coords]
+			if not is_instance_valid(hex):
+				continue
+			# Zresetuj stan highlighted (zostaje po pulse/highlight AI)
+			hex.is_highlighted = false
+			if hex.has_meta("is_unit_selected"):
+				hex.set_meta("is_unit_selected", false)
+			# Odśwież kolor wizualny z territory_map (wczytanego przez snapshot)
+			update_hex_color(coords)
 		update_ui()
 	else:
 		print("✗ Nie udało się cofnąć tury")
@@ -1494,6 +1707,14 @@ func try_break_walls(attacker, from: Vector2i, to: Vector2i) -> bool:
 	var defender = to_hex.occupied_object if to_hex else null
 	var defense_level = get_unit_wall_defense(defender)
 	
+	# SPECJALNA ŚCIEŻKA: puste pole z murami + knight/cavalry = wejdź od razu (1 ruch)
+	# Niszcz mury wizualnie i kontynuuj normalny ruch (nie pochłaniaj tury)
+	if defense_level == 0 and attacker_power >= 2:
+		print("=== NISZCZENIE MURÓW na %s! (puste, siła=%d) - kontynuuje ruch! ===" % [to, attacker_power])
+		purge_walls_connected_to(to)
+		get_node("/root/Main").play_put_sound()
+		return false  # NIE pochłaniaj tury - pozwól na normalny ruch
+	
 	# Sprawdź czy atakujący ma wystarczającą siłę
 	if attacker_power < defense_level:
 		# Np. spearman vs knight w murach - za słaby
@@ -1542,6 +1763,9 @@ func try_break_walls(attacker, from: Vector2i, to: Vector2i) -> bool:
 			attacker.sprite.scale = Vector2.ONE
 		if attacker.has_method("set_selected"):
 			attacker.set_selected(false)
+		# Zawsze zdejmij stan "wciśnięty" z hexa atakującego
+		if from_hex_final.has_method("set_selected_state"):
+			from_hex_final.set_selected_state(false)
 	
 	# Odśwież UI
 	get_node("/root/Main").play_put_sound()
@@ -1785,7 +2009,10 @@ func place_castle_at(hex_coords: Vector2i, team: int, forced_kingdom_id: int = -
 			next_kingdom_id_per_team[team] += 1
 		castle_kingdom_id[hex_coords] = kid
 		hex_kingdom_map[hex_coords] = kid
-		# Inicjalizuj złoto zamku - podziel równo między wszystkie zamki teamu
+		# Inicjalizuj kingdom_gold dla nowego kid jeśli nie istnieje
+		if not kingdom_gold.has(kid):
+			kingdom_gold[kid] = 0
+		# Nie dodawaj tutaj złota - recalculate_kingdoms zajmie się merge (przeniesie złoto do canonical)
 		_redistribute_castle_gold(team)
 		# Ustaw etykietę na zamku (stały ID zamku)
 		if castle.has_method("set_kingdom_label"):
@@ -1880,24 +2107,20 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 		return
 	
 	# MECHANIKA MURÓW DLA CAVALRY
+	# Cavalry zawsze wchodzi na pole (niszczy mury i kontynuuje ruch)
 	var wall_count = count_walls_around(to)
 	if wall_count >= 6:
-		var moves_done = cavalry_moves_this_turn.get(cavalry, 0)
-		if moves_done == 0:
+		# Sprawdź czy w środku jest cavalry wroga - cavalry NIE może tam wejść
+		var to_hex_check = get_hex_at(to)
+		var inner = to_hex_check.occupied_object if to_hex_check else null
+		if inner is Cavalry and inner.team != cavalry.team:
+			# Cavalry vs cavalry w murach: zniszcz mury, wejdź (kontynuuj poniżej)
 			purge_walls_connected_to(to)
-			cavalry_moves_this_turn[cavalry] = 1
 		else:
+			# Puste mury lub inny typ - zniszcz i kontynuuj ruch
 			purge_walls_connected_to(to)
-			cavalry_moves_this_turn[cavalry] = 2
-			units_moved_this_turn.append(cavalry)
-			if selected_unit == cavalry:
-				clear_selected_unit_highlight()
-				cavalry.set_selected(false)
-				selected_unit = null
-			clear_highlights()
-			pulse_available_units()
-			get_node("/root/Main").play_put_sound()
-			return
+		get_node("/root/Main").play_put_sound()
+		# Nie rób return - kontynuuj ruch cavalry na to pole
 	
 	# Cavalry może atakować WSZYSTKO
 	if to_hex.occupied_object != null:
@@ -1916,7 +2139,7 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 			if target.team == -1:
 				print("=== CAVALRY PRZEJMUJE OBÓZ BANDYTÓW ===")
 				
-				team_gold[cavalry.team] += BANDIT_CAMP_REWARD
+				_add_gold_to_unit_kingdom(cavalry, BANDIT_CAMP_REWARD)
 				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
 				
 				# ===== NOWE: Znajdź ID obozu =====
@@ -2106,6 +2329,10 @@ func on_cavalry_clicked(cavalry):
 		update_ui()
 	
 	if cavalry.team != current_team:
+		# Sprawdź czy nasz cavalry atakuje wrogiego cavalry (nawet w murach)
+		if selected_unit and selected_unit is Cavalry and selected_unit.team == current_team:
+			var from = selected_unit.hex_position
+			move_cavalry(from, cavalry.hex_position)
 		return
 	
 	get_node("/root/Main").play_select_sound()
@@ -2217,7 +2444,7 @@ func move_spearman(from: Vector2i, to: Vector2i):
 			if old_team == -1:
 				print("=== SPEARMAN PRZEJMUJE OBÓZ BANDYTÓW ===")
 				
-				team_gold[spearman.team] += BANDIT_CAMP_REWARD
+				_add_gold_to_unit_kingdom(spearman, BANDIT_CAMP_REWARD)
 				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
 				
 				# ===== NOWE: Znajdź ID obozu =====
@@ -2559,7 +2786,7 @@ func move_knight(from: Vector2i, to: Vector2i):
 			if old_team == -1:
 				print("=== PRZEJECIE OBOZU BANDYTOW ===")
 				
-				team_gold[knight.team] += BANDIT_CAMP_REWARD
+				_add_gold_to_unit_kingdom(knight, BANDIT_CAMP_REWARD)
 				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota za przejęcie obozu!")
 				
 				# ===== NOWE: Znajdź ID obozu =====
@@ -3234,6 +3461,140 @@ func recalculate_kingdoms(team: int):
 		if not castle_map.has(coords) or castle_map[coords].team != team:
 			_update_hex_kingdom_label(coords, base_kid)
 	
+	# Po scaleniu: zaktualizuj selected_kingdom_per_team i kingdom_gold
+	if not merged_into.is_empty():
+		print("MERGE team %d: merged_into=%s, kingdom_gold przed=%s" % [team, str(merged_into), str(kingdom_gold)])
+		for old_kid in merged_into:
+			var canonical_kid = merged_into[old_kid]
+			if selected_kingdom_per_team.get(team, -1) == old_kid:
+				selected_kingdom_per_team[team] = canonical_kid
+			# Scal złoto starych kingdoms z kanonicznym
+			if old_kid != canonical_kid and kingdom_gold.has(old_kid):
+				kingdom_gold[canonical_kid] = kingdom_gold.get(canonical_kid, 0) + kingdom_gold[old_kid]
+				kingdom_gold.erase(old_kid)
+			# KLUCZOWE: zaktualizuj castle_kingdom_id dla zamków które miały stary kid
+			for coords in team_castles:
+				if castle_kingdom_id.get(coords, 0) == old_kid:
+					castle_kingdom_id[coords] = canonical_kid
+		print("MERGE team %d: kingdom_gold po=%s" % [team, str(kingdom_gold)])
+		_rebuild_team_gold(team)
+		_redistribute_castle_gold(team)
+		_update_castle_gold_labels()
+
+	# Wykryj SPLIT: zamki które miały ten sam canonical kid a teraz są rozłączone
+	var kid_to_castle_count: Dictionary = {}
+	for coords in team_castles:
+		var ck = castle_kingdom_id.get(coords, 0)
+		if ck > 0:
+			kid_to_castle_count[ck] = kid_to_castle_count.get(ck, 0) + 1
+
+	for split_kid in kid_to_castle_count:
+		if kid_to_castle_count[split_kid] <= 1:
+			continue
+
+		var castles_with_kid: Array = []
+		for coords in team_castles:
+			if castle_kingdom_id.get(coords, 0) == split_kid:
+				castles_with_kid.append(coords)
+
+		# Znajdź wszystkie rozłączone grupy zamków (Union-Find przez BFS)
+		var groups: Array = []  # Array of Arrays - każda grupa to lista zamków
+		var assigned: Dictionary = {}
+
+		for start_castle in castles_with_kid:
+			if assigned.has(start_castle):
+				continue
+			# BFS od tego zamku - znajdź wszystkie połączone zamki z castles_with_kid
+			var group: Array = []
+			var reachable: Dictionary = {}
+			var q: Array = [start_castle]
+			reachable[start_castle] = true
+			while not q.is_empty():
+				var cur = q.pop_front()
+				for nb in get_neighbors(cur):
+					if reachable.has(nb): continue
+					if not hex_map.has(nb): continue
+					if territory_map.get(nb, 0) != team: continue
+					reachable[nb] = true
+					q.append(nb)
+			for c in castles_with_kid:
+				if reachable.has(c) and not assigned.has(c):
+					group.append(c)
+					assigned[c] = true
+			if not group.is_empty():
+				groups.append(group)
+
+		if groups.size() <= 1:
+			continue  # Wszystkie nadal w jednej grupie - brak splitu
+
+		# SPLIT wykryty! Podziel kingdom_gold proporcjonalnie do liczby zamków w grupie
+		var total_gold = kingdom_gold.get(split_kid, 0)
+		var total_castles_count = castles_with_kid.size()
+		var gold_per_castle = total_gold / total_castles_count
+		var gold_remainder = total_gold % total_castles_count
+
+		print("SPLIT kingdom %d (team %d): %d grup, łącznie złoto %d" % [split_kid, team, groups.size(), total_gold])
+
+		# Pierwsza grupa (największa lub pierwsza) zatrzymuje oryginalny kid
+		# Posortuj grupy malejąco po rozmiarze żeby największa dostała canonical kid
+		groups.sort_custom(func(a, b): return a.size() > b.size())
+
+		var remainder_given = 0
+		for g_idx in range(groups.size()):
+			var group = groups[g_idx]
+			var group_size = group.size()
+			var group_gold = gold_per_castle * group_size
+			if remainder_given < gold_remainder:
+				var extra = min(gold_remainder - remainder_given, group_size)
+				group_gold += extra
+				remainder_given += extra
+
+			if g_idx == 0:
+				# Największa grupa zachowuje split_kid
+				kingdom_gold[split_kid] = group_gold
+				print("  Grupa 0 (%d zamków) → kid %d, złoto %d" % [group_size, split_kid, group_gold])
+			else:
+				# Pozostałe grupy dostają nowy kid
+				if not next_kingdom_id_per_team.has(team):
+					next_kingdom_id_per_team[team] = 1
+				var new_kid = next_kingdom_id_per_team[team]
+				next_kingdom_id_per_team[team] += 1
+				kingdom_gold[new_kid] = group_gold
+				for c in group:
+					castle_kingdom_id[c] = new_kid
+				print("  Grupa %d (%d zamków) → nowy kid %d, złoto %d" % [g_idx, group_size, new_kid, group_gold])
+
+		_rebuild_team_gold(team)
+		_redistribute_castle_gold(team)
+		_update_castle_gold_labels()
+		# Zaktualizuj hex_kingdom_map dla pól nowych kingdoms (bez call_deferred żeby uniknąć podwójnego merge)
+		for coords2 in hex_kingdom_map.keys():
+			if territory_map.get(coords2, 0) != team:
+				continue
+			var old_hkid = hex_kingdom_map.get(coords2, 0)
+			if old_hkid != split_kid:
+				continue
+			# Sprawdź do której grupy należy to pole (BFS od każdego castle nowego kid)
+			for g2_idx in range(1, groups.size()):
+				var g2 = groups[g2_idx]
+				var g2_kid = castle_kingdom_id.get(g2[0], 0)
+				# BFS od zamku tej grupy
+				var reach2: Dictionary = {}
+				var q2: Array = [g2[0]]
+				reach2[g2[0]] = true
+				while not q2.is_empty():
+					var cur2 = q2.pop_front()
+					for nb2 in get_neighbors(cur2):
+						if reach2.has(nb2): continue
+						if not hex_map.has(nb2): continue
+						if territory_map.get(nb2, 0) != team: continue
+						reach2[nb2] = true
+						q2.append(nb2)
+				if reach2.has(coords2):
+					hex_kingdom_map[coords2] = g2_kid
+					_update_hex_kingdom_label(coords2, g2_kid)
+					break
+
 	# Aktualizuj etykiety zamków (stałe - nie zmieniają się przez scaling)
 	for castle_coords in team_castles:
 		var castle = castle_map.get(castle_coords)
@@ -3326,10 +3687,6 @@ func calculate_income_for_kingdom(kingdom_id: int) -> int:
 	for coords in territories:
 		if not castle_map.has(coords):  # Pole zamku nie daje dochodu z terytorium
 			income += GOLD_PER_TERRITORY
-	# Zamki tego królestwa
-	for coords in castle_map:
-		if castle_kingdom_id.get(coords, 0) == kingdom_id and castle_map[coords].team > 0:
-			income += 2
 	return income
 
 func calculate_upkeep_for_kingdom(kingdom_id: int) -> int:
@@ -3354,6 +3711,9 @@ func calculate_upkeep_for_kingdom(kingdom_id: int) -> int:
 	for farmer in farmer_map.values():
 		if farmer.team == kingdom_team and connected_set.has(farmer.hex_position):
 			cost += FARMER_UPKEEP
+	for coords in connected:
+		if count_walls_around(coords) >= 6:
+			cost += WALL_UPKEEP
 	return cost
 
 func _update_bandit_camp_gold_labels():
@@ -3431,8 +3791,10 @@ func capture_territory(hex_coords: Vector2i, team: int):
 	# Aktualizuj królestwa drużyny która przejęła pole
 	if team > 0 and team <= 4:
 		recalculate_kingdoms(team)
-	# Nie przeliczaj kingdoms wroga tutaj - robi to _on_end_turn
-	# żeby uniknąć wizualnego znikania numerków podczas ruchu
+	# Przelicz też stary team przez call_deferred żeby numerki nie znikały
+	# (deferred = nie blokuje animacji ruchu)
+	if old_owner > 0 and old_owner <= 4 and old_owner != team:
+		call_deferred("recalculate_kingdoms", old_owner)
 	
 	# Aktualizuj etykietę złota na obozach bandytów
 	_update_bandit_camp_gold_labels()
@@ -3670,6 +4032,7 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 	
 		var bandit_pos_mc: Array = []
 		for f in cut_off:
+			purge_walls_connected_to(f)
 			if farmer_map.has(f) and farmer_map[f].team == old_team:
 				remove_farmer_at(f)
 			elif spearman_map.has(f) and spearman_map[f].team == old_team:
@@ -3739,7 +4102,11 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 			update_hex_color(c)
 	
 	castle_gold.erase(castle_coords)
-	team_gold[old_team] = 0
+	# Wyczyść kingdom_gold dla zgubionego zamku
+	var lost_kid = castle_kingdom_id.get(castle_coords, 0)
+	if lost_kid > 0:
+		kingdom_gold.erase(lost_kid)
+	_rebuild_team_gold(old_team)
 	
 	_renumber_kingdoms(old_team)
 	recalculate_kingdoms(old_team)
@@ -4140,13 +4507,17 @@ func highlight_unit_moves(unit_pos: Vector2i, team: int):
 		highlight_farmer_moves(unit_pos, team)
 		
 func highlight_cavalry_moves(cavalry_pos: Vector2i, team: int):
-	"""Cavalry: jak knight ale może atakować WSZYSTKIE jednostki (ignoruje mury)"""
+	"""Cavalry: może atakować WSZYSTKICH (łącznie z cavalry), ignoruje mury, wchodzi w 1 ruch
+	NIE podświetla: własne cavalry, zamku z murami (wchodzi w 1 ruch - jasny), własnego cavalry w murach
+	PODŚWIETLA: puste mury (jasny, 1 ruch), każda jednostka bez murów (jasny),
+				każda jednostka w murach POZA własnym cavalry (przyciemniony, 1 ruch)
+				zamek z murami (jasny - 1 ruch wejście)"""
 	var connected = get_connected_territories_for_unit(cavalry_pos, team)
 	var connected_set = {}
 	for c in connected:
 		connected_set[c] = true
 	
-	# Własne POŁĄCZONE terytoria
+	# Własne POŁĄCZONE terytoria (puste lub z bandytą)
 	for coords in connected:
 		if coords == cavalry_pos:
 			continue
@@ -4160,14 +4531,19 @@ func highlight_cavalry_moves(cavalry_pos: Vector2i, team: int):
 			hex.highlight(BANDIT_COLOR.lightened(0.5))
 			highlighted_hexes.append(hex)
 	
-	# Sąsiedzi POŁĄCZONEGO terytorium
+	var already_highlighted = {}
+	for c in connected:
+		already_highlighted[c] = true
+	
+	# Sąsiedzi connected - bandyci
 	var neighbors_of_team = []
+	var neighbors_set = {}
 	for coords in connected:
 		for neighbor in get_neighbors(coords):
-			if neighbor not in neighbors_of_team and not connected_set.has(neighbor):
+			if not neighbors_set.has(neighbor) and not connected_set.has(neighbor):
+				neighbors_set[neighbor] = true
 				neighbors_of_team.append(neighbor)
 	
-	# Obozy bandytów i jednostki bandytów (poza terytorium)
 	for coords in neighbors_of_team:
 		if castle_map.has(coords):
 			var castle = castle_map[coords]
@@ -4176,40 +4552,67 @@ func highlight_cavalry_moves(cavalry_pos: Vector2i, team: int):
 				if hex:
 					hex.highlight(BANDIT_CAMP_COLOR.lightened(0.4))
 					highlighted_hexes.append(hex)
+					already_highlighted[coords] = true
 		var hex = get_hex_at(coords)
 		if hex and hex.occupied_object != null:
 			var unit = hex.occupied_object
 			if (unit is Knight or unit is Farmer or unit is Spearman or unit is Cavalry) and unit.team == -1:
 				hex.highlight(BANDIT_COLOR.lightened(0.5))
 				highlighted_hexes.append(hex)
+				already_highlighted[coords] = true
 	
-	# Granica POŁĄCZONEGO terytorium
+	# Granica: wszystkie wrogie/neutralne pola sąsiadujące z naszym terenem
 	var border_hexes = get_border_of_connected_territories(team, connected)
 	for coords in border_hexes:
+		if already_highlighted.has(coords):
+			continue
 		var hex = get_hex_at(coords)
 		if not hex:
 			continue
+		
+		var wc = count_walls_around(coords)
 		var owner = territory_map.get(coords, 0)
 		var highlight_color = HIGHLIGHT_COLOR_CAPTURE
 		if owner > 0 and owner <= 4 and owner != team:
 			highlight_color = TEAM_COLORS[int(owner)].lightened(0.3)
-		if hex.occupied_object != null:
-			var unit = hex.occupied_object
-			if unit is Knight or unit is Farmer or unit is Spearman or unit is Cavalry:
-				if unit.team != team and unit.team > 0 and unit.team <= 4:
-					if unit is Cavalry:
-						var wall_count = 0
-						for neighbor in get_neighbors(coords):
-							if has_wall_between(coords, neighbor):
-								wall_count += 1
-						if wall_count >= 6:
-							continue
-					highlight_color = TEAM_COLORS[int(unit.team)].lightened(0.3)
+		
+		if wc >= 6:
+			# Pole z pełnymi murami
+			var inner = hex.occupied_object
+			if inner == null:
+				# Puste mury - cavalry wchodzi w 1 ruchu (jasny)
+				hex.highlight(highlight_color)
+				highlighted_hexes.append(hex)
+			elif inner is Cavalry and inner.team != team:
+				# Wrogie cavalry w murach - cavalry MOŻE (przyciemniony, 1 ruch)
+				hex.highlight(TEAM_COLORS[int(inner.team)].lightened(0.3).darkened(0.2))
+				highlighted_hexes.append(hex)
+			elif inner is Cavalry and inner.team == team:
+				# Własne cavalry w murach - pomijamy
+				continue
+			elif inner is Castle:
+				# Zamek z murami - cavalry wchodzi w 1 ruchu (jasny)
+				if inner.team != team:
 					hex.highlight(highlight_color)
 					highlighted_hexes.append(hex)
-					continue
-		hex.highlight(highlight_color)
-		highlighted_hexes.append(hex)
+			else:
+				# Knight/farmer/spearman w murach - cavalry może (przyciemniony, 1 ruch)
+				var unit = inner
+				if unit.team != team and unit.team > 0 and unit.team <= 4:
+					hex.highlight(TEAM_COLORS[int(unit.team)].lightened(0.3).darkened(0.2))
+					highlighted_hexes.append(hex)
+		else:
+			# Pole bez murów (normalny atak)
+			if hex.occupied_object != null:
+				var unit = hex.occupied_object
+				if unit is Knight or unit is Farmer or unit is Spearman or unit is Cavalry:
+					if unit.team != team and unit.team > 0 and unit.team <= 4:
+						highlight_color = TEAM_COLORS[int(unit.team)].lightened(0.3)
+						hex.highlight(highlight_color)
+						highlighted_hexes.append(hex)
+						continue
+			hex.highlight(highlight_color)
+			highlighted_hexes.append(hex)
 		
 func highlight_spearman_moves(spearman_pos: Vector2i, team: int):
 	"""Spearman: jak farmer (swobodnie po swoim terenie + granica)"""
@@ -4321,13 +4724,16 @@ func highlight_spearman_moves(spearman_pos: Vector2i, team: int):
 				highlighted_hexes.append(hex)
 
 func highlight_knight_moves(knight_pos: Vector2i, team: int):
-	"""Rycerz: połączone terytoria (rozjaśnione) + granica połączonego terytorium"""
+	"""Rycerz: połączone terytoria + granica + pola z murami w zasięgu
+	Knight NIE podświetla: cavalry (nie może zabić), zamku z murami (2 tury), cavalry w murach
+	Knight PODŚWIETLA: puste pole z murami (1 ruch wejście), wrogie jednostki bez murów,
+					   wrogie pola z murami z jednostką (knight/farmer/spearman) - przyciemnione (2 tury)"""
 	var connected = get_connected_territories_for_unit(knight_pos, team)
 	var connected_set = {}
 	for c in connected:
 		connected_set[c] = true
 	
-	# Własne POŁĄCZONE terytoria
+	# Własne POŁĄCZONE terytoria (puste lub z bandytą)
 	for coords in connected:
 		if coords == knight_pos:
 			continue
@@ -4341,14 +4747,20 @@ func highlight_knight_moves(knight_pos: Vector2i, team: int):
 			hex.highlight(BANDIT_COLOR.lightened(0.5))
 			highlighted_hexes.append(hex)
 	
-	# Sąsiedzi POŁĄCZONEGO terytorium
+	# Wszystkie sąsiedzi connected (poza naszymi)
+	var already_highlighted = {}
+	for c in connected:
+		already_highlighted[c] = true
+	
 	var neighbors_of_team = []
+	var neighbors_set = {}
 	for coords in connected:
 		for neighbor in get_neighbors(coords):
-			if neighbor not in neighbors_of_team and not connected_set.has(neighbor):
+			if not neighbors_set.has(neighbor) and not connected_set.has(neighbor):
+				neighbors_set[neighbor] = true
 				neighbors_of_team.append(neighbor)
 	
-	# Obozy bandytów i jednostki bandytów
+	# Obozy bandytów i jednostki bandytów w sąsiedztwie
 	for coords in neighbors_of_team:
 		if castle_map.has(coords):
 			var castle = castle_map[coords]
@@ -4357,45 +4769,64 @@ func highlight_knight_moves(knight_pos: Vector2i, team: int):
 				if hex:
 					hex.highlight(BANDIT_CAMP_COLOR.lightened(0.4))
 					highlighted_hexes.append(hex)
+					already_highlighted[coords] = true
 		var hex = get_hex_at(coords)
 		if hex and hex.occupied_object != null:
 			var unit = hex.occupied_object
 			if (unit is Knight or unit is Farmer) and unit.team == -1:
 				hex.highlight(BANDIT_COLOR.lightened(0.5))
 				highlighted_hexes.append(hex)
+				already_highlighted[coords] = true
 	
-	# Granica POŁĄCZONEGO terytorium
+	# Granica: pola wrogie/neutralne sąsiadujące z naszym terenem
 	var border_hexes = get_border_of_connected_territories(team, connected)
 	for coords in border_hexes:
+		if already_highlighted.has(coords):
+			continue
 		var hex = get_hex_at(coords)
 		if not hex:
 			continue
+		
+		var wc = count_walls_around(coords)
 		var owner = territory_map.get(coords, 0)
 		var highlight_color = HIGHLIGHT_COLOR_CAPTURE
 		if owner > 0 and owner <= 4 and owner != team:
 			highlight_color = TEAM_COLORS[int(owner)].lightened(0.3)
-		if hex.occupied_object != null:
-			var unit = hex.occupied_object
-			if unit is Knight or unit is Farmer or unit is Spearman or unit is Cavalry:
-				if unit.team != team and unit.team > 0 and unit.team <= 4:
-					if unit is Cavalry:
-						continue
-					# Nowa mechanika murów: pokaż czy możemy zniszczyć mury
-					var wc = count_walls_around(coords)
-					if wc < 6:
+		
+		if wc >= 6:
+			# Pole z pełnymi murami
+			var inner = hex.occupied_object
+			if inner == null:
+				# PUSTE mury - knight wchodzi w 1 ruchu (jasny kolor)
+				hex.highlight(highlight_color)
+				highlighted_hexes.append(hex)
+			elif inner is Cavalry:
+				# Cavalry w murach - knight NIE może (pomijamy)
+				continue
+			elif inner is Castle:
+				# Zamek z murami - knight musi 2 tury (przyciemniony)
+				hex.highlight(TEAM_COLORS[int(inner.team)].lightened(0.3).darkened(0.3))
+				highlighted_hexes.append(hex)
+			else:
+				# Knight/farmer/spearman w murach - knight może (2 tury, przyciemniony)
+				var defense = get_unit_wall_defense(inner)
+				if 2 >= defense:  # attacker_power knight = 2
+					hex.highlight(TEAM_COLORS[int(inner.team)].lightened(0.3).darkened(0.3))
+					highlighted_hexes.append(hex)
+		else:
+			# Pole bez murów (normalny atak)
+			if hex.occupied_object != null:
+				var unit = hex.occupied_object
+				if unit is Knight or unit is Farmer or unit is Spearman or unit is Cavalry:
+					if unit.team != team and unit.team > 0 and unit.team <= 4:
+						if unit is Cavalry:
+							continue  # Knight nie może zabić cavalry
 						highlight_color = TEAM_COLORS[int(unit.team)].lightened(0.3)
 						hex.highlight(highlight_color)
 						highlighted_hexes.append(hex)
-					else:
-						var attacker_power = get_attacker_wall_power(selected_unit)
-						var defense = get_unit_wall_defense(unit)
-						if attacker_power >= defense and attacker_power > 0:
-							# Możemy zniszczyć mury - pokaż przyciemnione (zajmie turę)
-							hex.highlight(TEAM_COLORS[int(unit.team)].lightened(0.3).darkened(0.3))
-							highlighted_hexes.append(hex)
-					continue
-		hex.highlight(highlight_color)
-		highlighted_hexes.append(hex)
+						continue
+			hex.highlight(highlight_color)
+			highlighted_hexes.append(hex)
 	
 	for coords in knight_map:
 		if coords == knight_pos:
@@ -4403,7 +4834,7 @@ func highlight_knight_moves(knight_pos: Vector2i, team: int):
 		var other_knight = knight_map[coords]
 		if other_knight.team == team:
 			var hex = get_hex_at(coords)
-			if hex and connected_set.has(coords):  # Tylko połączone
+			if hex and connected_set.has(coords):
 				hex.highlight(Color("#10B981"))
 				highlighted_hexes.append(hex)
 
@@ -4561,13 +4992,22 @@ func on_hex_clicked(hex: Hex):
 	
 	var clicked_pos = hex.grid_position
 	
-	# Aktualizuj wybrane królestwo dla UI - dla każdego teamu (podgląd)
+	# Aktualizuj wybrane królestwo dla UI
 	var kid = hex_kingdom_map.get(clicked_pos, 0)
-	if kid > 0:
-		var hex_team = territory_map.get(clicked_pos, 0)
-		if hex_team > 0 and hex_team <= 4:
-			selected_kingdom_per_team[hex_team] = kid
-		update_ui()
+	var hex_team_click = territory_map.get(clicked_pos, 0)
+	if kid <= 0 and hex_team_click > 0 and hex_team_click <= 4:
+		var best_dist = 999999
+		for cpos in castle_map:
+			if castle_map[cpos].team == hex_team_click:
+				var ck = castle_kingdom_id.get(cpos, 0)
+				if ck > 0:
+					var d = hex_distance(clicked_pos, cpos)
+					if d < best_dist:
+						best_dist = d
+						kid = ck
+	if hex_team_click > 0 and hex_team_click <= 4 and kid > 0:
+		selected_kingdom_per_team[hex_team_click] = kid
+	update_ui()
 	
 	if selected_unit and hex not in highlighted_hexes:
 		print("Pole poza zasięgiem!")
@@ -4675,9 +5115,8 @@ func on_hex_clicked(hex: Hex):
 			return
 		var obj = hex.occupied_object
 		if obj != null and is_instance_valid(obj) and obj is Farmer and obj.team == current_team:
-			if team_gold[current_team] >= FARMER_COST:
-				team_gold[current_team] -= FARMER_COST
-				_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+			if get_selected_kingdom_gold(current_team) >= FARMER_COST:
+				deduct_selected_kingdom_gold(current_team, FARMER_COST)
 				var t = obj.team
 				remove_farmer_at(clicked_pos)
 				place_spearman_at(clicked_pos, t)
@@ -4687,13 +5126,12 @@ func on_hex_clicked(hex: Hex):
 				buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
 				if ui_manager: ui_manager.reset_all_buy_buttons()
 				get_node("/root/Main").play_put_sound()
-		elif obj == null and team_gold[current_team] >= FARMER_COST:
+		elif obj == null and get_selected_kingdom_gold(current_team) >= FARMER_COST:
 			get_node("/root/Main").play_put_sound()
 			place_farmer_at(clicked_pos, current_team)
 			var f = farmer_map.get(clicked_pos)
 			if f: units_moved_this_turn.append(f)
-			team_gold[current_team] -= FARMER_COST
-			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+			deduct_selected_kingdom_gold(current_team, FARMER_COST)
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
 			if ui_manager: ui_manager.reset_all_buy_buttons()
@@ -4704,9 +5142,8 @@ func on_hex_clicked(hex: Hex):
 			return
 		var obj = hex.occupied_object
 		if obj != null and is_instance_valid(obj) and obj is Spearman and obj.team == current_team:
-			if team_gold[current_team] >= SPEARMAN_COST:
-				team_gold[current_team] -= SPEARMAN_COST
-				_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+			if get_selected_kingdom_gold(current_team) >= SPEARMAN_COST:
+				deduct_selected_kingdom_gold(current_team, SPEARMAN_COST)
 				var t = obj.team
 				remove_spearman_at(clicked_pos)
 				place_knight_at(clicked_pos, t)
@@ -4718,45 +5155,84 @@ func on_hex_clicked(hex: Hex):
 				get_node("/root/Main").play_put_sound()
 			return
 		if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
-			if team_gold[current_team] >= SPEARMAN_COST:
+			if get_selected_kingdom_gold(current_team) >= SPEARMAN_COST:
 				if _buy_attack(clicked_pos, "spearman"): return
-		if obj == null and team_gold[current_team] >= SPEARMAN_COST:
+		if obj == null and get_selected_kingdom_gold(current_team) >= SPEARMAN_COST:
 			get_node("/root/Main").play_put_sound()
 			place_spearman_at(clicked_pos, current_team)
 			var sp = spearman_map.get(clicked_pos)
 			if sp: units_moved_this_turn.append(sp)
-			team_gold[current_team] -= SPEARMAN_COST
-			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+			deduct_selected_kingdom_gold(current_team, SPEARMAN_COST)
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
 			if ui_manager: ui_manager.reset_all_buy_buttons()
 		return
 
 	if buy_mode == "cavalry" and hex in highlighted_hexes:
-		if count_walls_around(clicked_pos) >= 6:
-			return
 		var obj = hex.occupied_object
+		var wc = count_walls_around(clicked_pos)
+		if wc >= 6:
+			# Pole z murami — cavalry niszczy mury i wchodzi (1 ruch)
+			if get_selected_kingdom_gold(current_team) >= CAVALRY_COST:
+				# Usuń wrogą jednostkę w środku jeśli jest
+				if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
+					if obj is Farmer: remove_farmer_at(clicked_pos)
+					elif obj is Spearman: remove_spearman_at(clicked_pos)
+					elif obj is Knight: remove_knight_at(clicked_pos)
+					elif obj is Cavalry: remove_cavalry_at(clicked_pos)
+					elif obj is Castle and obj.team != current_team:
+						capture_castle(clicked_pos, current_team, obj.team)
+				purge_walls_connected_to(clicked_pos)
+				get_node("/root/Main").play_put_sound()
+				place_cavalry_at(clicked_pos, current_team)
+				var cv_w = cavalry_map.get(clicked_pos)
+				if cv_w: cavalry_moves_this_turn[cv_w] = 1  # zakup = 1 ruch zużyty
+				deduct_selected_kingdom_gold(current_team, CAVALRY_COST)
+				capture_territory(clicked_pos, current_team)
+				buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+				if ui_manager: ui_manager.reset_all_buy_buttons()
+			return
 		if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
-			if team_gold[current_team] >= CAVALRY_COST:
+			if get_selected_kingdom_gold(current_team) >= CAVALRY_COST:
 				if _buy_attack(clicked_pos, "cavalry"): return
-		if obj == null and team_gold[current_team] >= CAVALRY_COST:
+		if obj == null and get_selected_kingdom_gold(current_team) >= CAVALRY_COST:
 			get_node("/root/Main").play_put_sound()
 			place_cavalry_at(clicked_pos, current_team)
-			team_gold[current_team] -= CAVALRY_COST
-			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+			var cv = cavalry_map.get(clicked_pos)
+			if cv: cavalry_moves_this_turn[cv] = 1  # zakup = 1 ruch zużyty
+			deduct_selected_kingdom_gold(current_team, CAVALRY_COST)
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
 			if ui_manager: ui_manager.reset_all_buy_buttons()
 		return
 
 	if buy_mode == "knight" and hex in highlighted_hexes:
-		if count_walls_around(clicked_pos) >= 6:
-			return
 		var obj = hex.occupied_object
+		var wc = count_walls_around(clicked_pos)
+		if wc >= 6:
+			# Pole z murami — knight niszczy mury (zawsze 2 tury od kupienia)
+			if get_selected_kingdom_gold(current_team) >= KNIGHT_COST:
+				if obj == null or (obj != null and not is_friendly_unit(obj) and not (obj is Cavalry)):
+					# Postaw knighta NA miejscu (mury zniszczone przy wejściu)
+					if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
+						if obj is Farmer: remove_farmer_at(clicked_pos)
+						elif obj is Spearman: remove_spearman_at(clicked_pos)
+						elif obj is Knight: remove_knight_at(clicked_pos)
+						elif obj is Castle and obj.team != current_team:
+							capture_castle(clicked_pos, current_team, obj.team)
+					purge_walls_connected_to(clicked_pos)
+					get_node("/root/Main").play_put_sound()
+					place_knight_at(clicked_pos, current_team)
+					var kn_w = knight_map.get(clicked_pos)
+					if kn_w: units_moved_this_turn.append(kn_w)
+					deduct_selected_kingdom_gold(current_team, KNIGHT_COST)
+					capture_territory(clicked_pos, current_team)
+					buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
+					if ui_manager: ui_manager.reset_all_buy_buttons()
+			return
 		if obj != null and is_instance_valid(obj) and obj is Knight and obj.team == current_team:
-			if team_gold[current_team] >= KNIGHT_COST:
-				team_gold[current_team] -= KNIGHT_COST
-				_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+			if get_selected_kingdom_gold(current_team) >= KNIGHT_COST:
+				deduct_selected_kingdom_gold(current_team, KNIGHT_COST)
 				var t = obj.team
 				remove_knight_at(clicked_pos)
 				place_cavalry_at(clicked_pos, t)
@@ -4766,9 +5242,9 @@ func on_hex_clicked(hex: Hex):
 				get_node("/root/Main").play_put_sound()
 			return
 		if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
-			if team_gold[current_team] >= KNIGHT_COST:
+			if get_selected_kingdom_gold(current_team) >= KNIGHT_COST:
 				if _buy_attack(clicked_pos, "knight"): return
-		if team_gold[current_team] >= KNIGHT_COST:
+		if get_selected_kingdom_gold(current_team) >= KNIGHT_COST:
 			get_node("/root/Main").play_put_sound()
 			if obj != null and is_instance_valid(obj):
 				if knight_map.has(clicked_pos): remove_knight_at(clicked_pos)
@@ -4776,8 +5252,7 @@ func on_hex_clicked(hex: Hex):
 			place_knight_at(clicked_pos, current_team)
 			var kn = knight_map.get(clicked_pos)
 			if kn: units_moved_this_turn.append(kn)
-			team_gold[current_team] -= KNIGHT_COST
-			_redistribute_castle_gold(current_team); _update_castle_gold_labels()
+			deduct_selected_kingdom_gold(current_team, KNIGHT_COST)
 			capture_territory(clicked_pos, current_team)
 			buy_mode = ""; clear_highlights(); update_ui(); pulse_available_units()
 			if ui_manager: ui_manager.reset_all_buy_buttons()
@@ -4827,7 +5302,17 @@ func on_knight_clicked(knight: Knight):
 			merge_knights_to_cavalry(selected_unit.hex_position, knight.hex_position)
 			return
 		else:
-			get_node("/root/Main").play_select_sound()
+			# Nasz knight atakuje wrogiego knighta (nawet w murach)
+			var from = selected_unit.hex_position
+			move_knight(from, knight.hex_position)
+			return
+	
+	if selected_unit and selected_unit is Cavalry and selected_unit != knight:
+		if knight.team != selected_unit.team:
+			# Cavalry atakuje knighta (nawet w murach)
+			var from = selected_unit.hex_position
+			move_cavalry(from, knight.hex_position)
+			return
 	
 	# === Reszta bez zmian ===
 	if knight.team != current_team:
@@ -5274,10 +5759,14 @@ func load_layout_from_file(file_name: String) -> bool:
 	
 	team_gold = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
 	castle_gold = {}
+	kingdom_gold = {}
 	for coords in castle_map:
 		var t = castle_map[coords].team
 		if t > 0 and t <= 4:
 			team_gold[t] = team_gold.get(t, 0) + 8
+			var kid = castle_kingdom_id.get(coords, 0)
+			if kid > 0:
+				kingdom_gold[kid] = kingdom_gold.get(kid, 0) + 8
 	for t in [1, 2, 3, 4]:
 		_redistribute_castle_gold(t)
 	team_territory_count = {1: 0, 2: 0, 3: 0, 4: 0}
@@ -5352,7 +5841,7 @@ func _buy_attack(target_pos: Vector2i, unit_type: String) -> bool:
 		"knight":   cost = KNIGHT_COST
 		"cavalry":  cost = CAVALRY_COST
 	
-	if team_gold[current_team] < cost:
+	if not _can_afford(current_team, cost):
 		return false
 	
 	# Sprawdź czy możemy zaatakować tę jednostkę tym typem
@@ -5390,7 +5879,7 @@ func _buy_attack(target_pos: Vector2i, unit_type: String) -> bool:
 		var castle = obj as Castle
 		if castle.team == BANDIT_TEAM:
 			# Przejęcie obozu bandytów
-			team_gold[current_team] += BANDIT_CAMP_REWARD
+			_add_gold_to_selected_kingdom(current_team, BANDIT_CAMP_REWARD)
 			var camp_id = castle.get_meta("camp_id", -1)
 			remove_castle_at(target_pos)
 			if camp_id > 0:
@@ -5414,14 +5903,17 @@ func _buy_attack(target_pos: Vector2i, unit_type: String) -> bool:
 		"knight":
 			if knight_map.has(target_pos): units_moved_this_turn.append(knight_map[target_pos])
 		"cavalry":
-			if cavalry_map.has(target_pos): units_moved_this_turn.append(cavalry_map[target_pos])
+			if cavalry_map.has(target_pos):
+				var cv_a = cavalry_map[target_pos]
+				cavalry_moves_this_turn[cv_a] = 1  # zakup+atak = 1 ruch zużyty (może jeszcze 1)
 	
-	team_gold[current_team] -= cost
+	deduct_selected_kingdom_gold(current_team, cost)
 	_redistribute_castle_gold(current_team)
 	_update_castle_gold_labels()
 	capture_territory(target_pos, current_team)
 	buy_mode = ""
 	clear_highlights()
+	if ui_manager: ui_manager.reset_all_buy_buttons()
 	update_ui()
 	pulse_available_units()
 	return true
@@ -5455,7 +5947,9 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 	- Pola z murami (6/6): NIE (trzeba najpierw zniszczyć mury)
 	"""
 	var result = []
-	var connected = get_connected_territories(current_team)
+	# NAPRAWKA: Użyj tylko terytoriów wybranego królestwa (nie wszystkich zamków teamu)
+	var kid_buy = selected_kingdom_per_team.get(current_team, -1)
+	var connected = get_connected_territories_for_kingdom(current_team, kid_buy)
 	var connected_set = {}
 	for c in connected:
 		connected_set[c] = true
@@ -5482,12 +5976,45 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 		var hex = get_hex_at(coords)
 		if not hex:
 			continue
-		if count_walls_around(coords) >= 6:
-			continue  # mury blokują
 		
+		var wc = count_walls_around(coords)
 		var owner = territory_map.get(coords, 0)
 		var obj = hex.occupied_object
 		
+		if wc >= 6:
+			# Pole z pełnymi murami — podświetl dla knight i cavalry
+			match unit_type:
+				"knight":
+					if obj == null:
+						# Puste mury — knight wchodzi w 1 ruchu
+						var col = HIGHLIGHT_COLOR_CAPTURE
+						if owner > 0 and owner <= 4 and owner != current_team:
+							col = TEAM_COLORS[int(owner)].lightened(0.3)
+						result.append({"hex": hex, "coords": coords, "color": col, "type": "walled_empty"})
+					elif obj is Castle and obj.team != current_team and obj.team > 0:
+						# Zamek z murami — 2 tury (przyciemniony)
+						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(obj.team)].lightened(0.3).darkened(0.3), "type": "walled_castle"})
+					elif not (obj is Cavalry) and obj != null:
+						var defense = get_unit_wall_defense(obj)
+						if 2 >= defense and obj.team != current_team and obj.team > 0:
+							result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(obj.team)].lightened(0.3).darkened(0.3), "type": "walled_unit"})
+				"cavalry":
+					if obj == null:
+						# Puste mury — cavalry wchodzi w 1 ruchu
+						var col = HIGHLIGHT_COLOR_CAPTURE
+						if owner > 0 and owner <= 4 and owner != current_team:
+							col = TEAM_COLORS[int(owner)].lightened(0.3)
+						result.append({"hex": hex, "coords": coords, "color": col, "type": "walled_empty"})
+					elif obj is Castle and obj.team != current_team and obj.team > 0:
+						# Zamek z murami — cavalry wchodzi w 1 ruchu (jasny)
+						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(obj.team)].lightened(0.3), "type": "walled_castle"})
+					elif obj != null and obj.team != current_team and obj.team > 0:
+						if not (obj is Cavalry and obj.team == current_team):
+							# Każda wroga jednostka w murach — cavalry może (przyciemniony)
+							result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(obj.team)].lightened(0.3).darkened(0.2), "type": "walled_unit"})
+			continue  # nie idź dalej do logiki bez murów
+		
+		# Pole bez murów
 		if obj == null:
 			# Puste pole na granicy
 			var col = HIGHLIGHT_COLOR_CAPTURE
@@ -5499,7 +6026,6 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 			# Obóz bandytów lub wrogi zamek
 			var castle = obj as Castle
 			if castle.team == BANDIT_TEAM:
-				# Obozy bandytów - wszystkie jednostki mogą atakować
 				result.append({"hex": hex, "coords": coords, "color": BANDIT_CAMP_COLOR.lightened(0.4), "type": "bandit_camp"})
 			elif castle.team != current_team and castle.team > 0:
 				match unit_type:
@@ -5509,11 +6035,11 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 		elif obj is Farmer:
 			var farmer_u = obj as Farmer
 			if farmer_u.team == BANDIT_TEAM:
-				# Bandyta na granicy - wszystkie jednostki mogą
 				result.append({"hex": hex, "coords": coords, "color": BANDIT_COLOR.lightened(0.3), "type": "bandit"})
 			elif farmer_u.team != current_team and farmer_u.team > 0:
 				match unit_type:
-					"farmer", "spearman", "knight", "cavalry":
+					# farmer NIE atakuje wrogiego farmera — usunięte "farmer" z matcha
+					"spearman", "knight", "cavalry":
 						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(farmer_u.team)].lightened(0.3), "type": "enemy_farmer"})
 		
 		elif obj is Spearman:
@@ -5610,7 +6136,7 @@ func _on_buy_farmer():
 		_cancel_buy_mode()
 		return
 	
-	if team_gold[current_team] < FARMER_COST:
+	if get_selected_kingdom_gold(current_team) < FARMER_COST:
 		return
 		
 	if selected_unit:
@@ -5636,7 +6162,7 @@ func _on_buy_cavalry():
 		_cancel_buy_mode()
 		return
 	
-	if team_gold[current_team] < CAVALRY_COST:
+	if get_selected_kingdom_gold(current_team) < CAVALRY_COST:
 		return
 		
 	if selected_unit:
@@ -5662,7 +6188,7 @@ func _on_buy_spearman():
 		_cancel_buy_mode()
 		return
 	
-	if team_gold[current_team] < SPEARMAN_COST:
+	if get_selected_kingdom_gold(current_team) < SPEARMAN_COST:
 		return
 		
 	if selected_unit:
@@ -5688,7 +6214,7 @@ func _on_buy_knight():
 		_cancel_buy_mode()
 		return
 	
-	if team_gold[current_team] < KNIGHT_COST:
+	if get_selected_kingdom_gold(current_team) < KNIGHT_COST:
 		return
 		
 	if selected_unit:
@@ -5714,12 +6240,12 @@ func _on_buy_wall():
 	if wall_placement_mode:
 		if wall_hexes_selected.size() > 0:
 			var cost = wall_hexes_selected.size() * WALL_COST_PER_HEX
-			if team_gold[current_team] >= cost:
+			if _can_afford(current_team, cost):
 				create_walls_between_selected()
-				team_gold[current_team] -= cost
+				_deduct_gold(current_team, cost)
 				print("Kupiono sciany za: ", cost, " zlota")
 			else:
-				print("Nie stac cie! Koszt: ", cost, ", masz: ", team_gold[current_team])
+				print("Nie stac cie! Koszt: ", cost, ", masz: ", get_selected_kingdom_gold(current_team))
 		
 		wall_placement_mode = false
 		
@@ -5736,7 +6262,7 @@ func _on_buy_wall():
 		print("Zakonczono stawianie scian")
 		return
 	
-	if team_gold[current_team] < WALL_COST_PER_HEX:
+	if not _can_afford(current_team, WALL_COST_PER_HEX):
 		print("Nie stac na sciany")
 		return
 	

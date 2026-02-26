@@ -34,6 +34,7 @@ func save_turn_snapshot(hex_grid) -> void:
 		"team_gold": hex_grid.team_gold.duplicate(),
 		"territory_map": hex_grid.territory_map.duplicate(),
 		"team_territory_count": hex_grid.team_territory_count.duplicate(),
+		"kingdom_gold": hex_grid.kingdom_gold.duplicate(),
 		
 		# Jednostki - zapisujemy pozycje i teamy
 		"knights": _serialize_units(hex_grid.knight_map),
@@ -165,7 +166,9 @@ func _serialize_walls(wall_map: Dictionary) -> Dictionary:
 	
 	for edge_key in wall_map:
 		var wall_data = wall_map[edge_key]
-		serialized[edge_key] = wall_data.duplicate()
+		if wall_data is Dictionary:
+			serialized[edge_key] = wall_data.duplicate()
+		# else: pomijamy bool/null (nieprawidłowy wpis w wall_map)
 	
 	return serialized
 
@@ -216,6 +219,7 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	hex_grid.team_gold = snapshot.team_gold.duplicate()
 	hex_grid.territory_map = snapshot.territory_map.duplicate()
 	hex_grid.team_territory_count = snapshot.team_territory_count.duplicate()
+	hex_grid.kingdom_gold = snapshot.kingdom_gold.duplicate()
 	
 	# Przywróć liczniki kingdom_id PRZED stawianiem zamków
 	if "next_kingdom_id_per_team" in hex_grid and snapshot.has("next_kingdom_id_per_team"):
