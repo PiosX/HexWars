@@ -1960,7 +1960,7 @@ func clear_grid():
 	# Wyczyść dane królestw
 	castle_kingdom_id.clear()
 	hex_kingdom_map.clear()
-	next_kingdom_id_per_team = {1: 1, 2: 1, 3: 1, 4: 1}
+	next_kingdom_id_per_team = {1: 1, 2: 101, 3: 201, 4: 301}
 	kingdom_gold.clear()
 	
 	if turn_history: 
@@ -1999,12 +1999,12 @@ func place_castle_at(hex_coords: Vector2i, team: int, forced_kingdom_id: int = -
 			kid = forced_kingdom_id
 			# Upewnij się że licznik jest wyższy
 			if not next_kingdom_id_per_team.has(team):
-				next_kingdom_id_per_team[team] = 1
+				next_kingdom_id_per_team[team] = _team_start_kid(team)
 			if kid >= next_kingdom_id_per_team[team]:
 				next_kingdom_id_per_team[team] = kid + 1
 		else:
 			if not next_kingdom_id_per_team.has(team):
-				next_kingdom_id_per_team[team] = 1
+				next_kingdom_id_per_team[team] = _team_start_kid(team)
 			kid = next_kingdom_id_per_team[team]
 			next_kingdom_id_per_team[team] += 1
 		castle_kingdom_id[hex_coords] = kid
@@ -3556,7 +3556,7 @@ func recalculate_kingdoms(team: int):
 			else:
 				# Pozostałe grupy dostają nowy kid
 				if not next_kingdom_id_per_team.has(team):
-					next_kingdom_id_per_team[team] = 1
+					next_kingdom_id_per_team[team] = _team_start_kid(team)
 				var new_kid = next_kingdom_id_per_team[team]
 				next_kingdom_id_per_team[team] += 1
 				kingdom_gold[new_kid] = group_gold
@@ -3618,16 +3618,22 @@ func _renumber_kingdoms(team: int):
 		return
 	
 	if team_castles.size() == 1:
-		# Jeden zamek → zawsze ID 1
+		# Jeden zamek → ID zależne od teamu (globalnie unikalne)
+		var start_kid = _team_start_kid(team)
 		var c = team_castles[0]
-		castle_kingdom_id[c] = 1
-		next_kingdom_id_per_team[team] = 2
+		castle_kingdom_id[c] = start_kid
+		next_kingdom_id_per_team[team] = start_kid + 1
 		var castle = castle_map[c]
 		if castle.has_method("set_kingdom_label"):
-			castle.set_kingdom_label(kid_to_display(1), show_kingdom_labels)
+			castle.set_kingdom_label(kid_to_display(start_kid), show_kingdom_labels)
 		# Zresetuj wybrany kid dla tego teamu
-		selected_kingdom_per_team[team] = 1
+		selected_kingdom_per_team[team] = start_kid
 	# Jeśli więcej zamków - zostawiamy stare IDs (recalculate_kingdoms zajmie się scalaniem)
+
+func _team_start_kid(team: int) -> int:
+	"""Zwraca startowe kingdom_id dla danego teamu (globalnie unikalne zakresy).
+	Team 1 → 1, Team 2 → 101, Team 3 → 201, Team 4 → 301"""
+	return (team - 1) * 100 + 1
 
 func _get_kid_team(kid: int) -> int:
 	"""Pomocnicza: zwraca team zamku o danym kingdom_id (uproszczone - szuka w castle_kingdom_id)"""

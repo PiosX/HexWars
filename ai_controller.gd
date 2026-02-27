@@ -87,10 +87,20 @@ func get_object_team(obj) -> int:
 # MAIN TURN EXECUTION
 # ============================================================================
 
+func _get_my_kingdom_ids() -> Array:
+	"""Zwraca listę kingdom_id wszystkich zamków tego teamu."""
+	var kids = []
+	for coords in hex_grid.castle_map:
+		if hex_grid.castle_map[coords].team == team:
+			var kid = hex_grid.castle_kingdom_id.get(coords, 0)
+			if kid > 0 and kid not in kids:
+				kids.append(kid)
+	return kids
+
 func execute_turn():
 	print("=== AI (Team %d, %s, Aggro: %.1f) zaczyna turę ===" % [team, "HARD" if difficulty == Difficulty.HARD else "NORMAL", aggression_level])
 	
-	# NOWE: Wyczyść tracking jednostek które były na swoim terenie
+	# Wyczyść tracking jednostek które były na swoim terenie
 	units_moved_on_own_territory.clear()
 	
 	var state = analyze_game_state()
@@ -104,8 +114,6 @@ func execute_turn():
 		print("=== AI (Team %d) kończy turę ===" % team)
 		return
 	
-	var is_bankrupt = hex_grid.team_gold.get(team, 0) < hex_grid.calculate_upkeep(team)
-	
 	# NAJPIERW MERGE - żeby scalone jednostki mogły od razu ruszyć (zamek pod atakiem!)
 	await merge_units(state)
 	
@@ -118,17 +126,32 @@ func execute_turn():
 	# RUCH - scalone jednostki już mogą atakować
 	await move_all_units(state)
 	
-	# Kupuj jednostki
-	if not is_bankrupt:
-		await buy_units(state)
-	else:
-		print("AI %d: Bankructwo - pomijam kupowanie jednostek" % team)
-	
-	# Buduj mury - tylko gdy mamy dodatni przychód netto
-	var income_ai = hex_grid.calculate_income(team)
-	var upkeep_ai = hex_grid.calculate_upkeep(team)
-	if not is_bankrupt and income_ai - upkeep_ai > 0:
-		await build_walls(state)
+	# Kupuj jednostki i buduj mury - OSOBNO DLA KAŻDEGO KRÓLESTWA
+	var all_kingdom_ids = _get_my_kingdom_ids()
+	for kid in all_kingdom_ids:
+		# Ustaw aktywne królestwo
+		hex_grid.selected_kingdom_per_team[team] = kid
+		
+		var k_gold = hex_grid.kingdom_gold.get(kid, 0)
+		var k_upkeep = hex_grid.calculate_upkeep_for_kingdom(kid)
+		var k_income = hex_grid.calculate_income_for_kingdom(kid)
+		var k_is_bankrupt = k_gold < k_upkeep
+		
+		# Zaktualizuj state.gold/upkeep/income dla tego królestwa
+		state.gold = k_gold
+		state.upkeep = k_upkeep
+		state.income = k_income
+		
+		print("AI %d: Kingdom %d - złoto: %d, utrzymanie: %d, bankrut: %s" % [team, kid, k_gold, k_upkeep, k_is_bankrupt])
+		
+		if not k_is_bankrupt:
+			await buy_units(state, kid)
+		else:
+			print("AI %d: Kingdom %d bankrutuje - pomijam zakup" % [team, kid])
+		
+		# Buduj mury tylko gdy dodatni przychód netto
+		if not k_is_bankrupt and k_income - k_upkeep > 0:
+			await build_walls(state)
 	
 	print("=== AI (Team %d) kończy turę ===" % team)
 
@@ -158,7 +181,7 @@ func analyze_game_state() -> Dictionary:
 		"opportunities": [],
 		"cutoff_opportunities": [],
 		"enemy_kingdoms": {},  # Analiza sił wrogich królestw
-		"gold": hex_grid.team_gold.get(team, 0),
+		"gold": hex_grid.get_selected_kingdom_gold(team),
 		"income": hex_grid.calculate_income(team),
 		"upkeep": hex_grid.calculate_upkeep(team),
 	}
@@ -1632,12 +1655,22 @@ func merge_units(state: Dictionary):
 # BUY UNITS
 # ============================================================================
 
-func buy_units(state: Dictionary):
-	var gold = state.gold
-	# Dynamiczna rezerwa: tylko tyle żeby opłacić utrzymanie + mały bufor
-	# Stała rezerwa 30 powodowała chomikowanie złota
-	var upkeep = state.upkeep
-	var reserve = max(upkeep + 5, 5)
+func buy_units(state: Dictionary, kingdom_id: int = -1):
+	# Użyj złota konkretnego królestwa (nie sumy team_gold)
+	var gold = hex_grid.kingdom_gold.get(kingdom_id, state.gold) if kingdom_id > 0 else state.gold
+	var upkeep = hex_grid.calculate_upkeep_for_kingdom(kingdom_id) if kingdom_id > 0 else state.upkeep
+	var income = hex_grid.calculate_income_for_kingdom(kingdom_id) if kingdom_id > 0 else state.income
+	
+	# Rezerwa: gdy mało pól/dochodu - nie trzymaj złota, kup farmera jak tylko masz 13+
+	# Gdy dochód pokrywa utrzymanie - trzymaj mały bufor
+	var reserve: int
+	var net_income = income - upkeep
+	if net_income <= 0 or gold <= hex_grid.FARMER_COST + 3:
+		# Biedne królestwo - absolutne minimum rezerwy (3 złote buffer)
+		reserve = 3
+	else:
+		reserve = max(upkeep + 3, 3)
+	
 	var available_gold = max(0, gold - reserve)
 	
 	print("AI %d: Złoto: %d, Rezerwacja: %d, Dostępne: %d" % [team, gold, reserve, available_gold])
@@ -1654,8 +1687,8 @@ func buy_units(state: Dictionary):
 			
 			print("AI %d: Dokupuję %d jednostek do ODCIĘCIA wroga %s!" % [team, missing, opp.enemy.type])
 			
-			# Znajdź najlepsze pozycje do spawnu (blisko celu)
-			var spawn_positions = find_best_spawn_positions(state)
+			# Znajdź najlepsze pozycje do spawnu (blisko celu) dla tego królestwa
+			var spawn_positions = find_best_spawn_positions(state, kingdom_id)
 			var target_fields = []
 			for step in opp.move_sequence:
 				target_fields.append(step.target)
@@ -1676,7 +1709,8 @@ func buy_units(state: Dictionary):
 				if bought >= missing:
 					break
 				
-				if hex_grid.team_gold[team] < cost_per_unit:
+				var current_k_gold = hex_grid.kingdom_gold.get(kingdom_id, 0) if kingdom_id > 0 else hex_grid.team_gold.get(team, 0)
+				if current_k_gold < cost_per_unit:
 					break
 				
 				var hex = hex_grid.get_hex_at(spawn_pos)
@@ -1692,10 +1726,12 @@ func buy_units(state: Dictionary):
 			
 			if bought > 0:
 				# Zaktualizuj available_gold
-				available_gold = max(0, hex_grid.team_gold[team] - reserve)
+				var updated_k_gold = hex_grid.kingdom_gold.get(kingdom_id, 0) if kingdom_id > 0 else hex_grid.team_gold.get(team, 0)
+				available_gold = max(0, updated_k_gold - reserve)
 	
 	# PRIORYTET #2: Normalne kupowanie
-	var units_to_buy = plan_unit_purchases(state, hex_grid.team_gold[team] - reserve)
+	var current_k_gold = hex_grid.kingdom_gold.get(kingdom_id, 0) if kingdom_id > 0 else hex_grid.team_gold.get(team, 0)
+	var units_to_buy = plan_unit_purchases(state, current_k_gold - reserve, kingdom_id)
 	
 	print("AI %d: Zaplanowano zakup %d jednostek" % [team, units_to_buy.size()])
 	
@@ -1704,7 +1740,9 @@ func buy_units(state: Dictionary):
 		var position = purchase.position
 		var cost = purchase.cost
 		
-		if hex_grid.team_gold[team] < cost:
+		# Sprawdź złoto konkretnego królestwa
+		var check_gold = hex_grid.kingdom_gold.get(kingdom_id, 0) if kingdom_id > 0 else hex_grid.team_gold.get(team, 0)
+		if check_gold < cost:
 			continue
 		
 		var hex = hex_grid.get_hex_at(position)
@@ -1713,28 +1751,28 @@ func buy_units(state: Dictionary):
 		
 		if unit_type == "farmer":
 			hex_grid.place_farmer_at(position, team)
-			hex_grid.team_gold[team] -= cost
+			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
 			print("AI %d: ✓ Kupiono FARMER na %s za %d" % [team, position, cost])
 		elif unit_type == "knight":
 			hex_grid.place_knight_at(position, team)
-			hex_grid.team_gold[team] -= cost
+			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
 			print("AI %d: ✓ Kupiono KNIGHT na %s za %d" % [team, position, cost])
 		elif unit_type == "spearman":
 			hex_grid.place_spearman_at(position, team)
-			hex_grid.team_gold[team] -= cost
+			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
 			print("AI %d: ✓ Kupiono SPEARMAN na %s za %d" % [team, position, cost])
 		elif unit_type == "cavalry":
 			hex_grid.place_cavalry_at(position, team)
-			hex_grid.team_gold[team] -= cost
+			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
 			print("AI %d: ✓ Kupiono CAVALRY na %s za %d" % [team, position, cost])
 		
 		await hex_grid.get_tree().create_timer(0.1).timeout
 
-func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
+func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -> Array:
 	"""Planuje zakup jednostek.
 	
 	Filozofia:
@@ -1744,7 +1782,7 @@ func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
 	- Nigdy nie trzymaj złota bezczynnie!
 	"""
 	var purchases = []
-	var spawn_positions = find_best_spawn_positions(state)
+	var spawn_positions = find_best_spawn_positions(state, kingdom_id)
 	
 	if spawn_positions.is_empty():
 		print("AI %d: Brak pozycji spawnu - pomijam zakup" % team)
@@ -1887,22 +1925,30 @@ func plan_unit_purchases(state: Dictionary, budget: int) -> Array:
 	print("AI %d: Zaplanowano %d zakupów, zostaje %d złota" % [team, purchases.size(), remaining_budget])
 	return purchases
 
-func find_best_spawn_positions(state: Dictionary) -> Array:
-	"""Znajduje najlepsze pozycje do spawnu jednostek - TYLKO na połączonym terytorium z zamkiem"""
+func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array:
+	"""Znajduje najlepsze pozycje do spawnu jednostek - dla konkretnego królestwa."""
 	var positions = []
 	
 	if state.my_castles.is_empty():
 		return positions
 	
-	var castle_pos = state.my_castles[0]
+	# Znajdź zamek konkretnego królestwa
+	var castle_pos = Vector2i.ZERO
+	if kingdom_id > 0:
+		for coords in hex_grid.castle_map:
+			if hex_grid.castle_map[coords].team == team and \
+			   hex_grid.castle_kingdom_id.get(coords, 0) == kingdom_id:
+				castle_pos = coords
+				break
+	if castle_pos == Vector2i.ZERO:
+		castle_pos = state.my_castles[0]
 	
-	# KRYTYCZNE: Użyj tylko połączonego terytorium (nie odłączonego)
-	var connected_territory = state.my_connected_hexes
-	
-	# Sprawdź czy zamek jest na połączonym terytorium
-	if not (castle_pos in connected_territory):
-		print("AI %d: UWAGA - zamek na odłączonym terenie, brak spawnu!" % team)
-		return positions
+	# Terytorium TYLKO tego królestwa (nie flood fill od wszystkich zamków razem)
+	var connected_territory: Array
+	if kingdom_id > 0:
+		connected_territory = hex_grid.get_kingdom_connected_territories(kingdom_id)
+	else:
+		connected_territory = state.my_connected_hexes
 	
 	var neighbors = hex_grid.get_neighbors(castle_pos)
 	var scored_positions = []
@@ -1915,27 +1961,28 @@ func find_best_spawn_positions(state: Dictionary) -> Array:
 		if not hex or hex.occupied_object != null:
 			continue
 		
-		# KLUCZOWE: Spawn TYLKO na polach połączonych z głównym terytorium
-		# lub na sąsiednich polach (które staną się połączone po spawnie)
 		var owner = hex_grid.territory_map.get(neighbor, 0)
 		
-		# Pole musi być:
-		# 1. Częścią połączonego terytorium (już nasze) LUB
-		# 2. Sąsiadować z połączonym terytorium (neutralne/wrogie do zajęcia)
-		var is_connected_or_adjacent = false
+		# Pole jest ważne jeśli:
+		# 1. Należy do terytorium tego królestwa, LUB
+		# 2. Sąsiaduje bezpośrednio z zamkiem (umożliwia spawn nawet z izolowanego zamku), LUB
+		# 3. Sąsiaduje z połączonym terytorium
+		var is_valid_spawn = false
 		
 		if neighbor in connected_territory:
-			is_connected_or_adjacent = true
+			is_valid_spawn = true
+		elif castle_pos in hex_grid.get_neighbors(neighbor):
+			# Sąsiad zamku - zawsze można tu spawować
+			is_valid_spawn = true
 		else:
 			# Sprawdź czy sąsiaduje z połączonym terytorium
-			var neighbor_neighbors = hex_grid.get_neighbors(neighbor)
-			for nn in neighbor_neighbors:
+			for nn in hex_grid.get_neighbors(neighbor):
 				if nn in connected_territory:
-					is_connected_or_adjacent = true
+					is_valid_spawn = true
 					break
 		
-		if not is_connected_or_adjacent:
-			continue  # Pomiń odłączone pola
+		if not is_valid_spawn:
+			continue
 		
 		var score = 0
 		
@@ -2023,13 +2070,13 @@ func build_walls(state: Dictionary):
 			break
 		
 		var cost = hex_grid.WALL_COST_PER_HEX
-		if hex_grid.team_gold[team] < cost:
+		if hex_grid.get_selected_kingdom_gold(team) < cost:
 			break
 		
 		var walls_created = hex_grid.create_hex_walls(hex_pos, team)
 		
 		if walls_created > 0:
-			hex_grid.team_gold[team] -= cost
+			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			walls_built += 1
 			print("AI %d: Zbudowano %d murów wokół %s za %d złota" % [team, walls_created, hex_pos, cost])
 		
@@ -2152,7 +2199,7 @@ func defend_from_cutoff(state: Dictionary, goal: Dictionary):
 	
 	# Strategia 1: Zbuduj PEŁNY HEX murów na wąskim gardle
 	if threat_data.connections <= 2:
-		var gold = hex_grid.team_gold.get(team, 0)
+		var gold = hex_grid.get_selected_kingdom_gold(team)
 		if gold >= hex_grid.WALL_COST_PER_HEX:
 			# Znajdź najlepsze miejsce na mur (punkt połączenia który jest najbardziej zagrożony)
 			var best_wall_hex = null
@@ -2173,7 +2220,7 @@ func defend_from_cutoff(state: Dictionary, goal: Dictionary):
 				print("AI %d: Buduję PEŁNY HEX murów @ %s" % [team, best_wall_hex])
 				var walls_created = hex_grid.create_hex_walls(best_wall_hex, team)
 				if walls_created > 0:
-					hex_grid.team_gold[team] -= hex_grid.WALL_COST_PER_HEX
+					hex_grid.deduct_selected_kingdom_gold(team, hex_grid.WALL_COST_PER_HEX)
 					print("AI %d: Zbudowano %d murów dla ochrony" % [team, walls_created])
 					return
 	
