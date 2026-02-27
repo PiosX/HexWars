@@ -1950,10 +1950,25 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 	else:
 		connected_territory = state.my_connected_hexes
 	
-	var neighbors = hex_grid.get_neighbors(castle_pos)
+	# Szukaj pozycji w promieniu 2 od zamku (nie tylko 6 sąsiadów!)
+	var candidates: Dictionary = {}
+	var bfs_queue = [castle_pos]
+	var bfs_visited: Dictionary = {castle_pos: true}
+	var radius = 0
+	while not bfs_queue.is_empty() and radius < 2:
+		var next_queue = []
+		for cur in bfs_queue:
+			for nb in hex_grid.get_neighbors(cur):
+				if bfs_visited.has(nb): continue
+				bfs_visited[nb] = true
+				candidates[nb] = true
+				next_queue.append(nb)
+		bfs_queue = next_queue
+		radius += 1
+	
 	var scored_positions = []
 	
-	for neighbor in neighbors:
+	for neighbor in candidates.keys():
 		if not hex_grid.hex_map.has(neighbor):
 			continue
 		
@@ -1965,17 +1980,15 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 		
 		# Pole jest ważne jeśli:
 		# 1. Należy do terytorium tego królestwa, LUB
-		# 2. Sąsiaduje bezpośrednio z zamkiem (umożliwia spawn nawet z izolowanego zamku), LUB
+		# 2. Sąsiaduje bezpośrednio z zamkiem, LUB
 		# 3. Sąsiaduje z połączonym terytorium
 		var is_valid_spawn = false
 		
 		if neighbor in connected_territory:
 			is_valid_spawn = true
 		elif castle_pos in hex_grid.get_neighbors(neighbor):
-			# Sąsiad zamku - zawsze można tu spawować
 			is_valid_spawn = true
 		else:
-			# Sprawdź czy sąsiaduje z połączonym terytorium
 			for nn in hex_grid.get_neighbors(neighbor):
 				if nn in connected_territory:
 					is_valid_spawn = true
@@ -1986,11 +1999,11 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 		
 		var score = 0
 		
-		# Punktacja według właściciela
+		# Punktacja według właściciela - silny priorytet dla obcych pól
 		if owner > 0 and owner != team:
-			score = 100  # WROGIE - najlepsze!
+			score = 200  # WROGIE - najlepsze! Spawn od razu atakuje
 		elif owner == 0:
-			score = 80   # NEUTRALNE - drugie miejsce
+			score = 150  # NEUTRALNE - bardzo dobre, ekspansja
 		elif owner == team:
 			score = 20   # WŁASNE - ostateczność
 		else:
@@ -2358,7 +2371,7 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 		return hex_distance(a.pos, castle_pos) < hex_distance(b.pos, castle_pos)
 	)
 	
-	# Najpierw spróbuj bezpośredniego przejęcia
+	# Najpierw spróbuj bezpośredniego przejęcia - ZAWSZE wykonaj jeśli w zasięgu!
 	for unit_data in suitable_units:
 		if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
 			continue
@@ -2371,7 +2384,7 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 			await execute_move(unit_data.unit, unit_data, castle_pos)
 			return  # Zamek przejęty!
 	
-	# Zbliż się do zamku
+	# Zbliż się do zamku - NIE sprawdzaj ryzyka gdy celem jest zamek (strata tury!)
 	for unit_data in suitable_units:
 		if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
 			continue
@@ -2380,13 +2393,15 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 		var moves = get_possible_moves(unit_data.type, current_pos)
 		var best_move = find_move_towards_target(current_pos, moves, castle_pos)
 		if best_move != Vector2i.ZERO:
-			# Sprawdź ryzyko odcięcia przed ruchem w stronę zamku
+			# Przy ataku na zamek: sprawdź ryzyko TYLKO dla silnych jednostek (knight/cavalry)
+			# Spearman zawsze idzie na zamek - opłaca się nawet z ryzykiem
+			var skip_risk_check = unit_data.type in ["spearman", "farmer"]
 			var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
-			if not risk.worth_it:
-				print("AI %d: ⚠️ %s wstrzymuje atak na zamek (ryzyko: %s)" % [team, unit_data.type, risk.reason])
+			if not skip_risk_check and not risk.worth_it and risk.risk_level >= 0.9:
+				# Tylko blokuj jeśli pewne odcięcie silnej jednostki
+				print("AI %d: ⚠️ %s wstrzymuje atak (pewne odcięcie silnej jednostki)" % [team, unit_data.type])
 				var safe_move = find_safe_alternative_move(unit_data, best_move, state)
 				if safe_move != Vector2i.ZERO:
-					print("AI %d: %s -> bezpieczna alt %s" % [team, unit_data.type, safe_move])
 					await execute_move(unit_data.unit, unit_data, safe_move)
 				continue
 			print("AI %d: %s -> %s (cel: zamek)" % [team, unit_data.type, best_move])
@@ -2435,18 +2450,7 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 		var moves = get_possible_moves(unit_data.type, current_pos)
 		
 		if camp_pos in moves:
-			# Sprawdź ryzyko odcięcia przed bezpośrednim przejęciem obozu
-			var risk = evaluate_move_cutoff_risk(unit_data, camp_pos, state)
-			print("AI %d: ryzyko ruchu %s -> %s: %s" % [team, unit_data.type, camp_pos, risk.reason])
-			
-			if not risk.worth_it:
-				print("AI %d: ⚠️ %s rezygnuje z ataku na obóz (zbyt ryzykowne)" % [team, unit_data.type])
-				var safe_move = find_safe_alternative_move(unit_data, camp_pos, state)
-				if safe_move != Vector2i.ZERO:
-					print("AI %d: %s wybiera bezpieczną alternatywę -> %s" % [team, unit_data.type, safe_move])
-					await execute_move(unit_data.unit, unit_data, safe_move)
-				continue
-			
+			# Bezpośrednie przejęcie obozu - ZAWSZE wykonaj, nie sprawdzaj ryzyka
 			print("AI %d: 🎯 %s ZAJMUJE OBÓZ %s!" % [team, unit_data.type, camp_pos])
 			await execute_move(unit_data.unit, unit_data, camp_pos)
 			print("AI %d: ✅ OBÓZ PRZEJĘTY!" % team)
@@ -2454,13 +2458,13 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 		else:
 			var best_move = find_move_towards_target(current_pos, moves, camp_pos)
 			if best_move != Vector2i.ZERO:
-				# Sprawdź ryzyko ruchu w kierunku obozu
+				# Spearman idzie na obóz bez sprawdzania ryzyka
+				# Knight/cavalry sprawdzają tylko pewne odcięcie (risk >= 0.9)
 				var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
-				if not risk.worth_it:
-					print("AI %d: ⚠️ %s wstrzymuje marsz na obóz (ryzyko odcięcia: %s)" % [team, unit_data.type, risk.reason])
+				if unit_data.type in ["knight", "cavalry"] and not risk.worth_it and risk.risk_level >= 0.9:
+					print("AI %d: ⚠️ %s wstrzymuje marsz (pewne odcięcie)" % [team, unit_data.type])
 					var safe_move = find_safe_alternative_move(unit_data, best_move, state)
 					if safe_move != Vector2i.ZERO:
-						print("AI %d: %s -> bezpieczna pozycja %s" % [team, unit_data.type, safe_move])
 						await execute_move(unit_data.unit, unit_data, safe_move)
 					continue
 				print("AI %d: ⚔️ %s -> %s (atak na obóz)" % [team, unit_data.type, best_move])

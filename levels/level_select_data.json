@@ -180,7 +180,7 @@
 		"3,1": {
 			"difficulty": 1.0,
 			"level": 4,
-			"level_file": ""
+			"level_file": "hex_layout_level4.json"
 		},
 		"3,2": {
 			"difficulty": 1.0,

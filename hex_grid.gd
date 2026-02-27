@@ -918,6 +918,14 @@ func _input(event):
 								bandit_camp_ownership[cid] = []
 								bandit_camp_gold[cid] = 10  # Bazowe 10 golda
 							editor_last_camp_id = new_camp.get_meta("camp_id")
+							for bpos in bandits_need_camp.duplicate():
+								unit_to_camp[bpos] = editor_last_camp_id
+								if not bandit_camp_ownership.has(editor_last_camp_id):
+									bandit_camp_ownership[editor_last_camp_id] = []
+								if bpos not in bandit_camp_ownership[editor_last_camp_id]:
+									bandit_camp_ownership[editor_last_camp_id].append(bpos)
+								bandits_need_camp.erase(bpos)
+								print("EDYTOR: Wstecznie przypisano bandytę @ %s do obozu #%d" % [bpos, editor_last_camp_id])
 							# Pokaż etykietę złota
 							var camp_id_val = new_camp.get_meta("camp_id")
 							_set_bandit_camp_gold_label(new_camp, bandit_camp_gold.get(camp_id_val, 10))
@@ -1152,24 +1160,13 @@ func create_hex_walls(hex_coords: Vector2i, wall_team: int) -> int:
 
 func cycle_team():
 	var old_team = current_team
-	current_team += 1
+	# Użyj get_next_active_team zamiast hardcode % 4
+	current_team = get_next_active_team(current_team)
 	
-	# ZMIANA: Sprawdź czy są bandyci (team -1)
-	var has_bandits = false
-	for coords in knight_map:
-		if knight_map[coords].team == BANDIT_TEAM:
-			has_bandits = true
-			break
-	if not has_bandits:
-		for coords in farmer_map:
-			if farmer_map[coords].team == BANDIT_TEAM:
-				has_bandits = true
-				break
-	
-	var max_team = 5 if has_bandits else 4
-	
-	if current_team > max_team:
-		current_team = 1
+	# Nowa runda gdy wróciliśmy do pierwszego aktywnego teamu
+	var active_ct = get_active_teams()
+	var first_ct = active_ct[0] if not active_ct.is_empty() else 1
+	if current_team == first_ct and old_team != first_ct:
 		current_round += 1
 		print("=== KONIEC RUNDY ===")
 		
@@ -1292,7 +1289,9 @@ func _on_end_turn():
 				handle_bankruptcy(t)
 	
 	# WAŻNE: Nalicz złoto/koszty TYLKO gdy kończy się cała runda (current_team == 4)
-	if current_team == 4:
+	var active_eco = get_active_teams()
+	var last_active_team = active_eco[-1] if not active_eco.is_empty() else 4
+	if current_team == last_active_team:
 		print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII PER KINGDOM ===" % current_round)
 		for t in teams_to_check:
 			# Zbierz wszystkie kingdoms teamu
@@ -1340,20 +1339,22 @@ func _on_end_turn():
 	# Zapisz snapshot PRZED zmianą drużyny
 	turn_history.save_turn_snapshot(self)
 	
-	# === DODAJ TUTAJ - sprawdź czy następna drużyna to AI ===
-	var next_team = (current_team % 4) + 1
+	# Wyznacz następny aktywny team (tylko teamy z zamkami)
+	var next_team = get_next_active_team(current_team)
 	var is_next_ai = next_team in ai_teams
-	# === KONIEC DODANIA ===
 	
 	# Zmiana drużyny
-	current_team = (current_team % 4) + 1
+	var old_team_end = current_team
+	current_team = next_team
 	
 	# Resetuj jednostki które się ruszyły
 	units_moved_this_turn.clear()
 	cavalry_moves_this_turn.clear()
 	
-	# Nowa runda co 4 tury
-	if current_team == 1:
+	# Nowa runda gdy wróciliśmy do pierwszego aktywnego teamu
+	var active_teams_end = get_active_teams()
+	var first_active_team = active_teams_end[0] if not active_teams_end.is_empty() else 1
+	if current_team == first_active_team and old_team_end != first_active_team:
 		current_round += 1
 		
 		# === TURA BANDYTÓW NA KOŃCU RUNDY ===
@@ -1960,7 +1961,7 @@ func clear_grid():
 	# Wyczyść dane królestw
 	castle_kingdom_id.clear()
 	hex_kingdom_map.clear()
-	next_kingdom_id_per_team = {1: 1, 2: 101, 3: 201, 4: 301}
+	next_kingdom_id_per_team = {1: 1, 2: 1, 3: 1, 4: 1}
 	kingdom_gold.clear()
 	
 	if turn_history: 
@@ -3008,6 +3009,8 @@ func place_farmer_at(hex_coords: Vector2i, team: int):
 		if not territory_map.has(hex_coords) or territory_map[hex_coords] == 0:
 			territory_map[hex_coords] = team
 			update_hex_color(hex_coords)
+	elif team == BANDIT_TEAM:
+		update_hex_color(hex_coords)
 	
 	# AUTO-PRZYPISANIE: Jeśli to bandyta, przypisz go do najbliższego obozu
 	if team == BANDIT_TEAM:
@@ -3618,16 +3621,29 @@ func _renumber_kingdoms(team: int):
 		return
 	
 	if team_castles.size() == 1:
-		# Jeden zamek → ID zależne od teamu (globalnie unikalne)
-		var start_kid = _team_start_kid(team)
+		# Jeden zamek → ID zależne od teamu (globalnie unikalne, nie resetuj do 1!)
 		var c = team_castles[0]
-		castle_kingdom_id[c] = start_kid
-		next_kingdom_id_per_team[team] = start_kid + 1
-		var castle = castle_map[c]
-		if castle.has_method("set_kingdom_label"):
-			castle.set_kingdom_label(kid_to_display(start_kid), show_kingdom_labels)
-		# Zresetuj wybrany kid dla tego teamu
-		selected_kingdom_per_team[team] = start_kid
+		var current_kid = castle_kingdom_id.get(c, 0)
+		# Jeśli zamek już ma poprawne ID z zakresu tego teamu - zostaw je
+		var start_kid = _team_start_kid(team)
+		var end_kid = start_kid + 99
+		if current_kid < start_kid or current_kid > end_kid:
+			# ID poza zakresem - przypisz nowe poprawne
+			castle_kingdom_id[c] = start_kid
+			# Przenieś złoto ze starego ID na nowe
+			if current_kid > 0 and kingdom_gold.has(current_kid):
+				kingdom_gold[start_kid] = kingdom_gold.get(start_kid, 0) + kingdom_gold[current_kid]
+				kingdom_gold.erase(current_kid)
+			elif not kingdom_gold.has(start_kid):
+				kingdom_gold[start_kid] = 0
+			next_kingdom_id_per_team[team] = start_kid + 1
+			var castle = castle_map[c]
+			if castle.has_method("set_kingdom_label"):
+				castle.set_kingdom_label(kid_to_display(start_kid), show_kingdom_labels)
+			selected_kingdom_per_team[team] = start_kid
+		else:
+			# ID już poprawne - tylko upewnij się że selected jest ustawione
+			selected_kingdom_per_team[team] = current_kid
 	# Jeśli więcej zamków - zostawiamy stare IDs (recalculate_kingdoms zajmie się scalaniem)
 
 func _team_start_kid(team: int) -> int:
@@ -5461,6 +5477,20 @@ func save_layout():
 		if castle_kingdom_id.has(coords):
 			var key = "%d,%d" % [coords.x, coords.y]
 			data["castle_kingdom_ids"][key] = castle_kingdom_id[coords]
+			
+	var bandit_camps_data = []
+	for coords in castle_map:
+		var c = castle_map[coords]
+		if c.team == BANDIT_TEAM and c.has_meta("camp_id"):
+			var cid = c.get_meta("camp_id")
+			bandit_camps_data.append({
+				"x": coords.x,
+				"y": coords.y,
+				"camp_id": cid,
+				"gold": bandit_camp_gold.get(cid, 10)
+			})
+	data["bandit_camps"] = bandit_camps_data
+	data["next_bandit_camp_id"] = next_bandit_camp_id
 	
 	for coords in knight_map.keys():
 		var knight = knight_map[coords]
@@ -5538,6 +5568,20 @@ func save_layout_to_file(file_name: String):
 		if castle_kingdom_id.has(coords):
 			var key = "%d,%d" % [coords.x, coords.y]
 			data["castle_kingdom_ids"][key] = castle_kingdom_id[coords]
+			
+	var bandit_camps_data = []
+	for coords in castle_map:
+		var c = castle_map[coords]
+		if c.team == BANDIT_TEAM and c.has_meta("camp_id"):
+			var cid = c.get_meta("camp_id")
+			bandit_camps_data.append({
+				"x": coords.x,
+				"y": coords.y,
+				"camp_id": cid,
+				"gold": bandit_camp_gold.get(cid, 10)
+			})
+	data["bandit_camps"] = bandit_camps_data
+	data["next_bandit_camp_id"] = next_bandit_camp_id
 	
 	for coords in knight_map.keys():
 		var knight = knight_map[coords]
@@ -5627,6 +5671,22 @@ func load_layout() -> bool:
 			if data["castle_kingdom_ids"].has(key):
 				forced_kid = int(data["castle_kingdom_ids"][key])
 		place_castle_at(coords, castle_data["team"], forced_kid)
+		
+	if data.has("bandit_camps"):
+		for cd in data["bandit_camps"]:
+			var coords = Vector2i(cd["x"], cd["y"])
+			if castle_map.has(coords) and castle_map[coords].team == BANDIT_TEAM:
+				var cid = int(cd["camp_id"])
+				castle_map[coords].set_meta("camp_id", cid)
+				bandit_camp_gold[cid] = int(cd.get("gold", 10))
+				if cid >= next_bandit_camp_id:
+					next_bandit_camp_id = cid + 1
+	if data.has("next_bandit_camp_id"):
+		next_bandit_camp_id = max(next_bandit_camp_id, int(data["next_bandit_camp_id"]))
+		
+	for coords in farmer_map:
+		if farmer_map[coords].team == BANDIT_TEAM:
+			update_hex_color(coords)
 	
 	if data.has("knights"):
 		for knight_data in data["knights"]:
@@ -5716,6 +5776,22 @@ func load_layout_from_file(file_name: String) -> bool:
 			if data["castle_kingdom_ids"].has(key):
 				forced_kid = int(data["castle_kingdom_ids"][key])
 		place_castle_at(coords, castle_data["team"], forced_kid)
+		
+	if data.has("bandit_camps"):
+		for cd in data["bandit_camps"]:
+			var coords = Vector2i(cd["x"], cd["y"])
+			if castle_map.has(coords) and castle_map[coords].team == BANDIT_TEAM:
+				var cid = int(cd["camp_id"])
+				castle_map[coords].set_meta("camp_id", cid)
+				bandit_camp_gold[cid] = int(cd.get("gold", 10))
+				if cid >= next_bandit_camp_id:
+					next_bandit_camp_id = cid + 1
+	if data.has("next_bandit_camp_id"):
+		next_bandit_camp_id = max(next_bandit_camp_id, int(data["next_bandit_camp_id"]))
+	
+	for coords in farmer_map:
+		if farmer_map[coords].team == BANDIT_TEAM:
+			update_hex_color(coords)
 	
 	# Load knights
 	if data.has("knights"):
@@ -5806,6 +5882,7 @@ func load_layout_from_file(file_name: String) -> bool:
 	# Poczekaj żeby zamki były gotowe przed rysowaniem etykiet złota
 	await get_tree().process_frame
 	_update_castle_gold_labels()
+	_update_bandit_camp_gold_labels()
 	update_ui()
 	
 	# WAŻNE: Odblokuj przyciski po wczytaniu poziomu (dla retry)
@@ -6437,6 +6514,28 @@ func clear_selected_unit_highlight():
 	if selected_unit.has_method("set_selected"):
 		selected_unit.set_selected(false)
 		
+func get_active_teams() -> Array:
+	"""Zwraca posortowaną listę teamów które mają co najmniej jeden zamek na mapie."""
+	var teams = []
+	for coords in castle_map:
+		var t = castle_map[coords].team
+		if t > 0 and t <= 4 and t not in teams:
+			teams.append(t)
+	teams.sort()
+	return teams
+
+func get_next_active_team(from_team: int) -> int:
+	"""Zwraca następny aktywny team po from_team (z uwzględnieniem tylko istniejących teamów)."""
+	var active = get_active_teams()
+	if active.is_empty():
+		return from_team
+	# Znajdź następny team po from_team w posortowanej liście
+	for t in active:
+		if t > from_team:
+			return t
+	# Wrap around - wróć do pierwszego
+	return active[0]
+
 func check_victory():
 	"""Sprawdza czy gracz wygral (przejal wszystkie wrogie zamki)"""
 	if not game_mode:
