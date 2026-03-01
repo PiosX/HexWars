@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://bhnl42bmcjkbk"]
 
 [ext_resource type="Script" uid="uid://c3s0dt26mvk1b" path="res://farmer.gd" id="1_bejvd"]
-[ext_resource type="Texture2D" uid="uid://bmry01h3baser" path="res://scythe.png" id="2_bejvd"]
+[ext_resource type="Texture2D" uid="uid://br77wwry0qs7f" path="res://scythe.png" id="2_bejvd"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_nsuie"]
 radius = 34.5

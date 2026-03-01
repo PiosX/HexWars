@@ -15,6 +15,9 @@ const SAVE_VERSION = 2  # Zwiększ gdy zmieniasz format zapisu
 # ===== SCENY I POZIOMY =====
 var current_scene = null
 var current_level_number: int = 0
+var fade_overlay: ColorRect
+var is_transitioning: bool = false
+
 
 # ===== WALUTA I PROGRES =====
 var global_time_currency: int = 10
@@ -24,6 +27,8 @@ var high_scores: Dictionary = {}  # {level_num: best_time}
 # ===== ZAKUPY =====
 var ads_disabled: bool = false
 var purchased_products: Array = []  # Lista zakupionych produktów
+var review_done: bool = false
+var review_last_date: String = ""
 
 # ===== AUDIO =====
 var btn_sound: AudioStreamPlayer
@@ -46,12 +51,22 @@ func _ready():
 	print("=== MAIN NODE STARTING ===")
 	load_game_data()
 	setup_audio()
+	setup_fade_overlay()
 	change_scene(MAIN_MENU)
 	
 	# Pokaż banner w menu głównym
 	var admob = get_node_or_null("/root/AdMobManager")
 	if admob and admob.has_method("show_banner"):
 		admob.show_banner()
+		
+	_maybe_show_rate_on_start()
+
+func _maybe_show_rate_on_start():
+	await get_tree().process_frame
+	if RatePopup.should_show(self):
+		var popup = preload("res://rate_popup.tscn").instantiate()
+		get_tree().root.add_child(popup)
+		popup.show_popup()
 
 # ========== SYSTEM ZAPISU/WCZYTYWANIA ==========
 
@@ -72,6 +87,9 @@ func save_game_data():
 		# Zakupy
 		"ads_disabled": ads_disabled,
 		"purchased_products": purchased_products,
+		
+		"review_done": review_done,
+		"review_last_date": review_last_date,
 		
 		# Statystyki
 		"total_playtime": total_playtime,
@@ -126,6 +144,9 @@ func load_game_data():
 	
 	ads_disabled = save_data.get("ads_disabled", false)
 	purchased_products = save_data.get("purchased_products", [])
+	
+	review_done = save_data.get("review_done", false)
+	review_last_date = save_data.get("review_last_date", "")
 	
 	total_playtime = save_data.get("total_playtime", 0.0)
 	total_levels_completed = save_data.get("total_levels_completed", 0)
@@ -365,33 +386,33 @@ func toggle_music(enabled: bool):
 # ========== ZARZĄDZANIE SCENAMI ==========
 
 func change_scene(scene_resource):
-	# Ukryj banner podczas rozgrywki
+	await fade_out()
+	_do_change_scene(scene_resource)
+	await fade_in()
+
+func _do_change_scene(scene_resource):
 	var admob = get_node_or_null("/root/AdMobManager")
 	if current_scene:
 		current_scene.queue_free()
 	
 	var new_scene = scene_resource.instantiate()
+	# Upewnij się że overlay jest na wierzchu
 	add_child(new_scene)
 	current_scene = new_scene
 	
-	# Pokaż banner w menu, ukryj w grze
 	if admob:
 		if scene_resource == HEX_GRID_SCENE:
 			admob.hide_banner()
 		else:
 			admob.show_banner()
 	
-	# Podłącz sygnały
 	if new_scene.has_signal("tab_changed"):
 		new_scene.tab_changed.connect(_on_tab_changed)
-	
 	if new_scene.has_signal("level_selected"):
 		new_scene.level_selected.connect(_on_level_selected)
-	
 	if new_scene.has_signal("play_pressed"):
 		new_scene.play_pressed.connect(_on_play_pressed)
 	
-	# Aktualizuj walutę
 	update_currency_displays()
 
 func _on_tab_changed(tab_name: String):
@@ -416,6 +437,7 @@ func _on_play_pressed(level_file: String, difficulty: int, level_num: int):
 	load_game_level(level_file, difficulty, level_num)
 
 func load_game_level(level_file: String, difficulty: int, level_num: int = 0):
+	await fade_out()
 	if current_scene:
 		current_scene.queue_free()
 	
@@ -482,6 +504,9 @@ func load_game_level(level_file: String, difficulty: int, level_num: int = 0):
 	var admob = get_node_or_null("/root/AdMobManager")
 	if admob and admob.has_method("hide_banner"):
 		admob.hide_banner()
+		
+	await get_tree().create_timer(0.3).timeout
+	await fade_in()
 
 func sync_audio_settings_to_ui(ui_manager):
 	if not ui_manager:
@@ -520,3 +545,27 @@ func _on_defeat_retry():
 			
 			if hex_grid.ui_manager:
 				hex_grid.ui_manager.set_buttons_enabled(true)
+				
+func setup_fade_overlay():
+	var canvas = CanvasLayer.new()
+	canvas.layer = 128  # bardzo wysoko, ponad wszystkim
+	add_child(canvas)
+	
+	fade_overlay = ColorRect.new()
+	fade_overlay.color = Color.BLACK
+	fade_overlay.modulate.a = 0.0
+	fade_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fade_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	canvas.add_child(fade_overlay)
+
+func fade_out() -> void:
+	if fade_overlay.modulate.a >= 1.0:
+		return
+	var tween = create_tween()
+	tween.tween_property(fade_overlay, "modulate:a", 1.0, 0.25)
+	await tween.finished
+
+func fade_in() -> void:
+	var tween = create_tween()
+	tween.tween_property(fade_overlay, "modulate:a", 0.0, 0.35)
+	await tween.finished

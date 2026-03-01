@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bdppue0vwqjrn"
-path="res://.godot/imported/hex-wars.png-94a41d1f8230f0b29c188dff1c5bd8bf.ctex"
+uid="uid://bgdp4mq87dyqi"
+path="res://.godot/imported/hex-wars2.png-46ae1da1cdd79b0e11ea93545476dbcc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://ui/hex-wars.png"
-dest_files=["res://.godot/imported/hex-wars.png-94a41d1f8230f0b29c188dff1c5bd8bf.ctex"]
+source_file="res://ui/hex-wars2.png"
+dest_files=["res://.godot/imported/hex-wars2.png-46ae1da1cdd79b0e11ea93545476dbcc.ctex"]
 
 [params]
 

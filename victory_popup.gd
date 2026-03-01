@@ -490,6 +490,17 @@ func show_victory(level: int):
 			fade_tw.set_ease(Tween.EASE_OUT)
 			
 	_show_interstitial_after_delay()
+	_maybe_show_rate_popup(level)
+	
+func _maybe_show_rate_popup(level: int):
+	if level < 5:
+		return
+	await get_tree().create_timer(3.0).timeout  # po animacji victory
+	var main = get_node("/root/Main")
+	if RatePopup.should_show(main):
+		var popup = preload("res://rate_popup.tscn").instantiate()
+		get_tree().root.add_child(popup)
+		popup.show_popup()
 	
 func _show_interstitial_after_delay():
 	# Poczekaj aż animacja popup się skończy, potem pokaż reklamę

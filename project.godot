@@ -13,6 +13,8 @@ config_version=5
 config/name="HexWars"
 run/main_scene="uid://fb2yunxth6tv"
 config/features=PackedStringArray("4.4", "Mobile")
+boot_splash/bg_color=Color(0, 0, 0, 1)
+boot_splash/image="uid://dlfddfxsqexy3"
 config/icon="res://icon.svg"
 
 [autoload]
@@ -32,6 +34,10 @@ window/orientation="portrait"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res://addons/admob/plugin.cfg")
+
+[gui]
+
+common/snap_controls_to_pixels=false
 
 [rendering]
 

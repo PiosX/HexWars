@@ -559,14 +559,14 @@ func setup_center_content():
 	add_child(center_container)
 	
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 16)
+	vbox.add_theme_constant_override("separation", 0)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	center_container.add_child(vbox)
 	
 	# Title image
 	title_image = TextureRect.new()
 	title_image.texture = load(ICON_TITLE)
-	title_image.custom_minimum_size = Vector2(225, 225)
+	title_image.custom_minimum_size = Vector2(265, 265)
 	title_image.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
 	title_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	title_image.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -582,7 +582,7 @@ func setup_center_content():
 	
 	# Spacer
 	var spacer1 = Control.new()
-	spacer1.custom_minimum_size = Vector2(0, 24)
+	spacer1.custom_minimum_size = Vector2(0, 40)
 	vbox.add_child(spacer1)
 	
 	# CTA Button
@@ -618,7 +618,7 @@ func setup_center_content():
 	
 	# Tap to play label
 	tap_label = Label.new()
-	tap_label.text = "TAP TO PLAY"
+	tap_label.text = "PRESS TO PLAY"
 	tap_label.add_theme_font_size_override("font_size", 20)
 	tap_label.add_theme_color_override("font_color", Color("9CA3AF"))  # Jaśniejszy szary
 	tap_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bos3mhdy3w1yt"]
+
+[ext_resource type="Script" uid="uid://dybdqgbl2bgmv" path="res://rate_popup.gd" id="1_s8prg"]
+
+[node name="RatePopup" type="CanvasLayer"]
+script = ExtResource("1_s8prg")
