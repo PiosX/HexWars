@@ -7,7 +7,7 @@ class_name Hex
 @onready var sprite = $Sprite
 
 var occupied_object = null
-var current_color: Color = Color("#2b2b2b")
+var current_color: Color = Color("#1d1d27")
 var is_highlighted: bool = false
 var original_scale: Vector2 = Vector2.ONE
 
@@ -126,7 +126,7 @@ func set_color(color: Color):
 
 func reset_color():
 	"""Przywraca domyślny ciemny kolor"""
-	set_color(Color("#2b2b2b"))
+	set_color(Color("#1d1d27"))
 
 func highlight(color: Color = Color.ORANGE):
 	"""Podświetla hex (np. przy wyborze dostępnych pól)"""

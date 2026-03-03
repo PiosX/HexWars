@@ -20,6 +20,11 @@ func _ready():
 	var base_scale = 1.0
 	sprite.scale = Vector2(base_scale, base_scale)
 	
+	if team == -1:
+		var bandit_tex = load("res://ui/bandit.png")
+		if bandit_tex:
+			sprite.texture = bandit_tex
+	
 	# Znajdź lub stwórz Area2D
 	area = find_child_of_type(Area2D)
 	if not area:

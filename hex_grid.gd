@@ -31,7 +31,7 @@ const TEAM_COLORS = {
 	1: Color("#4D99FF"),  # Niebieski
 	2: Color("#FF4D4D"),  # Czerwony
 	3: Color("#9B59FF"),  # Fioletowy
-	4: Color("#FFD645")   # Zolty
+	4: Color("#FFCC52")   # Zolty
 }
 
 var camera_drag_enabled: bool = true
@@ -39,14 +39,14 @@ var camera_dragging: bool = false
 var drag_start_position: Vector2
 var initial_camera_position: Vector2
 
-const NEUTRAL_COLOR = Color("#2b2b2b")
+const NEUTRAL_COLOR = Color("#1d1d27")
 const MERCENARY_COLOR = Color("#1a1a1a")
 const CAMP_COLOR = Color("#4a3520")
 
 const HIGHLIGHT_COLOR_CAPTURE = Color("#FFA500")
 const HIGHLIGHT_COLOR_MERGE = Color("#00FFFF")
-const BANDIT_COLOR = Color("#5a5a5a")
-const BANDIT_CAMP_COLOR = Color("#5a5a5a")
+const BANDIT_COLOR = Color("#5b5b68")
+const BANDIT_CAMP_COLOR = Color("#5b5b68")
 
 var hex_horiz_spacing: float
 var hex_vert_spacing: float
@@ -768,6 +768,13 @@ func _input(event):
 			KEY_C:
 				if not game_mode:
 					clear_grid()
+			KEY_M:
+				if not game_mode:
+					var screenshot = get_viewport().get_texture().get_image()
+					var timestamp = Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "_")
+					var path = "user://screenshot_%s.png" % timestamp
+					screenshot.save_png(path)
+					print("✓ Screenshot zapisany: %s" % path)
 			KEY_N:
 				if not game_mode:
 					show_kingdom_labels = not show_kingdom_labels
@@ -1855,9 +1862,9 @@ func update_hex_color(hex_coords: Vector2i, animate: bool = false):
 		elif team > 0:
 			new_color = TEAM_COLORS[int(team)]
 		else:
-			new_color = Color("#2b2b2b")
+			new_color = Color("#1d1d27")
 	else:
-		new_color = Color("#2b2b2b")
+		new_color = Color("#1d1d27")
 	
 	if animate and hex.sprite:
 		hex.animate_capture(new_color)
@@ -1989,7 +1996,7 @@ func place_castle_at(hex_coords: Vector2i, team: int, forced_kingdom_id: int = -
 	
 	territory_map[hex_coords] = team
 	# NAPRAWIONY BUG: Zawsze ustaw kolor bezpośrednio żeby naprawić stan po rewind
-	hex.current_color = TEAM_COLORS.get(team, Color("#2b2b2b")) if team > 0 else (BANDIT_COLOR if team == -1 else BANDIT_CAMP_COLOR if team == -2 else Color("#2b2b2b"))
+	hex.current_color = TEAM_COLORS.get(team, Color("#1d1d27")) if team > 0 else (BANDIT_COLOR if team == -1 else BANDIT_CAMP_COLOR if team == -2 else Color("#1d1d27"))
 	if hex.sprite:
 		hex.sprite.modulate = hex.current_color
 	

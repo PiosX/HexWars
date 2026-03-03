@@ -16,6 +16,11 @@ func _ready():
 	# Znajdź Sprite2D (może mieć różne nazwy)
 	sprite = find_child_of_type(Sprite2D)
 	
+	if team == -1:
+		var bandit_tex = load("res://ui/camp.png")
+		if bandit_tex and sprite:
+			sprite.texture = bandit_tex
+	
 	# Znajdź lub stwórz Area2D
 	area = find_child_of_type(Area2D)
 	if not area:

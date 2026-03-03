@@ -9,7 +9,7 @@
 
 [sub_resource type="Environment" id="Environment_gyfs4"]
 background_mode = 1
-background_color = Color(0.101961, 0.101961, 0.101961, 1)
+background_color = Color(0.0705882, 0.0705882, 0.0941176, 1)
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_8mm7a"]
 texture = ExtResource("2_d5x1h")

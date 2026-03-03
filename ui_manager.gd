@@ -15,7 +15,7 @@ const TEAM_COLORS = {
 	1: Color("#4D99FF"),  # Blue
 	2: Color("#FF6467"),  # Red
 	3: Color("#9B59FF"),  # Purple
-	4: Color("#FFD645")   # Yellow
+	4: Color("#FFCC52")   # Yellow
 }
 
 const COST_RED = Color("#FF6467")

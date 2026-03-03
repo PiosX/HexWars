@@ -15,7 +15,7 @@ run/main_scene="uid://fb2yunxth6tv"
 config/features=PackedStringArray("4.4", "Mobile")
 boot_splash/bg_color=Color(0, 0, 0, 1)
 boot_splash/image="uid://dlfddfxsqexy3"
-config/icon="res://icon.svg"
+config/icon="uid://bd7xdnc1nawd1"
 
 [autoload]
 
@@ -43,4 +43,4 @@ common/snap_controls_to_pixels=false
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.101961, 0.101961, 0.101961, 1)
+environment/defaults/default_clear_color=Color(0.0705882, 0.0705882, 0.0941176, 1)

@@ -574,9 +574,9 @@ func setup_center_content():
 	
 	# Subtitle
 	var subtitle = Label.new()
-	subtitle.text = "Conquer the battlefield"
+	subtitle.text = "CONQUER THE KINGDOMS"
 	subtitle.add_theme_font_size_override("font_size", 24)
-	subtitle.add_theme_color_override("font_color", Color("9CA3AF"))  # Jaśniejszy szary
+	subtitle.add_theme_color_override("font_color", Color("FFFFFF"))  # Jaśniejszy szary
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(subtitle)
 	
