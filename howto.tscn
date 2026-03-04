@@ -597,8 +597,8 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
 theme_override_font_sizes/font_size = 18
-text = "Every level is procedurally generated - starting territories
-and gold vary each time. Adapt your strategy!"
+text = "Every level is handcrafted — starting territories and gold vary
+each time. Adapt your strategy!"
 
 [node name="SectionKingdoms" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
 custom_minimum_size = Vector2(0, 360)
@@ -701,7 +701,7 @@ theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_font_sizes/normal_font_size = 20
 theme_override_font_sizes/bold_font_size = 18
 bbcode_enabled = true
-text = "Each kingdom starts with different territory and [b][color=\"FFB900\"]10 coins.[/color][/b]"
+text = "Each kingdom starts with different territory and [b][color=\"FFB900\"]8 coins.[/color][/b]"
 fit_content = true
 
 [node name="Economy" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
@@ -756,7 +756,7 @@ theme_override_font_sizes/normal_font_size = 22
 theme_override_font_sizes/bold_font_size = 20
 bbcode_enabled = true
 text = "Gold is the lifeblood of your kingdom. Every kingdom starts
-with [b][color=\"FFB900\"]10 coins.[/color][/b]"
+with [b][color=\"FFB900\"]8 coins.[/color][/b]"
 fit_content = true
 
 [node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
@@ -802,7 +802,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
-text = "+2 coins per hex"
+text = "+1 coins per hex"
 
 [node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
 layout_mode = 2
@@ -1211,7 +1211,7 @@ mouse_filter = 2
 theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_font_sizes/normal_font_size = 18
 bbcode_enabled = true
-text = "[color=\"FFB900\"]3[/color] cost   |   [color=\"00D492\"]0[/color] upkeep"
+text = "[color=\"FFB900\"]4[/color] cost   |   [color=\"FF6467\"]1[/color] /turn"
 fit_content = true
 
 [node name="Rules" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
@@ -1390,7 +1390,7 @@ mouse_filter = 2
 theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_font_sizes/normal_font_size = 18
 bbcode_enabled = true
-text = "- Can capture hexes with walls (if undefended or weaker units)"
+text = "- Can attack walled hexes if they contain a Farmer or Spearman"
 fit_content = true
 
 [node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
@@ -1410,7 +1410,7 @@ mouse_filter = 2
 theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_font_sizes/normal_font_size = 18
 bbcode_enabled = true
-text = "- Cannot attack if hex has Spearman+ in walls"
+text = "- Cannot attack if hex has Knight+ in walls"
 fit_content = true
 
 [node name="TipBoxGame3" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
@@ -1477,7 +1477,7 @@ mouse_filter = 2
 theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_font_sizes/normal_font_size = 18
 bbcode_enabled = true
-text = "- Cannot attack if hex has Knight/Cavalry in walls"
+text = "- Cannot attack Cavalry in walls (If Knight in walls = 2 turns)"
 fit_content = true
 
 [node name="TipBoxGame4" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
@@ -1524,7 +1524,7 @@ mouse_filter = 2
 theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_font_sizes/normal_font_size = 18
 bbcode_enabled = true
-text = "- Can capture any walled hex (except other Cavalry)"
+text = "- Can capture any walled hex (Cavalry in walls = 2 moves)"
 fit_content = true
 
 [node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
@@ -1694,7 +1694,7 @@ mouse_filter = 2
 theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_font_sizes/normal_font_size = 18
 bbcode_enabled = true
-text = "- Capture empty hexes (with or without owners)"
+text = "- Occupies empty hexes (with or without an owner)."
 fit_content = true
 
 [node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
@@ -1769,7 +1769,6 @@ text = "Destroy a bandit camp with a Spearman or stronger unit to
 eliminate them and earn bonus gold."
 
 [node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
-visible = false
 custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 size_flags_vertical = 3

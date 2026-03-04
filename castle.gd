@@ -109,6 +109,8 @@ func _on_input_event(_viewport, event, _shape_idx):
 				parent.on_castle_clicked(self)
 
 func _on_mouse_entered():
+	if DisplayServer.is_touchscreen_available():
+		return
 	if sprite:
 		var tween = create_tween()
 		tween.set_ease(Tween.EASE_OUT)

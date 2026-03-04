@@ -101,6 +101,8 @@ func _on_input_event(_viewport, event, _shape_idx):
 			get_viewport().set_input_as_handled()
 
 func _on_mouse_entered():
+	if DisplayServer.is_touchscreen_available():
+		return
 	animate_scale(Vector2(0.85, 0.85), 0.1)
 	var parent = get_parent()
 	if parent is HexGrid:

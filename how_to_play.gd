@@ -373,7 +373,7 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
 		var badge_style = StyleBoxFlat.new()
-		badge_style.bg_color = BADGE_BG
+		badge_style.bg_color = "00BC7D"
 		badge_style.corner_radius_top_left = 14
 		badge_style.corner_radius_top_right = 14
 		badge_style.corner_radius_bottom_left = 14
@@ -381,7 +381,7 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		badge.add_theme_stylebox_override("panel", badge_style)
 		
 		var badge_label = Label.new()
-		badge_label.text = "75% OFF"
+		badge_label.text = "BONUS"
 		badge_label.add_theme_font_size_override("font_size", 14)
 		badge_label.add_theme_color_override("font_color", Color.WHITE)
 		badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

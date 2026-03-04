@@ -2320,6 +2320,8 @@ func on_cavalry_clicked(cavalry):
 		return
 	if wall_placement_mode:
 		return
+	if cavalry in units_moved_this_turn:
+		return
 	if buy_mode != "":
 		if cavalry.team != current_team:
 			return
@@ -2657,6 +2659,8 @@ func on_spearman_clicked(spearman):
 	if not game_mode:
 		return
 	if wall_placement_mode:
+		return
+	if spearman in units_moved_this_turn:
 		return
 	if buy_mode != "":
 		if spearman.team != current_team:
@@ -5239,16 +5243,10 @@ func on_hex_clicked(hex: Hex):
 		var obj = hex.occupied_object
 		var wc = count_walls_around(clicked_pos)
 		if wc >= 6:
-			# Pole z murami — knight niszczy mury (zawsze 2 tury od kupienia)
+			# Pole z murami przy ZAKUPIE — tylko puste mury (bez zamku), knight wchodzi niszcząc mury
+			# Zamek z murami wymaga 2 tur normalnego ruchu knighta, nie zakupu
 			if get_selected_kingdom_gold(current_team) >= KNIGHT_COST:
-				if obj == null or (obj != null and not is_friendly_unit(obj) and not (obj is Cavalry)):
-					# Postaw knighta NA miejscu (mury zniszczone przy wejściu)
-					if obj != null and is_instance_valid(obj) and not is_friendly_unit(obj):
-						if obj is Farmer: remove_farmer_at(clicked_pos)
-						elif obj is Spearman: remove_spearman_at(clicked_pos)
-						elif obj is Knight: remove_knight_at(clicked_pos)
-						elif obj is Castle and obj.team != current_team:
-							capture_castle(clicked_pos, current_team, obj.team)
+				if obj == null:
 					purge_walls_connected_to(clicked_pos)
 					get_node("/root/Main").play_put_sound()
 					place_knight_at(clicked_pos, current_team)
@@ -5314,6 +5312,8 @@ func on_knight_clicked(knight: Knight):
 	if not game_mode:
 		return
 	if wall_placement_mode:
+		return
+	if knight in units_moved_this_turn:
 		return
 	if buy_mode != "":
 		if knight.team != current_team:
@@ -5382,6 +5382,8 @@ func on_farmer_clicked(farmer):
 	if not game_mode:
 		return
 	if wall_placement_mode:
+		return
+	if farmer in units_moved_this_turn:
 		return
 	# Anuluj buy mode i pozwól na normalny ruch
 	if buy_mode != "":
@@ -6075,16 +6077,14 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 			# Pole z pełnymi murami — podświetl dla knight i cavalry
 			match unit_type:
 				"knight":
+					# Przy ZAKUPIE knight: podświetl tylko puste mury (bez zamku)
+					# Zamek z murami wymaga 2 tur — tylko istniejący knight na mapie może to zrobić
 					if obj == null:
-						# Puste mury — knight wchodzi w 1 ruchu
 						var col = HIGHLIGHT_COLOR_CAPTURE
 						if owner > 0 and owner <= 4 and owner != current_team:
 							col = TEAM_COLORS[int(owner)].lightened(0.3)
 						result.append({"hex": hex, "coords": coords, "color": col, "type": "walled_empty"})
-					elif obj is Castle and obj.team != current_team and obj.team > 0:
-						# Zamek z murami — 2 tury (przyciemniony)
-						result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(obj.team)].lightened(0.3).darkened(0.3), "type": "walled_castle"})
-					elif not (obj is Cavalry) and obj != null:
+					elif obj != null and not (obj is Castle) and not (obj is Cavalry):
 						var defense = get_unit_wall_defense(obj)
 						if 2 >= defense and obj.team != current_team and obj.team > 0:
 							result.append({"hex": hex, "coords": coords, "color": TEAM_COLORS[int(obj.team)].lightened(0.3).darkened(0.3), "type": "walled_unit"})
@@ -6116,7 +6116,9 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 			# Obóz bandytów lub wrogi zamek
 			var castle = obj as Castle
 			if castle.team == BANDIT_TEAM:
-				result.append({"hex": hex, "coords": coords, "color": BANDIT_CAMP_COLOR.lightened(0.4), "type": "bandit_camp"})
+				match unit_type:
+					"knight", "cavalry", "spearman":
+						result.append({"hex": hex, "coords": coords, "color": BANDIT_CAMP_COLOR.lightened(0.4), "type": "bandit_camp"})
 			elif castle.team != current_team and castle.team > 0:
 				match unit_type:
 					"knight", "cavalry", "spearman":
@@ -6125,7 +6127,9 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 		elif obj is Farmer:
 			var farmer_u = obj as Farmer
 			if farmer_u.team == BANDIT_TEAM:
-				result.append({"hex": hex, "coords": coords, "color": BANDIT_COLOR.lightened(0.3), "type": "bandit"})
+				match unit_type:
+					"knight", "cavalry", "spearman":
+						result.append({"hex": hex, "coords": coords, "color": BANDIT_COLOR.lightened(0.3), "type": "bandit"})
 			elif farmer_u.team != current_team and farmer_u.team > 0:
 				match unit_type:
 					# farmer NIE atakuje wrogiego farmera — usunięte "farmer" z matcha

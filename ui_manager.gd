@@ -1154,6 +1154,7 @@ func update_ui_data():
 	
 	# Update unit buttons availability
 	if hex_grid.current_team in hex_grid.team_gold:
+		var ai_playing = hex_grid.ai_is_playing
 		# NAPRAWKA: Sprawdzaj złoto wybranego królestwa (nie całego teamu)
 		var current_gold = hex_grid.get_selected_kingdom_gold(hex_grid.current_team)
 		
@@ -1161,17 +1162,20 @@ func update_ui_data():
 			if unit_id in unit_buttons and unit_buttons[unit_id].has_meta("button"):
 				var btn = unit_buttons[unit_id].get_meta("button")
 				if is_instance_valid(btn):
-					match unit_id:
-						"farmer":
-							btn.disabled = current_gold < 10
-						"spearman":
-							btn.disabled = current_gold < 20
-						"knight":
-							btn.disabled = current_gold < 40
-						"cavalry":
-							btn.disabled = current_gold < 80
-						"wall":
-							btn.disabled = current_gold < 4
+					if ai_playing:
+						btn.disabled = true
+					else:
+						match unit_id:
+							"farmer":
+								btn.disabled = current_gold < 10
+							"spearman":
+								btn.disabled = current_gold < 20
+							"knight":
+								btn.disabled = current_gold < 40
+							"cavalry":
+								btn.disabled = current_gold < 80
+							"wall":
+								btn.disabled = current_gold < 4
 	
 	# Update dominance bar
 	update_dominance_bar()
@@ -1266,6 +1270,7 @@ func reset_all_buy_buttons():
 				var style_h = style.duplicate()
 				style_h.bg_color = BORDER_COLOR
 				btn.add_theme_stylebox_override("hover", style_h)
+				btn.release_focus()
 
 func set_buy_button_active(id: String, active: bool):
 	"""Ustawia jeden przycisk zakupu jako aktywny/nieaktywny, resztę resetuje"""
@@ -1398,7 +1403,7 @@ func set_wall_button_active(active: bool):
 	set_buy_button_active("wall", active)
 				
 func set_buttons_enabled(enabled: bool):
-	"""Blokuje/odblokuje przyciski Next Round i Undo"""
+	"""Blokuje/odblokuje przyciski Next Round i Undo, odswiezа przyciski zakupu"""
 	if undo_button and undo_button.has_meta("button"):
 		var undo_btn = undo_button.get_meta("button")
 		if is_instance_valid(undo_btn):
@@ -1408,3 +1413,6 @@ func set_buttons_enabled(enabled: bool):
 		var next_btn = next_button.get_meta("button")
 		if is_instance_valid(next_btn):
 			next_btn.disabled = not enabled
+	
+	# Odswież przyciski zakupu — update_ui_data sprawdzi ai_is_playing i złoto
+	update_ui_data()

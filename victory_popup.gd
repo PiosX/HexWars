@@ -426,14 +426,14 @@ func show_victory(level: int):
 		level_label.text = "Level %d" % level
 	
 	# Check if level was already completed BEFORE marking it
-	var was_already_completed = is_level_completed(level)
+	var was_already_completed = get_node("/root/Main").is_level_completed(level)
 	
 	# IMPORTANT: Mark level as completed
-	mark_level_completed(level)
+	var main = get_node("/root/Main")
+	main.complete_level(level)
 	
 	# Add currency reward ONLY if first time completing
 	if not was_already_completed:
-		var main = get_node("/root/Main")
 		main.add_currency(3)
 		print("First time victory! +3 currency awarded")
 	else:

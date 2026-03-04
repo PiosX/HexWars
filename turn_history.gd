@@ -46,6 +46,10 @@ func save_turn_snapshot(hex_grid) -> void:
 		# Mury - zapisujemy dane wall_map
 		"walls": _serialize_walls(hex_grid.wall_map),
 		
+		"bandit_camp_ownership": _serialize_bandit_ownership(hex_grid.bandit_camp_ownership),
+		"bandit_camp_gold": hex_grid.bandit_camp_gold.duplicate(),
+		"next_bandit_camp_id": hex_grid.next_bandit_camp_id,
+		
 		# Kingdom system - zapisujemy IDs zamków i liczniki
 		"castle_kingdom_id": hex_grid.castle_kingdom_id.duplicate() if "castle_kingdom_id" in hex_grid else {},
 		"next_kingdom_id_per_team": hex_grid.next_kingdom_id_per_team.duplicate() if "next_kingdom_id_per_team" in hex_grid else {1:1,2:1,3:1,4:1},
@@ -65,6 +69,12 @@ func save_turn_snapshot(hex_grid) -> void:
 	print("=== SNAPSHOT ZAPISANY ===")
 	print("Runda: ", snapshot.round, " | Drużyna: ", snapshot.team)
 	print("Snapshottów w historii: ", snapshots.size())
+	
+func _serialize_bandit_ownership(ownership: Dictionary) -> Dictionary:
+	var result = {}
+	for camp_id in ownership:
+		result[camp_id] = ownership[camp_id].duplicate()
+	return result
 
 func restore_previous_turn(hex_grid) -> bool:
 	"""Przywraca stan z poprzedniej tury - KOSZTUJE 1 WALUTĘ"""
@@ -289,6 +299,15 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 			hex_grid.recalculate_kingdoms(t)
 	if hex_grid.has_method("_update_bandit_camp_gold_labels"):
 		hex_grid._update_bandit_camp_gold_labels()
+		
+	if snapshot.has("next_bandit_camp_id"):
+		hex_grid.next_bandit_camp_id = snapshot.next_bandit_camp_id
+	if snapshot.has("bandit_camp_gold"):
+		hex_grid.bandit_camp_gold = snapshot.bandit_camp_gold.duplicate()
+	if snapshot.has("bandit_camp_ownership"):
+		hex_grid.bandit_camp_ownership = {}
+		for camp_id in snapshot.bandit_camp_ownership:
+			hex_grid.bandit_camp_ownership[int(camp_id)] = snapshot.bandit_camp_ownership[camp_id].duplicate()
 	
 	await hex_grid.get_tree().create_timer(0.05).timeout
 	hex_grid.pulse_available_units()

@@ -375,15 +375,8 @@ func create_mega_bundle_box(parent: VBoxContainer):
 	limited_hbox.anchor_bottom = 1.0
 	limited_badge.add_child(limited_hbox)
 	
-	var zap_icon = TextureRect.new()
-	zap_icon.texture = load(ICON_ZAP)
-	zap_icon.custom_minimum_size = Vector2(20, 20)
-	zap_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	zap_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	limited_hbox.add_child(zap_icon)
-	
 	var limited_label = Label.new()
-	limited_label.text = "LIMITED"
+	limited_label.text = "+30% BONUS"
 	limited_label.add_theme_font_size_override("font_size", 16)
 	limited_label.add_theme_color_override("font_color", Color.WHITE)
 	var font_bold = FontVariation.new()
@@ -411,7 +404,7 @@ func create_mega_bundle_box(parent: VBoxContainer):
 	bundle_panel.add_child(discount_badge)
 	
 	var discount_label = Label.new()
-	discount_label.text = "-75% OFF"
+	discount_label.text = "BEST DEAL"
 	discount_label.add_theme_font_size_override("font_size", 16)
 	discount_label.add_theme_color_override("font_color", Color.WHITE)
 	discount_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -485,7 +478,7 @@ func create_mega_bundle_box(parent: VBoxContainer):
 	text_vbox.add_child(amount_hbox)
 	
 	var amount_label = Label.new()
-	amount_label.text = "5,000"
+	amount_label.text = "420"
 	amount_label.add_theme_font_size_override("font_size", 32)
 	amount_label.add_theme_color_override("font_color", TEXT_GOLD)
 	var amount_bold = FontVariation.new()
@@ -511,8 +504,8 @@ func create_mega_bundle_box(parent: VBoxContainer):
 	price_hbox.add_child(old_price_container)
 	
 	var old_price = Label.new()
-	old_price.text = "$19.99"
-	old_price.add_theme_font_size_override("font_size", 22)
+	old_price.text = "Popular"
+	old_price.add_theme_font_size_override("font_size", 19)
 	old_price.add_theme_color_override("font_color", TEXT_SECONDARY)
 	old_price.anchor_left = 0.0
 	old_price.anchor_top = 0.5
@@ -520,18 +513,6 @@ func create_mega_bundle_box(parent: VBoxContainer):
 	old_price.offset_top = -15
 	old_price.offset_bottom = 15
 	old_price_container.add_child(old_price)
-	
-	# Draw strikethrough line
-	var line = ColorRect.new()
-	line.color = TEXT_SECONDARY
-	line.anchor_left = 0.0
-	line.anchor_right = 1.0
-	line.anchor_top = 0.5
-	line.anchor_bottom = 0.5
-	line.offset_top = -1
-	line.offset_bottom = 1
-	line.offset_right = -20
-	old_price_container.add_child(line)
 	
 	var new_price = Label.new()
 	new_price.text = "$4.99"
@@ -602,13 +583,13 @@ func create_small_purchase_boxes(parent: VBoxContainer):
 	parent.add_child(hbox)
 	
 	# Box 1: 100 for $0.99
-	create_small_box(hbox, "100", "$0.99", "")
+	create_small_box(hbox, "30", "$0.49", "")
 	
 	# Box 2: 500 for $4.99 with +10% BONUS
-	create_small_box(hbox, "500", "$4.99", "+10% BONUS")
+	create_small_box(hbox, "70", "$0.99", "+15% BONUS")
 	
 	# Box 3: 1200 for $9.99 with +20% BONUS
-	create_small_box(hbox, "1200", "$9.99", "+20% BONUS")
+	create_small_box(hbox, "220", "$2.99", "+20% BONUS")
 
 func create_small_box(parent: HBoxContainer, amount: String, price: String, bonus: String):
 	"""Creates single small purchase box"""
@@ -838,7 +819,7 @@ func create_remove_ads_box(parent: VBoxContainer):
 	
 	# Price button - SMALL, FULLY ROUNDED
 	var price_button = Button.new()
-	price_button.text = "$4.99"
+	price_button.text = "$1.99"
 	price_button.custom_minimum_size = Vector2(100, 48)
 	price_button.focus_mode = Control.FOCUS_NONE
 	price_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -970,7 +951,7 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
 		var badge_style = StyleBoxFlat.new()
-		badge_style.bg_color = Color("FB2C36")
+		badge_style.bg_color = Color("00BC7D")
 		badge_style.corner_radius_top_left = 14
 		badge_style.corner_radius_top_right = 14
 		badge_style.corner_radius_bottom_left = 14
@@ -978,7 +959,7 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		badge.add_theme_stylebox_override("panel", badge_style)
 		
 		var badge_label = Label.new()
-		badge_label.text = "75% OFF"
+		badge_label.text = "BONUS"
 		badge_label.add_theme_font_size_override("font_size", 14)
 		badge_label.add_theme_color_override("font_color", Color.WHITE)
 		badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

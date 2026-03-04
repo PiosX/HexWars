@@ -579,40 +579,61 @@ func center_camera_on_hexes():
 
 func center_camera_on_current_level():
 	"""
-	Centruje kamerę na aktualnym poziomie (pierwszy nieukończony).
-	Jeśli wszystko ukończone – na ostatnim hexie.
-	Jeśli nic nie ma – na środku mapy.
+	Centruje kamerę na środku wyspy (grupy) do której należy aktualny poziom.
+	Wyspa to spójny zbiór hexów połączonych ze sobą (BFS).
+	Aktualny poziom = pierwszy nieukończony. Fallback: wyspa z najwyższym poziomem.
 	"""
 	if hex_map.is_empty():
 		hex_container.position = Vector2(0, 0)
 		return
-	
-	# Znajdź hex z aktualnym poziomem (is_current = true)
-	var target_hex: Node2D = null
+
+	# Znajdź numer aktualnego poziomu
+	var current_level_num: int = -1
 	for hex in hex_map.values():
 		if hex.is_current:
-			target_hex = hex
+			current_level_num = hex.level_number
 			break
-	
-	# Fallback: ostatni hex wg numeru poziomu
-	if not target_hex:
+
+	# Fallback: ostatni poziom (wszystko ukończone)
+	if current_level_num == -1:
 		var max_level = 0
 		for hex in hex_map.values():
 			if hex.level_number > max_level:
 				max_level = hex.level_number
-				target_hex = hex
-	
-	# Fallback: środek mapy
-	if not target_hex:
+		current_level_num = max_level
+
+	if current_level_num == -1:
 		center_camera_on_hexes()
 		return
-	
+
+	# Znajdź wyspę (grupę) zawierającą aktualny poziom
+	var groups = detect_groups()
+	var target_group: Array = []
+	for group in groups:
+		for gp in group:
+			var lvl = level_data.get(gp, {}).get("level", -1)
+			if int(lvl) == current_level_num:
+				target_group = group
+				break
+		if not target_group.is_empty():
+			break
+
+	# Fallback: pierwsza grupa
+	if target_group.is_empty() and not groups.is_empty():
+		target_group = groups[0]
+
+	if target_group.is_empty():
+		center_camera_on_hexes()
+		return
+
+	# Środek wyspy = średnia pozycja wszystkich hexów w grupie
+	var island_center = _group_center_pixel(target_group)
+
 	var viewport_size = get_viewport().get_visible_rect().size
-	# Wycentruj tak żeby target_hex był na środku ekranu (z uwzględnieniem top/bottom paneli)
 	var safe_center_y = (TOP_PANEL_HEIGHT + (viewport_size.y - BOTTOM_PANEL_HEIGHT)) / 2
 	var offset = Vector2(
-		viewport_size.x / 2 - target_hex.position.x,
-		safe_center_y - target_hex.position.y
+		viewport_size.x / 2 - island_center.x,
+		safe_center_y - island_center.y
 	)
 	hex_container.position = clamp_to_bounds(offset)
 
@@ -718,7 +739,7 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		
 		var badge_style = StyleBoxFlat.new()
-		badge_style.bg_color = Color("FB2C36")
+		badge_style.bg_color = Color("00BC7D")
 		badge_style.corner_radius_top_left = 14
 		badge_style.corner_radius_top_right = 14
 		badge_style.corner_radius_bottom_left = 14
@@ -726,7 +747,7 @@ func create_nav_button(label_text: String, icon_path: String, border_color: Colo
 		badge.add_theme_stylebox_override("panel", badge_style)
 		
 		var badge_label = Label.new()
-		badge_label.text = "75% OFF"
+		badge_label.text = "BONUS"
 		badge_label.add_theme_font_size_override("font_size", 14)
 		badge_label.add_theme_color_override("font_color", Color.WHITE)
 		badge_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1850,36 +1871,22 @@ func update_all_hexes_from_progress():
 	rebuild_group_visuals()
 
 func save_progress_data():
-	var file = FileAccess.open(PROGRESS_PATH, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(progress_data, "\t"))
-		file.close()
-		print("Progress saved to ", PROGRESS_PATH)
-	else:
-		print("Failed to save progress")
+	# Zapis obsługuje main.gd - nic do roboty tutaj
+	pass
 
 func load_progress_data():
-	if not FileAccess.file_exists(PROGRESS_PATH):
-		print("No saved progress found - starting fresh")
+	var main = get_node_or_null("/root/Main")
+	if not main:
+		print("No Main node found - starting fresh")
 		progress_data = {}
 		return
 	
-	var file = FileAccess.open(PROGRESS_PATH, FileAccess.READ)
-	if not file:
-		print("Failed to open progress file")
-		return
+	# Zbuduj progress_data ze słownika completed_levels z main.gd
+	progress_data = {}
+	for level_num in main.completed_levels:
+		progress_data[str(level_num)] = {"completed": true}
 	
-	var json_string = file.get_as_text()
-	file.close()
-	
-	var json = JSON.new()
-	var parse_result = json.parse(json_string)
-	if parse_result != OK:
-		print("Failed to parse progress JSON")
-		return
-	
-	progress_data = json.data
-	print("Progress loaded from ", PROGRESS_PATH)
+	print("Progress loaded from Main: ", main.completed_levels.size(), " completed levels")
 
 func print_available_level_files():
 	"""Prints all available level files in res://levels/ directory"""
@@ -1951,13 +1958,18 @@ func reset_progress():
 	# Clear progress data
 	progress_data.clear()
 	
+	# Wyczysc tez main.gd - jedyne zrodlo prawdy
+	var main = get_node_or_null("/root/Main")
+	if main:
+		main.completed_levels.clear()
+		main.high_scores.clear()
+		main.save_game_data()
+		print("Main progress cleared")
+	
 	# Delete progress file if it exists
 	if FileAccess.file_exists(PROGRESS_PATH):
 		DirAccess.remove_absolute(PROGRESS_PATH)
 		print("Progress file deleted: ", PROGRESS_PATH)
-	
-	# Save empty progress
-	save_progress_data()
 	
 	# Update all hexes to reflect reset state
 	update_all_hexes_from_progress()

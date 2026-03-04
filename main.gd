@@ -388,6 +388,10 @@ func toggle_music(enabled: bool):
 func change_scene(scene_resource):
 	await fade_out()
 	_do_change_scene(scene_resource)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var delay = 0.4 if scene_resource == LEVEL_SELECT else 0.2
+	await get_tree().create_timer(delay).timeout
 	await fade_in()
 
 func _do_change_scene(scene_resource):

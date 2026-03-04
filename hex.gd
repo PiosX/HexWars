@@ -46,6 +46,8 @@ func _on_input_event(_viewport, event, _shape_idx):
 			parent.on_hex_clicked(self)
 
 func _on_mouse_entered():
+	if DisplayServer.is_touchscreen_available():
+		return
 	if sprite:
 		# Jeśli hex ma zaznaczoną jednostkę - utrzymuj stan selected
 		if has_meta("is_unit_selected") and get_meta("is_unit_selected"):
