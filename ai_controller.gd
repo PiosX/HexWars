@@ -2813,7 +2813,7 @@ func defend_castle_single_threat(state: Dictionary, goal: Dictionary):
 		if unit_data.type in ["knight", "cavalry", "spearman"]:
 			var current_pos = unit_data.unit.hex_position
 			var dist_to_enemy = hex_distance(current_pos, enemy_pos)
-			var dist_to_castle = castle_pos != Vector2i.ZERO and hex_distance(current_pos, castle_pos) or 0
+			var dist_to_castle = hex_distance(current_pos, castle_pos) if castle_pos != Vector2i.ZERO else 0
 			
 			# Nie cofaj jednostki z frontu (jest bliżej wroga niż zamku = na froncie)
 			# Cofaj TYLKO gdy jednostka jest za wrogiem (wróg jest bliżej zamku niż ona)

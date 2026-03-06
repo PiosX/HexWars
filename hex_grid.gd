@@ -5733,16 +5733,29 @@ func load_layout() -> bool:
 			place_farmer_at(coords, farmer_data["team"])
 	
 	if data.has("walls"):
+		if not has_meta("wall_lines"):
+			set_meta("wall_lines", {})
+		var wall_lines = get_meta("wall_lines")
 		for wall_key in data["walls"]:
-			wall_map[wall_key] = true
-			# Odtworz linie z klucza
-			var parts = wall_key.split("-")
+			# Parsuj klucz "x,y-edgeN"
+			var parts = wall_key.split("-edge")
 			if parts.size() == 2:
-				var from_coords = parts[0].split(",")
-				var to_coords = parts[1].split(",")
-				if from_coords.size() == 2 and to_coords.size() == 2:
-					var hex1 = Vector2i(int(from_coords[0]), int(from_coords[1]))
-					var hex2 = Vector2i(int(to_coords[0]), int(to_coords[1]))
+				var coords_parts = parts[0].split(",")
+				var edge_i = int(parts[1])
+				if coords_parts.size() == 2:
+					var hex_coords = Vector2i(int(coords_parts[0]), int(coords_parts[1]))
+					wall_map[wall_key] = {"team": 1, "hex": hex_coords, "edge": edge_i}
+					# Odtwórz linię wizualną
+					var center = hex_to_pixel(hex_coords)
+					var hex_radius = hex_width * 0.45
+					var angles = [30, 90, 150, 210, 270, 330]
+					var start = center + Vector2(hex_radius * cos(deg_to_rad(angles[edge_i])), hex_radius * sin(deg_to_rad(angles[edge_i])))
+					var end = center + Vector2(hex_radius * cos(deg_to_rad(angles[(edge_i + 1) % 6])), hex_radius * sin(deg_to_rad(angles[(edge_i + 1) % 6])))
+					var wall_line = WallLine.new()
+					wall_line.z_index = 10
+					wall_line.setup(start, end, Color.WHITE, 2.5, false)
+					add_child(wall_line)
+					wall_lines[wall_key] = wall_line
 	
 	# Przelicz królestwa dla wszystkich drużyn
 	for t in [1, 2, 3, 4]:
@@ -5843,8 +5856,29 @@ func load_layout_from_file(file_name: String) -> bool:
 	
 	# Load walls
 	if data.has("walls"):
+		if not has_meta("wall_lines"):
+			set_meta("wall_lines", {})
+		var wall_lines = get_meta("wall_lines")
 		for wall_key in data["walls"]:
-			wall_map[wall_key] = true
+			# Parsuj klucz "x,y-edgeN"
+			var parts = wall_key.split("-edge")
+			if parts.size() == 2:
+				var coords_parts = parts[0].split(",")
+				var edge_i = int(parts[1])
+				if coords_parts.size() == 2:
+					var hex_coords = Vector2i(int(coords_parts[0]), int(coords_parts[1]))
+					wall_map[wall_key] = {"team": 1, "hex": hex_coords, "edge": edge_i}
+					# Odtwórz linię wizualną
+					var center = hex_to_pixel(hex_coords)
+					var hex_radius = hex_width * 0.45
+					var angles = [30, 90, 150, 210, 270, 330]
+					var start = center + Vector2(hex_radius * cos(deg_to_rad(angles[edge_i])), hex_radius * sin(deg_to_rad(angles[edge_i])))
+					var end = center + Vector2(hex_radius * cos(deg_to_rad(angles[(edge_i + 1) % 6])), hex_radius * sin(deg_to_rad(angles[(edge_i + 1) % 6])))
+					var wall_line = WallLine.new()
+					wall_line.z_index = 10
+					wall_line.setup(start, end, Color.WHITE, 2.5, false)
+					add_child(wall_line)
+					wall_lines[wall_key] = wall_line
 	
 	# Przelicz królestwa dla wszystkich drużyn
 	for t in [1, 2, 3, 4]:

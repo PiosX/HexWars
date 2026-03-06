@@ -45,11 +45,6 @@ tile_set = SubResource("TileSet_o3jxj")
 [node name="HexGrid" type="Node2D" parent="."]
 position = Vector2(100, 100)
 script = ExtResource("4_d5x1h")
-editor_mode = null
-editor_tool = null
-hex_width = null
-hex_height = null
-hex_gap = null
 
 [node name="LevelEditorUI" type="CanvasLayer" parent="."]
 script = ExtResource("5_8mm7a")

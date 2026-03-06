@@ -1513,7 +1513,13 @@ func rebuild_group_visuals():
 		return
 	
 	# Sortuj grupy wg klucza (min level) – 1→2→3→...
-	groups.sort_custom(func(a, b): return _group_key(a) < _group_key(b))
+	groups.sort_custom(func(a, b):
+		var ka = _group_key(a)
+		var kb = _group_key(b)
+		if ka == -1: ka = 999999
+		if kb == -1: kb = 999999
+		return ka < kb
+	)
 	
 	# Użyj środka geometrycznego każdej grupy jako punktu startowego linii
 	var centers = []
