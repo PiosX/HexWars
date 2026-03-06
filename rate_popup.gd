@@ -97,7 +97,7 @@ func _on_rate_pressed():
 		if main.has_method("save_game_data"):
 			main.save_game_data()
 	# Android — replace with your package name:
-	OS.shell_open("market://details?id=com.your.game")
+	OS.shell_open("market://details?id=com.redmoongames.hexwars")
 	# iOS — uncomment and replace ID:
 	# OS.shell_open("https://apps.apple.com/app/idXXXXXX")
 	hide_popup()

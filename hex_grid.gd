@@ -170,7 +170,7 @@ func _ready():
 	if not load_layout():
 		create_rectangle_grid(8, 8)
 	
-	set_team_ai(2, 1, 0.8)  # Czerwony = Hard, agresywny
+	set_team_ai(2, 1, 0.5)  # Czerwony = Hard, agresywny
 	set_team_ai(3, 0, 0.3)  # Fioletowy = Normal, defensywny
 	set_team_ai(4, 0, 0.5)  # Żółty = Normal, zbalansowany
 	
@@ -566,7 +566,9 @@ func calculate_income(team: int) -> int:
 	var connected_territories = get_connected_territories(team)
 	var territory_income = 0
 	for coords in connected_territories:
-		if not castle_map.has(coords):  # Pole zamku nie daje dochodu z terytorium
+		if castle_map.has(coords):
+			territory_income += GOLD_PER_TERRITORY * 2
+		else:
 			territory_income += GOLD_PER_TERRITORY
 	
 	return territory_income
@@ -1439,7 +1441,11 @@ func _on_rewind_turn():
 		print("Cofanie tur dostępne tylko w trybie gry!")
 		return
 	
-	if not turn_history.can_rewind():
+	var active_t = {}
+	for coords in castle_map:
+		if castle_map[coords].team > 0:
+			active_t[castle_map[coords].team] = true
+	if not turn_history.can_rewind(max(1, active_t.size())):
 		print("Nie można cofnąć tury!")
 		return
 	
@@ -1465,8 +1471,13 @@ func _on_rewind_turn():
 	
 	# Cofnij turę — zawsze cofaj o 1 pełną rundę żeby wrócić do team 1
 	# num_teams = liczba AI + gracz (np. 3 AI + 1 = 4 tury na rundę)
-	var num_teams = ai_teams.size() + 1
-	var success = await turn_history.restore_multiple_turns(self, num_teams, 1)
+	var active_teams = {}
+	for coords in castle_map:
+		var t = castle_map[coords].team
+		if t > 0:
+			active_teams[t] = true
+	var num_teams = max(1, active_teams.size())
+	var success = await turn_history.restore_multiple_turns(self, num_teams, 3)
 	
 	if success:
 		print("✓ Tura cofnięta pomyślnie!")
@@ -3141,6 +3152,8 @@ func move_farmer(from: Vector2i, to: Vector2i):
 				camp_units[idx] = to
 	
 	await get_tree().create_timer(0.15).timeout
+	if not is_instance_valid(farmer):
+		return  # Farmer został zwolniony podczas animacji (np. brak miejsca na spawn)
 	if farmer.team == BANDIT_TEAM:
 		# Bandyci NIE zmieniają territory_map - tylko wizualnie malują hex na szaro
 		# Dzięki temu get_connected_territories działa poprawnie i podświetlanie też
@@ -3718,7 +3731,9 @@ func calculate_income_for_kingdom(kingdom_id: int) -> int:
 	var territories = get_kingdom_connected_territories(kingdom_id)
 	var income = 0
 	for coords in territories:
-		if not castle_map.has(coords):  # Pole zamku nie daje dochodu z terytorium
+		if castle_map.has(coords):
+			income += GOLD_PER_TERRITORY * 2
+		else:
 			income += GOLD_PER_TERRITORY
 	return income
 
@@ -6873,18 +6888,23 @@ func _on_defeat_rewind_2_turns():
 		return
 	
 	var current_rewinds = int(rewind_label.text)
-	if current_rewinds < 2:
+	if current_rewinds < 6:
 		print("Nie wystarczajaco rewindow: %d (potrzeba 2)" % current_rewinds)
 		return
 	
 	# Oblicz ile tur trzeba cofnąć aby wrócić do początku ostatnich 2 PEŁNYCH rund gracza (team 1)
-	var num_teams = ai_teams.size() + 1  # AI teams + gracz
+	var active_teams = {}
+	for coords in castle_map:
+		var t = castle_map[coords].team
+		if t > 0:
+			active_teams[t] = true
+	var num_teams = max(1, active_teams.size())
 	var turns_to_rewind = 2 * num_teams  # 2 rundy × liczba teamów
 	
 	print("Cofanie %d tur (2 rundy x %d teamów)" % [turns_to_rewind, num_teams])
 	
 	# Użyj nowej funkcji która cofa wiele tur naraz
-	var success = await turn_history.restore_multiple_turns(self, turns_to_rewind, 2)
+	var success = await turn_history.restore_multiple_turns(self, turns_to_rewind, 6)
 	
 	if not success:
 		print("ERROR: Nie udało się cofnąć tur!")

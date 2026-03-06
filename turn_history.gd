@@ -11,12 +11,12 @@ const MAX_SNAPSHOTS = 50
 func _init():
 	snapshots.clear()
 
-func can_rewind() -> bool:
+func can_rewind(num_teams: int = 1) -> bool:
 	"""Sprawdza czy można cofnąć turę"""
 	var main = get_node_or_null("/root/Main")
 	if not main:
 		return false
-	return main.get_currency() > 0 and snapshots.size() >= 2
+	return main.get_currency() >= 3 and snapshots.size() >= num_teams + 1
 
 func get_rewinds_remaining() -> int:
 	"""Zwraca aktualną ilość waluty (używaną jako rewindy)"""
@@ -58,6 +58,13 @@ func save_turn_snapshot(hex_grid) -> void:
 		"units_moved": [],
 		"cavalry_moves": {}
 	}
+	
+	var bandit_castle_camp_ids = {}
+	for coords in hex_grid.castle_map:
+		var c = hex_grid.castle_map[coords]
+		if c.team == -1 and c.has_meta("camp_id"):
+			bandit_castle_camp_ids[coords] = c.get_meta("camp_id")
+	snapshot["bandit_castle_camp_ids"] = bandit_castle_camp_ids
 	
 	# Dodaj snapshot na koniec listy
 	snapshots.append(snapshot)
@@ -139,6 +146,9 @@ func restore_multiple_turns(hex_grid, num_turns: int, rewinds_cost: int = 1) -> 
 	
 	# Usuń N ostatnich snapshottów
 	for i in range(num_turns):
+		snapshots.pop_back()
+		
+	while snapshots.size() >= 2 and snapshots[snapshots.size() - 1].team != 1:
 		snapshots.pop_back()
 	
 	# Pobierz snapshot do którego wracamy
@@ -245,6 +255,13 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 		if snapshot.has("castle_kingdom_id") and snapshot.castle_kingdom_id.has(coords):
 			forced_kid = snapshot.castle_kingdom_id[coords]
 		hex_grid.place_castle_at(coords, castle_team, forced_kid)
+		
+	if snapshot.has("bandit_castle_camp_ids"):
+		for coords in snapshot.bandit_castle_camp_ids:
+			if hex_grid.castle_map.has(coords):
+				var camp = hex_grid.castle_map[coords]
+				var cid = snapshot.bandit_castle_camp_ids[coords]
+				camp.set_meta("camp_id", cid)
 	
 	# POTEM przywróć kolory terytoriów (po zamkach!)
 	for coords in hex_grid.territory_map:
@@ -297,9 +314,6 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	if hex_grid.has_method("recalculate_kingdoms"):
 		for t in [1, 2, 3, 4]:
 			hex_grid.recalculate_kingdoms(t)
-	if hex_grid.has_method("_update_bandit_camp_gold_labels"):
-		hex_grid._update_bandit_camp_gold_labels()
-		
 	if snapshot.has("next_bandit_camp_id"):
 		hex_grid.next_bandit_camp_id = snapshot.next_bandit_camp_id
 	if snapshot.has("bandit_camp_gold"):
@@ -308,6 +322,10 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 		hex_grid.bandit_camp_ownership = {}
 		for camp_id in snapshot.bandit_camp_ownership:
 			hex_grid.bandit_camp_ownership[int(camp_id)] = snapshot.bandit_camp_ownership[camp_id].duplicate()
+	
+	# Aktualizuj etykiety PO przywróceniu danych
+	if hex_grid.has_method("_update_bandit_camp_gold_labels"):
+		hex_grid._update_bandit_camp_gold_labels()
 	
 	await hex_grid.get_tree().create_timer(0.05).timeout
 	hex_grid.pulse_available_units()

@@ -1149,4 +1149,5 @@ func update_toggle_button(btn: Button, is_enabled: bool):
 func _on_info_pressed():
 	"""Opens info/tutorial"""
 	get_node("/root/Main").play_btn_sound()
+	OS.shell_open("market://details?id=com.redmoongames.hexwars")
 	print("Info pressed")

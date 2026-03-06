@@ -15,7 +15,7 @@ run/main_scene="uid://fb2yunxth6tv"
 config/features=PackedStringArray("4.4", "Mobile")
 boot_splash/bg_color=Color(0, 0, 0, 1)
 boot_splash/image="uid://dlfddfxsqexy3"
-config/icon="uid://bd7xdnc1nawd1"
+config/icon="uid://v6wy6r6gi7fg"
 
 [autoload]
 

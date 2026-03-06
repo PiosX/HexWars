@@ -34,7 +34,7 @@ const RET_PATH = "res://ui/defeat/ret.png"
 const HOME_ICON = "res://ui/settings/home.png"
 const RETRY_ICON = "res://ui/defeat/retry.png"
 const WATCH_ICON = "res://ui/defeat/watch.png"
-const TIME_ICON = "res://ui/time.png"
+const TIME_ICON = "res://ui/defeat/rt2.png"
 
 # Refs
 var overlay: ColorRect
@@ -506,7 +506,7 @@ func create_option_box_with_time(icon_path: String, title: String, subtitle: Str
 	
 	var x2_label = Label.new()
 	x2_label.name = "X2Label"
-	x2_label.text = "x2"
+	x2_label.text = "x6"
 	x2_label.add_theme_font_size_override("font_size", 24)
 	x2_label.add_theme_color_override("font_color", text_color)
 	
@@ -762,17 +762,17 @@ func update_rewind_boxes_state():
 		return
 	
 	var current_rewinds = int(rewind_label.text)
-	print("DEBUG: Sprawdzam rewindy - current: %d, needed: 2" % current_rewinds)
+	print("DEBUG: Sprawdzam rewindy - current: %d, needed: 6" % current_rewinds)
 	
-	# Box aktywny tylko gdy mamy >= 2 rewindy
-	if current_rewinds >= 2:
+	# Box aktywny tylko gdy mamy >= 6 rewindy
+	if current_rewinds >= 6:
 		use_box.mouse_filter = Control.MOUSE_FILTER_PASS
 		use_box.modulate = Color.WHITE
 		print("Use Time box: ENABLED (rewinds: %d)" % current_rewinds)
 	else:
 		use_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		use_box.modulate = Color(0.5, 0.5, 0.5, 0.5)
-		print("Use Time box: DISABLED (rewinds: %d, need 2)" % current_rewinds)
+		print("Use Time box: DISABLED (rewinds: %d, need 6)" % current_rewinds)
 	
 	# Watch box zawsze aktywny
 	if watch_box:

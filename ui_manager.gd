@@ -70,7 +70,7 @@ const ICON_CLOSE = "res://ui/settings/close.png"
 const ICON_SOUND = "res://ui/settings/sound.png"
 const ICON_MUSIC = "res://ui/settings/music.png"
 const ICON_RESTART = "res://ui/settings/restart.png"
-const ICON_HOWTO = "res://ui/settings/howto.png"
+const ICON_HOWTO = "res://ui/settings/howto1.png"
 const ICON_STORE = "res://ui/settings/store.png"
 const ICON_HOME = "res://ui/settings/home.png"
 
@@ -1058,7 +1058,12 @@ func update_ui_data():
 		if is_instance_valid(undo_btn):
 			# NAPRAWKA: Zablokuj UNDO gdy AI gra lub nie można cofnąć
 			var ai_playing = hex_grid.ai_is_playing
-			undo_btn.disabled = ai_playing or not hex_grid.turn_history.can_rewind()
+			var active_teams = {}
+			for coords in hex_grid.castle_map:
+				if hex_grid.castle_map[coords].team > 0:
+					active_teams[hex_grid.castle_map[coords].team] = true
+			var num_t = max(1, active_teams.size())
+			undo_btn.disabled = ai_playing or not hex_grid.turn_history.can_rewind(num_t)
 			
 	var active_teams_count = 0
 	for team in [1, 2, 3, 4]:
