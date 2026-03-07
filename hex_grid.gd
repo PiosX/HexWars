@@ -93,7 +93,7 @@ const SPEARMAN_UPKEEP = 6
 const KNIGHT_COST = 40
 const KNIGHT_UPKEEP = 18
 const CAVALRY_COST = 80
-const CAVALRY_UPKEEP = 2
+const CAVALRY_UPKEEP = 50
 const GOLD_PER_TERRITORY = 1
 const WALL_COST_PER_HEX = 4
 const WALL_UPKEEP = 1
@@ -631,15 +631,15 @@ func _input(event):
 			return
 		
 		match event.keycode:
-			KEY_E:
-				game_mode = not game_mode
-				clear_highlights()
-				merge_mode = false
-				wall_placement_mode = false
-				print("Tryb: ", "GRA" if game_mode else "EDYTOR")
-				update_ui()
-				if game_mode:
-					pulse_available_units()
+			#KEY_E:
+				#game_mode = not game_mode
+				#clear_highlights()
+				#merge_mode = false
+				#wall_placement_mode = false
+				#print("Tryb: ", "GRA" if game_mode else "EDYTOR")
+				#update_ui()
+				#if game_mode:
+					#pulse_available_units()
 			KEY_1:
 				if not game_mode:
 					editor_tool = "Hex"
@@ -763,10 +763,10 @@ func _input(event):
 			KEY_X:
 				if game_mode:
 					cycle_team()
-			KEY_S:
-				save_layout()
-			KEY_L:
-				load_layout()
+			#KEY_S:
+				#save_layout()
+			#KEY_L:
+				#load_layout()
 			KEY_C:
 				if not game_mode:
 					clear_grid()
@@ -823,13 +823,13 @@ func _input(event):
 				if not game_mode:
 					save_layout_to_file("hex_layout_level10.json")
 					print("✓ Saved as Level 10")
-			KEY_ESCAPE:
-				if wall_placement_mode or buy_mode != "":
-					wall_placement_mode = false
-					wall_hexes_selected.clear()
-					buy_mode = ""
-					clear_highlights()
-					update_ui()
+			#KEY_ESCAPE:
+				#if wall_placement_mode or buy_mode != "":
+					#wall_placement_mode = false
+					#wall_hexes_selected.clear()
+					#buy_mode = ""
+					#clear_highlights()
+					#update_ui()
 	
 	if game_mode and wall_placement_mode and event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:

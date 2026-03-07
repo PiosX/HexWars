@@ -884,7 +884,7 @@ func create_hex_at(grid_pos: Vector2i) -> LevelHex:
 	var x = col * hex_horiz_spacing
 	var y = row * hex_vert_spacing
 	
-	if row % 2 == 1:
+	if row % 2 != 0:
 		x += hex_horiz_spacing * 0.5
 	
 	hex.position = Vector2(x, y)
@@ -1285,13 +1285,13 @@ func _input(event):
 	# Keyboard shortcuts (use _input for these)
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
-			KEY_E:
-				toggle_editor_mode()
+			#KEY_E:
+				#toggle_editor_mode()
 			KEY_S:
 				if editor_mode:
 					save_level_data()
-			KEY_L:
-				load_level_data()
+			#KEY_L:
+				#load_level_data()
 			KEY_R:
 				if editor_mode:
 					reset_progress()

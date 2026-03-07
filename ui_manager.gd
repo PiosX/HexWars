@@ -267,7 +267,7 @@ func setup_ui():
 		{"name": "Farmer", "icon": ICON_FARMER, "cost": 10, "upkeep": 2, "id": "farmer"},
 		{"name": "Spearman", "icon": ICON_SPEARMAN, "cost": 20, "upkeep": 6, "id": "spearman"},
 		{"name": "Knight", "icon": ICON_KNIGHT, "cost": 40, "upkeep": 18, "id": "knight"},
-		{"name": "Cavalry", "icon": ICON_CAVALRY, "cost": 80, "upkeep": 2, "id": "cavalry"},
+		{"name": "Cavalry", "icon": ICON_CAVALRY, "cost": 80, "upkeep": 50, "id": "cavalry"},
 		{"name": "Wall", "icon": ICON_WALL, "cost": 4, "upkeep": 0, "id": "wall"}
 	]
 

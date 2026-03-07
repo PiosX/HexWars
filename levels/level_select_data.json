@@ -2,7 +2,8 @@
 	"group_names": {
 		"1": "Valdoria",
 		"24": "Iron Vale",
-		"37": "Crimson Outlands"
+		"37": "Crimson Outlands",
+		"48": "The Last Dominion"
 	},
 	"hex_positions": [
 		[
@@ -192,6 +193,106 @@
 		[
 			8,
 			3
+		],
+		[
+			18,
+			-3
+		],
+		[
+			19,
+			-3
+		],
+		[
+			19,
+			-4
+		],
+		[
+			20,
+			-3
+		],
+		[
+			20,
+			-4
+		],
+		[
+			21,
+			-3
+		],
+		[
+			21,
+			-2
+		],
+		[
+			20,
+			-2
+		],
+		[
+			19,
+			-2
+		],
+		[
+			20,
+			-1
+		],
+		[
+			19,
+			-1
+		],
+		[
+			21,
+			-1
+		],
+		[
+			22,
+			-1
+		],
+		[
+			22,
+			0
+		],
+		[
+			21,
+			0
+		],
+		[
+			23,
+			0
+		],
+		[
+			23,
+			-1
+		],
+		[
+			23,
+			-2
+		],
+		[
+			24,
+			-2
+		],
+		[
+			24,
+			0
+		],
+		[
+			23,
+			1
+		],
+		[
+			24,
+			1
+		],
+		[
+			25,
+			0
+		],
+		[
+			24,
+			2
+		],
+		[
+			23,
+			2
 		]
 	],
 	"level_data": {
@@ -266,22 +367,22 @@
 			"level_file": "hex_layout_level34.json"
 		},
 		"10,2": {
-			"difficulty": 2,
+			"difficulty": 2.0,
 			"level": 38,
 			"level_file": "hex_layout_level38.json"
 		},
 		"10,3": {
-			"difficulty": 2,
+			"difficulty": 2.0,
 			"level": 43,
 			"level_file": "hex_layout_level43.json"
 		},
 		"10,4": {
-			"difficulty": 2,
+			"difficulty": 2.0,
 			"level": 45,
 			"level_file": "hex_layout_level45.json"
 		},
 		"11,1": {
-			"difficulty": 2,
+			"difficulty": 2.0,
 			"level": 37,
 			"level_file": "hex_layout_level37.json"
 		},
@@ -306,12 +407,12 @@
 			"level_file": "hex_layout_level35.json"
 		},
 		"11,2": {
-			"difficulty": 2,
+			"difficulty": 2.0,
 			"level": 39,
 			"level_file": "hex_layout_level39.json"
 		},
 		"11,4": {
-			"difficulty": 2,
+			"difficulty": 2.0,
 			"level": 46,
 			"level_file": "hex_layout_level46.json"
 		},
@@ -331,14 +432,39 @@
 			"level_file": "hex_layout_level36.json"
 		},
 		"12,2": {
-			"difficulty": 2,
+			"difficulty": 2.0,
 			"level": 40,
 			"level_file": "hex_layout_level40.json"
 		},
 		"12,4": {
-			"difficulty": 3,
+			"difficulty": 3.0,
 			"level": 47,
 			"level_file": "hex_layout_level47.json"
+		},
+		"18,-3": {
+			"difficulty": 2,
+			"level": 50,
+			"level_file": "hex_layout_level50.json"
+		},
+		"19,-1": {
+			"difficulty": 3,
+			"level": 57,
+			"level_file": "hex_layout_level57.json"
+		},
+		"19,-2": {
+			"difficulty": 3,
+			"level": 54,
+			"level_file": "hex_layout_level54.json"
+		},
+		"19,-3": {
+			"difficulty": 3,
+			"level": 51,
+			"level_file": "hex_layout_level51.json"
+		},
+		"19,-4": {
+			"difficulty": 2,
+			"level": 48,
+			"level_file": "hex_layout_level48.json"
 		},
 		"2,1": {
 			"difficulty": 1.0,
@@ -348,7 +474,7 @@
 		"2,2": {
 			"difficulty": 1.0,
 			"level": 7,
-			"level_file": ""
+			"level_file": "hex_layout_level7.json"
 		},
 		"2,3": {
 			"difficulty": 2.0,
@@ -369,6 +495,106 @@
 			"difficulty": 3.0,
 			"level": 22,
 			"level_file": "hex_layout_level22.json"
+		},
+		"20,-1": {
+			"difficulty": 2,
+			"level": 58,
+			"level_file": "hex_layout_level58.json"
+		},
+		"20,-2": {
+			"difficulty": 3,
+			"level": 55,
+			"level_file": "hex_layout_level55.json"
+		},
+		"20,-3": {
+			"difficulty": 3,
+			"level": 52,
+			"level_file": "hex_layout_level52.json"
+		},
+		"20,-4": {
+			"difficulty": 2,
+			"level": 49,
+			"level_file": "hex_layout_level49.json"
+		},
+		"21,-1": {
+			"difficulty": 3,
+			"level": 59,
+			"level_file": "hex_layout_level59.json"
+		},
+		"21,-2": {
+			"difficulty": 2,
+			"level": 56,
+			"level_file": "hex_layout_level56.json"
+		},
+		"21,-3": {
+			"difficulty": 3,
+			"level": 53,
+			"level_file": "hex_layout_level53.json"
+		},
+		"21,0": {
+			"difficulty": 2,
+			"level": 64,
+			"level_file": "hex_layout_level64.json"
+		},
+		"22,-1": {
+			"difficulty": 2,
+			"level": 60,
+			"level_file": "hex_layout_level60.json"
+		},
+		"22,0": {
+			"difficulty": 2,
+			"level": 65,
+			"level_file": "hex_layout_level65.json"
+		},
+		"23,-1": {
+			"difficulty": 2,
+			"level": 63,
+			"level_file": "hex_layout_level63.json"
+		},
+		"23,-2": {
+			"difficulty": 2,
+			"level": 61,
+			"level_file": "hex_layout_level61.json"
+		},
+		"23,0": {
+			"difficulty": 2,
+			"level": 66,
+			"level_file": "hex_layout_level66.json"
+		},
+		"23,1": {
+			"difficulty": 2,
+			"level": 69,
+			"level_file": "hex_layout_level69.json"
+		},
+		"23,2": {
+			"difficulty": 2,
+			"level": 71,
+			"level_file": "hex_layout_level71.json"
+		},
+		"24,-2": {
+			"difficulty": 2,
+			"level": 62,
+			"level_file": "hex_layout_level62.json"
+		},
+		"24,0": {
+			"difficulty": 2,
+			"level": 67,
+			"level_file": "hex_layout_level67.json"
+		},
+		"24,1": {
+			"difficulty": 2,
+			"level": 70,
+			"level_file": "hex_layout_level70.json"
+		},
+		"24,2": {
+			"difficulty": 2,
+			"level": 72,
+			"level_file": "hex_layout_level72.json"
+		},
+		"25,0": {
+			"difficulty": 1,
+			"level": 68,
+			"level_file": "hex_layout_level68.json"
 		},
 		"3,1": {
 			"difficulty": 1.0,
@@ -406,7 +632,7 @@
 			"level_file": "hex_layout_level9.json"
 		},
 		"8,3": {
-			"difficulty": 3,
+			"difficulty": 3.0,
 			"level": 41,
 			"level_file": "hex_layout_level41.json"
 		},
@@ -421,12 +647,12 @@
 			"level_file": "hex_layout_level28.json"
 		},
 		"9,3": {
-			"difficulty": 3,
+			"difficulty": 3.0,
 			"level": 42,
 			"level_file": "hex_layout_level42.json"
 		},
 		"9,4": {
-			"difficulty": 3,
+			"difficulty": 3.0,
 			"level": 44,
 			"level_file": "hex_layout_level44.json"
 		}
