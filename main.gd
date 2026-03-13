@@ -54,11 +54,8 @@ func _ready():
 	setup_fade_overlay()
 	change_scene(MAIN_MENU)
 	
-	# Pokaż banner w menu głównym
-	var admob = get_node_or_null("/root/AdMobManager")
-	if admob and admob.has_method("show_banner"):
-		admob.show_banner()
-		
+	# Banner pokazuje ConsentManager po uzyskaniu zgody
+	
 	_maybe_show_rate_on_start()
 
 func _maybe_show_rate_on_start():

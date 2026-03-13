@@ -2032,13 +2032,65 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	# Nigdy nie zostaw złota! Zawsze coś kup.
 	# ============================================================
 	
+	# Sprawdź czy królestwo jest zamknięte w murach (nie może się rozwijać)
+	# Jeśli tak: farmer bezużyteczny - czekaj na spearmana żeby przebić mury
+	var is_walled_in = false
+	var check_castle = Vector2i.ZERO
+	if kingdom_id > 0:
+		for coords in hex_grid.castle_map:
+			if hex_grid.castle_map[coords].team == team and \
+			   hex_grid.castle_kingdom_id.get(coords, 0) == kingdom_id:
+				check_castle = coords
+				break
+	if check_castle == Vector2i.ZERO and not state.my_castles.is_empty():
+		check_castle = state.my_castles[0]
+	
+	if check_castle != Vector2i.ZERO:
+		var castle_territory: Array = []
+		if kingdom_id > 0:
+			castle_territory = hex_grid.get_kingdom_connected_territories(kingdom_id)
+		else:
+			castle_territory = state.my_connected_hexes
+		
+		# Królestwo małe (max 4 pola) - sprawdź czy da się wyjść poza mury
+		if castle_territory.size() <= 4:
+			var territory_set: Dictionary = {}
+			for t in castle_territory:
+				territory_set[t] = true
+			var can_expand = false
+			for t_hex in castle_territory:
+				if can_expand:
+					break
+				for nb in hex_grid.get_neighbors(t_hex):
+					if not territory_set.has(nb) and hex_grid.hex_map.has(nb):
+						if not hex_grid.has_wall_between(t_hex, nb):
+							can_expand = true
+							break
+			if not can_expand:
+				is_walled_in = true
+				print("AI %d: Królestwo zamknięte w murach! Oszczędzam na spearmana." % team)
+	
 	var farmer_saturation = float(my_farmer_count) / max(1.0, float(my_hex_count))
 	
-	while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 6 and purchases.size() < spawn_positions.size():
-		var next_pos = spawn_positions[purchases.size()]
-		purchases.append({"type": "farmer", "position": next_pos, "cost": hex_grid.FARMER_COST})
-		remaining_budget -= hex_grid.FARMER_COST
-		my_farmer_count += 1
+	# Zamknięci w murach + już mamy farmera = skip farmerów, oszczędzaj na spearmana
+	var skip_farmers = is_walled_in and my_farmer_count > 0
+	
+	if is_walled_in and my_farmer_count == 0 and my_spearman_count == 0:
+		# Brak farmerów I brak spearmana - kup spearmana żeby przebić mury
+		if remaining_budget >= hex_grid.SPEARMAN_COST and purchases.size() < spawn_positions.size():
+			purchases.append({"type": "spearman", "position": spawn_positions[purchases.size()], "cost": hex_grid.SPEARMAN_COST})
+			remaining_budget -= hex_grid.SPEARMAN_COST
+			my_spearman_count += 1
+			my_combat_count += 1
+			skip_farmers = true
+			print("AI %d: Zamknięty w murach, brak farmerów - kupuję spearmana!" % team)
+	
+	if not skip_farmers:
+		while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 6 and purchases.size() < spawn_positions.size():
+			var next_pos = spawn_positions[purchases.size()]
+			purchases.append({"type": "farmer", "position": next_pos, "cost": hex_grid.FARMER_COST})
+			remaining_budget -= hex_grid.FARMER_COST
+			my_farmer_count += 1
 	
 	print("AI %d: Zaplanowano %d zakupów, zostaje %d złota" % [team, purchases.size(), remaining_budget])
 	return purchases

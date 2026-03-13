@@ -234,7 +234,7 @@ func setup_shop_content():
 	add_child(scroll)
 	
 	var vbox = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 26)  # Większe odstępy
+	vbox.add_theme_constant_override("separation", 20)  # Większe odstępy
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(vbox)
 	
@@ -249,6 +249,57 @@ func setup_shop_content():
 	
 	# Remove ads box
 	create_remove_ads_box(vbox)
+	
+	# Restore purchases button
+	create_restore_button(vbox)
+
+func create_restore_button(parent: VBoxContainer):
+	"""Przycisk przywracania zakupów - styl jak przyciski cenowe"""
+	# Mały odstęp nad przyciskiem
+	
+	var restore_btn = Button.new()
+	restore_btn.text = "Restore Purchases"
+	restore_btn.focus_mode = Control.FOCUS_NONE
+	restore_btn.custom_minimum_size = Vector2(240, 70)
+	restore_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	restore_btn.position.y -= 100
+	
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = BUTTON_BG
+	btn_style.border_width_left = 1
+	btn_style.border_width_right = 1
+	btn_style.border_width_top = 1
+	btn_style.border_width_bottom = 1
+	btn_style.border_color = BUTTON_BORDER
+	btn_style.corner_radius_top_left = 240
+	btn_style.corner_radius_top_right = 240
+	btn_style.corner_radius_bottom_left = 240
+	btn_style.corner_radius_bottom_right = 240
+	
+	var btn_hover = btn_style.duplicate()
+	btn_hover.bg_color = BUTTON_HOVER
+	
+	restore_btn.add_theme_stylebox_override("normal", btn_style)
+	restore_btn.add_theme_stylebox_override("hover", btn_hover)
+	restore_btn.add_theme_stylebox_override("pressed", btn_hover)
+	restore_btn.add_theme_font_size_override("font_size", 20)
+	restore_btn.add_theme_color_override("font_color", TEXT_PRIMARY)
+	var btn_bold = FontVariation.new()
+	btn_bold.set_variation_embolden(0.5)
+	restore_btn.add_theme_font_override("font", btn_bold)
+	
+	restore_btn.pressed.connect(_on_restore_pressed)
+	parent.add_child(restore_btn)
+
+func _on_restore_pressed():
+	"""Przywraca zakupy non-consumable"""
+	get_node("/root/Main").play_btn_sound()
+	print("Restore purchases pressed")
+	var iap = get_node_or_null("/root/IAPManager")
+	if iap and iap.has_method("restore_purchases"):
+		iap.restore_purchases()
+	else:
+		print("IAP restore: billing nie aktywny")
 
 func create_info_box(parent: VBoxContainer):
 	"""Info box with timeBig.png and text"""
@@ -571,6 +622,11 @@ func create_buy_button() -> TextureButton:
 	
 	btn.pressed.connect(func():
 		get_node("/root/Main").play_btn_sound()
+		var iap = get_node_or_null("/root/IAPManager")
+		if iap and iap.has_method("purchase_product"):
+			iap.purchase_product("time_pack_large")
+		else:
+			print("IAP: purchase_product not available (not on Android or plugin missing)")
 	)
 	
 	return btn
@@ -583,15 +639,15 @@ func create_small_purchase_boxes(parent: VBoxContainer):
 	parent.add_child(hbox)
 	
 	# Box 1: 100 for $0.99
-	create_small_box(hbox, "30", "$0.49", "")
+	create_small_box(hbox, "30", "$0.49", "", "time_pack_small")
 	
 	# Box 2: 500 for $4.99 with +10% BONUS
-	create_small_box(hbox, "70", "$0.99", "+15% BONUS")
+	create_small_box(hbox, "70", "$0.99", "+15% BONUS", "time_pack_medium")
 	
 	# Box 3: 1200 for $9.99 with +20% BONUS
-	create_small_box(hbox, "220", "$2.99", "+20% BONUS")
+	create_small_box(hbox, "220", "$2.99", "+20% BONUS", "time_pack_large")
 
-func create_small_box(parent: HBoxContainer, amount: String, price: String, bonus: String):
+func create_small_box(parent: HBoxContainer, amount: String, price: String, bonus: String, product_id: String = ""):
 	"""Creates single small purchase box"""
 	var box_container = Control.new()
 	box_container.custom_minimum_size = Vector2(0, 240)
@@ -744,6 +800,11 @@ func create_small_box(parent: HBoxContainer, amount: String, price: String, bonu
 	
 	price_button.pressed.connect(func():
 		get_node("/root/Main").play_btn_sound()
+		var iap = get_node_or_null("/root/IAPManager")
+		if iap and iap.has_method("purchase_product") and product_id != "":
+			iap.purchase_product(product_id)
+		else:
+			print("IAP: purchase_product not available (not on Android or plugin missing)")
 	)
 	
 	vbox.add_child(price_button)
@@ -854,6 +915,11 @@ func create_remove_ads_box(parent: VBoxContainer):
 	
 	price_button.pressed.connect(func():
 		get_node("/root/Main").play_btn_sound()
+		var iap = get_node_or_null("/root/IAPManager")
+		if iap and iap.has_method("purchase_product"):
+			iap.purchase_product("no_ads")
+		else:
+			print("IAP: purchase_product not available (not on Android or plugin missing)")
 	)
 	
 	hbox.add_child(price_button)
