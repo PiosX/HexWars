@@ -43,19 +43,16 @@ func _on_consent_info_updated():
 	var status = UserMessagingPlatform.consent_information.get_consent_status()
 	print("ConsentManager: status = ", status)
 
-	# Sprawdź czy formularz jest w ogóle potrzebny
-	if not UserMessagingPlatform.consent_information.is_consent_form_available():
+	if not UserMessagingPlatform.consent_information.get_is_consent_form_available():
 		print("ConsentManager: formularz niedostępny, startuj reklamy")
 		_start_ads()
 		return
 
-	# Jeśli zgoda już była udzielona wcześniej - nie pokazuj ponownie
 	if status == UserMessagingPlatform.consent_information.ConsentStatus.OBTAINED:
 		print("ConsentManager: zgoda już była, startuj reklamy")
 		_start_ads()
 		return
 
-	# Załaduj i pokaż formularz
 	UserMessagingPlatform.load_consent_form(
 		_on_form_loaded,
 		_on_consent_error
@@ -66,20 +63,15 @@ func _on_form_loaded(form: ConsentForm):
 	var status = UserMessagingPlatform.consent_information.get_consent_status()
 
 	if status == UserMessagingPlatform.consent_information.ConsentStatus.REQUIRED:
-		# Pokaż dialog zgody użytkownikowi
 		form.show(_on_form_dismissed)
 	else:
-		# Nie wymagana (użytkownik spoza EU) - od razu reklamy
 		_start_ads()
 
 func _on_form_dismissed(_error: FormError):
-	# Po zamknięciu formularza zawsze startuj reklamy
-	# AdMob sam dostosuje typ (spersonalizowane / niespersonalizowane)
 	print("ConsentManager: formularz zamknięty, startuj reklamy")
 	_start_ads()
 
 func _on_consent_error(error: FormError):
-	# Błąd UMP - i tak pokaż reklamy (niespersonalizowane)
 	print("ConsentManager: błąd UMP: ", error.get_message())
 	_start_ads()
 

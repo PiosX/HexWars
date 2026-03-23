@@ -1178,9 +1178,6 @@ func cycle_team():
 	if current_team == first_ct and old_team != first_ct:
 		current_round += 1
 		print("=== KONIEC RUNDY ===")
-		
-		print("=== Sprawdzam bankructwa ===")
-		process_bankruptcies()
 	
 	clear_highlights()
 	merge_mode = false
@@ -1278,32 +1275,13 @@ func _on_end_turn():
 		
 	if ui_manager:
 		ui_manager.set_buttons_enabled(false)
-	# === EKONOMIA - TYLKO NA KOŃCU RUNDY (gdy current_team == 4) ===
-	# Sprawdź bankructwa PRZED zapisem (zawsze)
+	# === EKONOMIA - TYLKO NA KOŃCU RUNDY ===
 	var teams_to_check = [1, 2, 3, 4]
-	
-	# Sprawdź bankructwa per-kingdom PRZED naliczeniem
-	for t in teams_to_check:
-		var all_kids_t: Array = []
-		for coords in castle_map:
-			if castle_map[coords].team == t:
-				var k = castle_kingdom_id.get(coords, 0)
-				if k > 0 and k not in all_kids_t:
-					all_kids_t.append(k)
-		for kid in all_kids_t:
-			var k_gold = kingdom_gold.get(kid, 0)
-			var k_upkeep = calculate_upkeep_for_kingdom(kid)
-			if k_gold < k_upkeep:
-				print("⚠ Kingdom %d (team %d) bankrutuje! (Złoto: %d, Koszty: %d)" % [kid, t, k_gold, k_upkeep])
-				handle_bankruptcy(t)
-	
-	# WAŻNE: Nalicz złoto/koszty TYLKO gdy kończy się cała runda (current_team == 4)
 	var active_eco = get_active_teams()
 	var last_active_team = active_eco[-1] if not active_eco.is_empty() else 4
 	if current_team == last_active_team:
 		print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII PER KINGDOM ===" % current_round)
 		for t in teams_to_check:
-			# Zbierz wszystkie kingdoms teamu
 			var all_kids: Array = []
 			for coords in castle_map:
 				if castle_map[coords].team == t:
@@ -1321,10 +1299,29 @@ func _on_end_turn():
 				kingdom_gold[kid] = max(0, kingdom_gold.get(kid, 0) + net)
 				print("  Kingdom %d (team %d): +%d dochód, -%d koszty = net %d → złoto: %d" % [kid, t, income, upkeep, net, kingdom_gold[kid]])
 			
-			# Zsynchronizuj team_gold
 			_rebuild_team_gold(t)
 			_redistribute_castle_gold(t)
 			print("  Team %d łącznie: %d złota" % [t, team_gold[t]])
+		
+		# Sprawdź bankructwa PO naliczeniu ekonomii
+		for t in teams_to_check:
+			var all_kids_b: Array = []
+			for coords in castle_map:
+				if castle_map[coords].team == t:
+					var k = castle_kingdom_id.get(coords, 0)
+					if k > 0 and k not in all_kids_b:
+						all_kids_b.append(k)
+			for kid in all_kids_b:
+				var k_gold = kingdom_gold.get(kid, 0)
+				var k_upkeep = calculate_upkeep_for_kingdom(kid)
+				# Bankrutuje gdy złoto = 0 i koszty > dochodu (net ujemny = złoto przybite do 0)
+				var k_income = calculate_income_for_kingdom(kid)
+				if k_gold == 0 and k_income < k_upkeep:
+					print("⚠ Kingdom %d (team %d) bankrutuje! (złoto=%d, dochód=%d, koszty=%d)" % [kid, t, k_gold, k_income, k_upkeep])
+					handle_bankruptcy(t)
+		
+		# Wykonaj bankructwa w tej samej rundzie
+		process_bankruptcies()
 	# === KONIEC ZMIANY EKONOMII ===
 	
 	# === BANDYCI: dochód z okupacji i spawn z obozów ===
@@ -1557,11 +1554,10 @@ func process_bankruptcies():
 				remove_spearman_at(coords)
 				spawn_bandit_at(coords)
 			elif farmer_map.has(coords):
-				var farmer = farmer_map[coords]
-				farmer.team = -1
-				farmer.spawn_turn = current_round
-				bandit_spawn_hexes[coords] = true
-				update_hex_color(coords)
+				# Usuń starego farmera i postaw nowego bandytę
+				# (zmiana farmer.team nie odświeża grafiki ani hex.occupied_object)
+				remove_farmer_at(coords)
+				spawn_bandit_at(coords)
 		
 		# Postaw oboz bandytow obok jednostek
 		place_bandit_camp_near_units(team_units, team_units)
@@ -2314,6 +2310,8 @@ func merge_knights_to_cavalry(knight1_pos: Vector2i, knight2_pos: Vector2i):
 	if knight1.team != knight2.team:
 		return
 		
+	var one_moved = (knight1 in units_moved_this_turn) or (knight2 in units_moved_this_turn)
+		
 	get_node("/root/Main").play_put_sound()
 	
 	remove_knight_at(knight2_pos)
@@ -2321,9 +2319,18 @@ func merge_knights_to_cavalry(knight1_pos: Vector2i, knight2_pos: Vector2i):
 	
 	place_cavalry_at(knight2_pos, knight1.team)
 	
+	if one_moved:
+		var new_cav = cavalry_map.get(knight2_pos)
+		if new_cav:
+			cavalry_moves_this_turn[new_cav] = 2
+	
 	print("Utworzono cavalry!")
 	merge_mode = false
+	if selected_unit:
+		clear_selected_unit_highlight()
+		selected_unit = null
 	clear_highlights()
+	pulse_available_units()
 	update_ui()
 
 func on_cavalry_clicked(cavalry):
@@ -2631,6 +2638,8 @@ func merge_farmers_to_spearman(farmer1_pos: Vector2i, farmer2_pos: Vector2i):
 	if farmer1.team != farmer2.team:
 		return
 		
+	var one_moved = (farmer1 in units_moved_this_turn) or (farmer2 in units_moved_this_turn)
+		
 	get_node("/root/Main").play_put_sound()
 	
 	remove_farmer_at(farmer2_pos)
@@ -2638,9 +2647,18 @@ func merge_farmers_to_spearman(farmer1_pos: Vector2i, farmer2_pos: Vector2i):
 	
 	place_spearman_at(farmer2_pos, farmer1.team)
 	
+	if one_moved:
+		var new_sp = spearman_map.get(farmer2_pos)
+		if new_sp:
+			units_moved_this_turn.append(new_sp)
+	
 	print("Utworzono spearmana!")
 	merge_mode = false
+	if selected_unit:
+		clear_selected_unit_highlight()
+		selected_unit = null
 	clear_highlights()
+	pulse_available_units()
 	update_ui()
 
 func merge_spearmen_to_knight(spearman1_pos: Vector2i, spearman2_pos: Vector2i):
@@ -2654,6 +2672,8 @@ func merge_spearmen_to_knight(spearman1_pos: Vector2i, spearman2_pos: Vector2i):
 	if spearman1.team != spearman2.team:
 		return
 		
+	var one_moved = (spearman1 in units_moved_this_turn) or (spearman2 in units_moved_this_turn)
+	
 	get_node("/root/Main").play_put_sound()
 	
 	remove_spearman_at(spearman2_pos)
@@ -2661,9 +2681,18 @@ func merge_spearmen_to_knight(spearman1_pos: Vector2i, spearman2_pos: Vector2i):
 	
 	place_knight_at(spearman2_pos, spearman1.team)
 	
+	if one_moved:
+		var new_kn = knight_map.get(spearman2_pos)
+		if new_kn:
+			units_moved_this_turn.append(new_kn)
+	
 	print("Utworzono knighta!")
 	merge_mode = false
+	if selected_unit:
+		clear_selected_unit_highlight()
+		selected_unit = null
 	clear_highlights()
+	pulse_available_units()
 	update_ui()
 
 func on_spearman_clicked(spearman):
@@ -2671,13 +2700,10 @@ func on_spearman_clicked(spearman):
 		return
 	if wall_placement_mode:
 		return
-	if spearman in units_moved_this_turn:
-		return
 	if buy_mode != "":
 		if spearman.team != current_team:
 			return
 		_cancel_buy_mode()
-		# Kontynuuj normalnie poniżej
 	
 	# Aktualizuj wybrane królestwo dla UI (każdy spearman)
 	var kid_sp = hex_kingdom_map.get(spearman.hex_position, 0)
@@ -2685,7 +2711,8 @@ func on_spearman_clicked(spearman):
 		selected_kingdom_per_team[spearman.team] = kid_sp
 		update_ui()
 	
-	# === NOWE: Łączenie spearmanów ===
+	# Łączenie spearmanów — sprawdź PRZED early-return units_moved_this_turn
+	# żeby spearman który już się ruszył też mógł być celem merge
 	if selected_unit and selected_unit is Spearman and selected_unit != spearman:
 		if spearman.team == selected_unit.team:
 			merge_spearmen_to_knight(selected_unit.hex_position, spearman.hex_position)
@@ -2693,12 +2720,11 @@ func on_spearman_clicked(spearman):
 		else:
 			get_node("/root/Main").play_select_sound()
 	
-	# === Reszta bez zmian ===
-	if spearman.team != current_team:
+	if spearman in units_moved_this_turn:
 		return
 	
-	if spearman in units_moved_this_turn:
-		print("Ta jednostka już się ruszyła w tej turze")
+	# === Reszta bez zmian ===
+	if spearman.team != current_team:
 		return
 		
 	get_node("/root/Main").play_select_sound()
@@ -3727,14 +3753,20 @@ func get_kingdom_connected_territories(kingdom_id: int) -> Array:
 	return result
 
 func calculate_income_for_kingdom(kingdom_id: int) -> int:
-	"""Dochód z konkretnego królestwa"""
+	"""Dochód z konkretnego królestwa (bandyci stojący na polach blokują dochód)"""
 	var territories = get_kingdom_connected_territories(kingdom_id)
 	var income = 0
 	for coords in territories:
-		if castle_map.has(coords):
-			income += GOLD_PER_TERRITORY * 2
-		else:
-			income += GOLD_PER_TERRITORY
+		# Sprawdź czy bandyta stoi na tym polu
+		var bandit_on_hex = false
+		var farmer = farmer_map.get(coords)
+		if farmer and is_instance_valid(farmer) and farmer.team == BANDIT_TEAM:
+			bandit_on_hex = true
+		if not bandit_on_hex:
+			if castle_map.has(coords):
+				income += GOLD_PER_TERRITORY * 2
+			else:
+				income += GOLD_PER_TERRITORY
 	return income
 
 func calculate_upkeep_for_kingdom(kingdom_id: int) -> int:
@@ -5061,42 +5093,42 @@ func on_hex_clicked(hex: Hex):
 		print("Pole poza zasięgiem!")
 		return
 	
-	if hex.occupied_object is Farmer and selected_unit is Cavalry:
+	if buy_mode == "" and is_instance_valid(hex.occupied_object) and hex.occupied_object is Farmer and selected_unit is Cavalry:
 		var farmer = hex.occupied_object as Farmer
 		if farmer.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_cavalry(from, clicked_pos)
 			return
 	
-	if hex.occupied_object is Spearman and selected_unit is Cavalry:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Spearman and selected_unit is Cavalry:
 		var spearman = hex.occupied_object as Spearman
 		if spearman.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_cavalry(from, clicked_pos)
 			return
 	
-	if hex.occupied_object is Knight and selected_unit is Cavalry:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Knight and selected_unit is Cavalry:
 		var knight = hex.occupied_object as Knight
 		if knight.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_cavalry(from, clicked_pos)
 			return
 	
-	if hex.occupied_object is Cavalry and selected_unit is Cavalry:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Cavalry and selected_unit is Cavalry:
 		var cavalry = hex.occupied_object as Cavalry
 		if cavalry.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_cavalry(from, clicked_pos)
 			return
 	
-	if hex.occupied_object is Castle and selected_unit is Cavalry:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Castle and selected_unit is Cavalry:
 		var castle = hex.occupied_object as Castle
 		if castle.team == -1:  # Obóz bandytów
 			var from = selected_unit.hex_position
 			move_cavalry(from, clicked_pos)
 			return
 	
-	if hex.occupied_object is Castle and selected_unit is Knight:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Castle and selected_unit is Knight:
 		var castle = hex.occupied_object as Castle
 		if castle.team != selected_unit.team:
 			# Knight atakuje zamek
@@ -5104,49 +5136,49 @@ func on_hex_clicked(hex: Hex):
 			move_knight(from, clicked_pos)
 			return
 			
-	if hex.occupied_object is Castle and selected_unit is Spearman:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Castle and selected_unit is Spearman:
 		var castle = hex.occupied_object as Castle
 		if castle.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_spearman(from, clicked_pos)
 			return
 			
-	if hex.occupied_object is Farmer and selected_unit is Knight:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Farmer and selected_unit is Knight:
 		var farmer = hex.occupied_object as Farmer
 		if farmer.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_knight(from, clicked_pos)
 			return
 			
-	if hex.occupied_object is Spearman and selected_unit is Knight:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Spearman and selected_unit is Knight:
 		var spearman = hex.occupied_object as Spearman
 		if spearman.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_knight(from, clicked_pos)
 			return
 			
-	if hex.occupied_object is Knight and selected_unit is Knight:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Knight and selected_unit is Knight:
 		var knight = hex.occupied_object as Knight
 		if knight.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_knight(from, clicked_pos)
 			return
 			
-	if hex.occupied_object is Farmer and selected_unit is Spearman:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Farmer and selected_unit is Spearman:
 		var farmer = hex.occupied_object as Farmer
 		if farmer.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_spearman(from, clicked_pos)
 			return
 	
-	if hex.occupied_object is Spearman and selected_unit is Spearman:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Spearman and selected_unit is Spearman:
 		var spearman = hex.occupied_object as Spearman
 		if spearman.team != selected_unit.team:
 			var from = selected_unit.hex_position
 			move_spearman(from, clicked_pos)
 			return
 
-	if hex.occupied_object is Cavalry and selected_unit is Spearman:
+	if is_instance_valid(hex.occupied_object) and hex.occupied_object is Cavalry and selected_unit is Spearman:
 		var cavalry = hex.occupied_object as Cavalry
 		if cavalry.team != selected_unit.team:
 			var from = selected_unit.hex_position
@@ -5942,6 +5974,8 @@ func load_layout_from_file(file_name: String) -> bool:
 	_update_castle_gold_labels()
 	_update_bandit_camp_gold_labels()
 	update_ui()
+	await get_tree().process_frame
+	pulse_available_units()
 	
 	# WAŻNE: Odblokuj przyciski po wczytaniu poziomu (dla retry)
 	if ui_manager:
@@ -6110,6 +6144,17 @@ func _get_buy_mode_highlighted_hexes(unit_type: String) -> Array:
 			"color": TEAM_COLORS[current_team].lightened(0.3),
 			"type": "own"
 		})
+	
+	# Bandyci stojący NA własnym terytorium
+	for coords in connected:
+		var hex = get_hex_at(coords)
+		if not hex:
+			continue
+		var obj = hex.occupied_object
+		if obj is Farmer and (obj as Farmer).team == BANDIT_TEAM:
+			match unit_type:
+				"knight", "cavalry", "spearman":
+					result.append({"hex": hex, "coords": coords, "color": BANDIT_COLOR.lightened(0.3), "type": "bandit"})
 	
 	# Granica
 	var border = get_border_of_connected_territories(current_team, connected)

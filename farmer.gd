@@ -93,6 +93,12 @@ func _on_input_event(_viewport, event, _shape_idx):
 					if hex:
 						parent.on_hex_clicked(hex)
 					return
+					
+			if parent.selected_unit != null and is_instance_valid(parent.selected_unit):
+				if parent.selected_unit != self and parent.selected_unit is Farmer and parent.selected_unit.team == team:
+					parent.merge_farmers_to_spearman(parent.selected_unit.hex_position, hex_position)
+					get_viewport().set_input_as_handled()
+					return
 		
 		# Normalny przypadek: zaznacz tego farmera
 		print("FARMER: Wywołuję on_farmer_clicked")

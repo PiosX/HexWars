@@ -292,14 +292,15 @@ func create_restore_button(parent: VBoxContainer):
 	parent.add_child(restore_btn)
 
 func _on_restore_pressed():
-	"""Przywraca zakupy non-consumable"""
 	get_node("/root/Main").play_btn_sound()
 	print("Restore purchases pressed")
 	var iap = get_node_or_null("/root/IAPManager")
 	if iap and iap.has_method("restore_purchases"):
+		# Podłącz sygnał jednorazowo
+		iap.restore_completed.connect(_on_restore_result, CONNECT_ONE_SHOT)
 		iap.restore_purchases()
 	else:
-		print("IAP restore: billing nie aktywny")
+		show_toast("Not available")
 
 func create_info_box(parent: VBoxContainer):
 	"""Info box with timeBig.png and text"""
@@ -624,7 +625,7 @@ func create_buy_button() -> TextureButton:
 		get_node("/root/Main").play_btn_sound()
 		var iap = get_node_or_null("/root/IAPManager")
 		if iap and iap.has_method("purchase_product"):
-			iap.purchase_product("time_pack_large")
+			iap.purchase_product("time_pack_mega")
 		else:
 			print("IAP: purchase_product not available (not on Android or plugin missing)")
 	)
@@ -1217,3 +1218,56 @@ func _on_info_pressed():
 	get_node("/root/Main").play_btn_sound()
 	OS.shell_open("market://details?id=com.redmoongames.hexwars")
 	print("Info pressed")
+
+func show_toast(message: String):
+	"""Wyswietla krotki komunikat na srodku ekranu"""
+	var toast = Panel.new()
+	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	
+	var style = StyleBoxFlat.new()
+	style.bg_color = Color("1A1A28", 0.95)
+	style.border_width_left = 1
+	style.border_width_right = 1
+	style.border_width_top = 1
+	style.border_width_bottom = 1
+	style.border_color = Color("00BC7D")
+	style.corner_radius_top_left = 999
+	style.corner_radius_top_right = 999
+	style.corner_radius_bottom_left = 999
+	style.corner_radius_bottom_right = 999
+	toast.add_theme_stylebox_override("panel", style)
+	
+	var label = Label.new()
+	label.text = message
+	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_color_override("font_color", Color("00D492"))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.anchor_right = 1.0
+	label.anchor_bottom = 1.0
+	var bold = FontVariation.new()
+	bold.set_variation_embolden(0.5)
+	label.add_theme_font_override("font", bold)
+	toast.add_child(label)
+	
+	var viewport_size = get_viewport().get_visible_rect().size
+	toast.custom_minimum_size = Vector2(300, 64)
+	toast.position = Vector2(
+		viewport_size.x / 2 - 150,
+		viewport_size.y / 2 - 32
+	)
+	add_child(toast)
+	
+	# Fade in → poczekaj → fade out → usuń
+	toast.modulate = Color(1, 1, 1, 0)
+	var tween = create_tween()
+	tween.tween_property(toast, "modulate", Color.WHITE, 0.3)
+	tween.tween_interval(1.5)
+	tween.tween_property(toast, "modulate", Color(1, 1, 1, 0), 0.4)
+	tween.tween_callback(toast.queue_free)
+
+func _on_restore_result(restored_count: int):
+	if restored_count > 0:
+		show_toast("Purchases restored! ✓")
+	else:
+		show_toast("Nothing to restore")

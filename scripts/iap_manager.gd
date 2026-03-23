@@ -1,6 +1,6 @@
 extends Node
 
-var payment: Object = null
+var billing_client = null
 var is_ready = false
 var owned_products: Array = []
 
@@ -8,6 +8,7 @@ signal purchase_completed(product_id: String)
 signal purchase_failed(error_message: String)
 signal purchase_cancelled
 signal products_updated
+signal restore_completed(restored_count: int)
 
 const PRODUCTS = {
 	"no_ads": {
@@ -18,58 +19,56 @@ const PRODUCTS = {
 	},
 	"time_pack_small": {
 		"type": "consumable",
-		"title": "30 Time Crystals",
-		"description": "Get 30 time crystals instantly",
+		"title": "30 Chrono Relics",
+		"description": "Instantly receive 30 Chrono Relics",
 		"amount": 30,
 		"price_display": "$0.49"
 	},
 	"time_pack_medium": {
 		"type": "consumable",
-		"title": "70 Time Crystals",
-		"description": "Get 70 time crystals instantly",
+		"title": "70 Chrono Relics",
+		"description": "Instantly receive 70 Chrono Relics",
 		"amount": 70,
 		"price_display": "$0.99"
 	},
 	"time_pack_large": {
 		"type": "consumable",
-		"title": "220 Time Crystals",
-		"description": "Get 220 time crystals instantly",
+		"title": "220 Chrono Relics",
+		"description": "Instantly receive 220 Chrono Relics",
 		"amount": 220,
 		"price_display": "$2.99"
+	},
+	"time_pack_mega": {
+		"type": "consumable",
+		"title": "Mega Bundle — 420 Chrono Relics",
+		"description": "Instantly receive 420 Chrono Relics",
+		"amount": 420,
+		"price_display": "$4.99"
 	}
 }
 
 func _ready():
 	print("=== IAP Manager initializing ===")
 	if OS.get_name() == "Android":
-		if Engine.has_singleton("GodotGooglePlayBilling"):
-			payment = Engine.get_singleton("GodotGooglePlayBilling")
-			initialize_billing()
-		else:
-			print("WARNING: Google Play Billing plugin not found!")
+		billing_client = BillingClient.new()
+		billing_client.connected.connect(_on_billing_connected)
+		billing_client.disconnected.connect(_on_billing_disconnected)
+		billing_client.connect_error.connect(_on_billing_connect_error)
+		billing_client.on_purchases_updated.connect(_on_purchases_updated)
+		billing_client.query_purchases_response.connect(_on_query_purchases)
+		billing_client.product_details_query_completed.connect(_on_product_details_completed)
+		billing_client.purchase_acknowledged.connect(_on_purchase_acknowledged)
+		billing_client.purchase_consumed.connect(_on_purchase_consumed)
+		billing_client.start_connection()
+		print("Connecting to Google Play Billing...")
 	else:
 		print("IAP skipped - not on Android")
 
-func initialize_billing():
-	if not payment:
-		return
-	print("Connecting to Google Play Billing...")
-	payment.connected.connect(_on_billing_connected)
-	payment.disconnected.connect(_on_billing_disconnected)
-	payment.connect_error.connect(_on_billing_connect_error)
-	payment.purchases_updated.connect(_on_purchases_updated)
-	payment.purchase_error.connect(_on_purchase_error)
-	payment.sku_details_query_completed.connect(_on_sku_details_completed)
-	payment.purchase_acknowledged.connect(_on_purchase_acknowledged)
-	payment.purchase_consumption_error.connect(_on_purchase_consumption_error)
-	payment.purchase_consumed.connect(_on_purchase_consumed)
-	payment.startConnection()
-
 func _on_billing_connected():
-	print("Connected to Google Play Billing")
+	print("Connected to Google Play Billing!")
 	is_ready = true
+	query_product_details()
 	query_purchases()
-	query_sku_details()
 
 func _on_billing_disconnected():
 	print("Disconnected from Google Play Billing")
@@ -80,43 +79,65 @@ func _on_billing_connect_error(error_code: int, error_message: String):
 	is_ready = false
 
 func query_purchases():
-	if not is_ready or not payment:
+	if not is_ready or not billing_client:
 		return
 	print("Querying owned purchases...")
-	payment.queryPurchases("inapp")
+	billing_client.query_purchases(BillingClient.ProductType.INAPP)
 
-func _on_purchases_updated(purchases: Array):
-	print("Purchases updated: %d items" % purchases.size())
+func query_product_details():
+	if not is_ready or not billing_client:
+		return
+	var product_list = PRODUCTS.keys()
+	print("Querying product details for: %s" % product_list)
+	billing_client.query_product_details(product_list, BillingClient.ProductType.INAPP)
+
+func _on_query_purchases(result: Dictionary):
+	if result.get("response_code", -1) != BillingClient.BillingResponseCode.OK:
+		print("Query purchases failed: ", result.get("debug_message", ""))
+		return
+	var purchases = result.get("purchases", [])
+	print("Query purchases: %d items" % purchases.size())
 	owned_products.clear()
 	for purchase in purchases:
-		var product_id = purchase.get("sku", "")
-		var purchase_token = purchase.get("purchaseToken", "")
-		var is_acknowledged = purchase.get("isAcknowledged", false)
-		print("  - %s (acknowledged: %s)" % [product_id, is_acknowledged])
+		var product_id = purchase.get("product_ids", [""])[0]
+		var purchase_token = purchase.get("purchase_token", "")
+		var is_acknowledged = purchase.get("is_acknowledged", false)
 		owned_products.append(product_id)
 		handle_owned_product(product_id)
 		if not is_acknowledged:
-			payment.acknowledgePurchase(purchase_token)
+			billing_client.acknowledge_purchase(purchase_token)
 	products_updated.emit()
+	restore_completed.emit(purchases.size())
 
-func query_sku_details():
-	if not is_ready or not payment:
+func _on_purchases_updated(result: Dictionary):
+	if result.get("response_code", -1) != BillingClient.BillingResponseCode.OK:
+		var response_code = result.get("response_code", -1)
+		# 1 = user cancelled
+		if response_code == 1:
+			purchase_cancelled.emit()
+		else:
+			print("Purchase error: ", result.get("debug_message", ""))
+			purchase_failed.emit(result.get("debug_message", "Unknown error"))
 		return
-	var sku_list = PRODUCTS.keys()
-	print("Querying SKU details for: %s" % sku_list)
-	payment.querySkuDetails(sku_list, "inapp")
+	var purchases = result.get("purchases", [])
+	for purchase in purchases:
+		handle_new_purchase(purchase)
 
-func _on_sku_details_completed(sku_details: Array):
-	print("SKU details received: %d products" % sku_details.size())
-	for detail in sku_details:
-		var sku = detail.get("sku", "")
+func _on_product_details_completed(result: Dictionary):
+	if result.get("response_code", -1) != BillingClient.BillingResponseCode.OK:
+		print("Product details failed: ", result.get("debug_message", ""))
+		return
+	var product_details = result.get("product_details", [])
+	print("Product details received: %d" % product_details.size())
+	for detail in product_details:
+		var sku = detail.get("product_id", "")
 		var price = detail.get("price", "")
 		if PRODUCTS.has(sku):
 			PRODUCTS[sku]["price"] = price
 			print("  - %s: %s" % [sku, price])
 
 func purchase_product(product_id: String):
-	if not is_ready or not payment:
+	if not is_ready or not billing_client:
 		print("Cannot purchase - billing not ready")
 		purchase_failed.emit("Billing system not ready")
 		return
@@ -129,24 +150,46 @@ func purchase_product(product_id: String):
 		purchase_failed.emit("Already owned")
 		return
 	print("Starting purchase: %s" % product_id)
-	payment.purchase(product_id)
+	billing_client.purchase(product_id)
 
 func _on_purchase_acknowledged(purchase_token: String):
-	print("Purchase acknowledged")
+	print("Purchase acknowledged: %s" % purchase_token)
 
 func _on_purchase_consumed(purchase_token: String):
-	print("Purchase consumed")
+	print("Purchase consumed: %s" % purchase_token)
 
-func _on_purchase_error(error_code: int, error_message: String):
-	if error_code == 1:
-		print("Purchase cancelled by user")
-		purchase_cancelled.emit()
-	else:
-		print("Purchase error [%d]: %s" % [error_code, error_message])
-		purchase_failed.emit(error_message)
+func handle_new_purchase(purchase: Dictionary):
+	var product_id = purchase.get("product_ids", [""])[0]
+	var purchase_token = purchase.get("purchase_token", "")
+	var purchase_state = purchase.get("purchase_state", 0)
+	print("New purchase: %s state: %d" % [product_id, purchase_state])
 
-func _on_purchase_consumption_error(error_code: int, error_message: String):
-	print("Consumption error [%d]: %s" % [error_code, error_message])
+	# 1 = PURCHASED
+	if purchase_state != 1:
+		return
+
+	if not PRODUCTS.has(product_id):
+		return
+
+	var product = PRODUCTS[product_id]
+	var main = get_node_or_null("/root/Main")
+
+	if product.type == "non_consumable":
+		if product_id == "no_ads":
+			if main and main.has_method("set_ads_disabled"):
+				main.set_ads_disabled(true)
+			var admob = get_node_or_null("/root/AdMobManager")
+			if admob and admob.has_method("disable_ads"):
+				admob.disable_ads()
+		billing_client.acknowledge_purchase(purchase_token)
+	elif product.type == "consumable":
+		var amount = product.get("amount", 0)
+		if main and main.has_method("add_currency"):
+			main.add_currency(amount)
+			print("Added %d Chrono Relics" % amount)
+		billing_client.consume_purchase(purchase_token)
+
+	purchase_completed.emit(product_id)
 
 func handle_owned_product(product_id: String):
 	if not PRODUCTS.has(product_id):
@@ -161,30 +204,6 @@ func handle_owned_product(product_id: String):
 				admob.disable_ads()
 			print("No-ads activated")
 
-func handle_new_purchase(purchase: Dictionary):
-	var product_id = purchase.get("sku", "")
-	var purchase_token = purchase.get("purchaseToken", "")
-	print("New purchase completed: %s" % product_id)
-	if not PRODUCTS.has(product_id):
-		return
-	var product = PRODUCTS[product_id]
-	var main = get_node_or_null("/root/Main")
-	if product.type == "non_consumable":
-		if product_id == "no_ads":
-			if main and main.has_method("set_ads_disabled"):
-				main.set_ads_disabled(true)
-			var admob = get_node_or_null("/root/AdMobManager")
-			if admob and admob.has_method("disable_ads"):
-				admob.disable_ads()
-		payment.acknowledgePurchase(purchase_token)
-	elif product.type == "consumable":
-		var amount = product.get("amount", 0)
-		if main and main.has_method("add_currency"):
-			main.add_currency(amount)
-			print("Added %d time crystals" % amount)
-		payment.consumePurchase(purchase_token)
-	purchase_completed.emit(product_id)
-
 func restore_purchases():
 	print("Restoring purchases...")
 	query_purchases()
@@ -192,13 +211,8 @@ func restore_purchases():
 func owns_product(product_id: String) -> bool:
 	return product_id in owned_products
 
-func get_product_info(product_id: String) -> Dictionary:
-	if PRODUCTS.has(product_id):
-		return PRODUCTS[product_id]
-	return {}
-
 func get_product_price(product_id: String) -> String:
-	var product = get_product_info(product_id)
+	var product = PRODUCTS.get(product_id, {})
 	if product.has("price"):
 		return product.price
 	elif product.has("price_display"):

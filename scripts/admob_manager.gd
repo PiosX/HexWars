@@ -26,7 +26,7 @@ const TEST_INTERSTITIAL_ID = "ca-app-pub-3940256099942544/1033173712"
 const TEST_REWARDED_ID     = "ca-app-pub-3940256099942544/5224354917"
 
 # Zmien na false przed wyslaniem do Google Play!
-const USE_TEST_ADS = true
+const USE_TEST_ADS = false
 
 # ===== STAN =====
 var _banner_ad = null

@@ -1,6 +1,8 @@
 extends Node
 class_name AIController
 
+const DEBUG = false
+
 enum Difficulty {
 	NORMAL,
 	HARD
@@ -98,7 +100,7 @@ func _get_my_kingdom_ids() -> Array:
 	return kids
 
 func execute_turn():
-	print("=== AI (Team %d, %s, Aggro: %.1f) zaczyna turę ===" % [team, "HARD" if difficulty == Difficulty.HARD else "NORMAL", aggression_level])
+	if DEBUG: print("=== AI (Team %d, %s, Aggro: %.1f) zaczyna turę ===" % [team, "HARD" if difficulty == Difficulty.HARD else "NORMAL", aggression_level])
 	
 	# Wyczyść tracking jednostek które były na swoim terenie
 	units_moved_on_own_territory.clear()
@@ -109,9 +111,9 @@ func execute_turn():
 	set_strategic_goals(state)
 	
 	if team == -1:
-		print("AI %d: BANDYCI - proste AI" % team)
+		if DEBUG: print("AI %d: BANDYCI - proste AI" % team)
 		await execute_bandit_turn(state)
-		print("=== AI (Team %d) kończy turę ===" % team)
+		if DEBUG: print("=== AI (Team %d) kończy turę ===" % team)
 		return
 	
 	# NAJPIERW MERGE - żeby scalone jednostki mogły od razu ruszyć (zamek pod atakiem!)
@@ -142,18 +144,18 @@ func execute_turn():
 		state.upkeep = k_upkeep
 		state.income = k_income
 		
-		print("AI %d: Kingdom %d - złoto: %d, utrzymanie: %d, bankrut: %s" % [team, kid, k_gold, k_upkeep, k_is_bankrupt])
+		if DEBUG: print("AI %d: Kingdom %d - złoto: %d, utrzymanie: %d, bankrut: %s" % [team, kid, k_gold, k_upkeep, k_is_bankrupt])
 		
 		if not k_is_bankrupt:
 			await buy_units(state, kid)
 		else:
-			print("AI %d: Kingdom %d bankrutuje - pomijam zakup" % [team, kid])
+			if DEBUG: print("AI %d: Kingdom %d bankrutuje - pomijam zakup" % [team, kid])
 		
 		# Buduj mury tylko gdy dodatni przychód netto
 		if not k_is_bankrupt and k_income - k_upkeep > 0:
 			await build_walls(state)
 	
-	print("=== AI (Team %d) kończy turę ===" % team)
+	if DEBUG: print("=== AI (Team %d) kończy turę ===" % team)
 
 # ============================================================================
 # GAME STATE ANALYSIS
@@ -372,25 +374,25 @@ func evaluate_group_worth(group: Dictionary, state: Dictionary) -> bool:
 	
 	# Jeśli niebezpieczne (blisko wroga) i małe - nie warto
 	if not group.safe and group.size < 3:
-		print("AI %d: Grupa %d hexów niebezpieczna i mała - SKIP" % [team, group.size])
+		if DEBUG: print("AI %d: Grupa %d hexów niebezpieczna i mała - SKIP" % [team, group.size])
 		return false
 	
 	# Jeśli duża grupa (6+ hexów) - zawsze warto, nawet jeśli daleko
 	if group.size >= 6:
-		print("AI %d: Grupa %d hexów DUŻA - WARTO!" % [team, group.size])
+		if DEBUG: print("AI %d: Grupa %d hexów DUŻA - WARTO!" % [team, group.size])
 		return true
 	
 	# Jeśli relatywnie blisko (≤8 pól) i bezpieczna - warto
 	if group.distance_to_main <= 8 and group.safe:
-		print("AI %d: Grupa %d hexów blisko i bezpieczna - WARTO!" % [team, group.size])
+		if DEBUG: print("AI %d: Grupa %d hexów blisko i bezpieczna - WARTO!" % [team, group.size])
 		return true
 	
 	# Jeśli bardzo blisko zamku (≤5 pól) - warto dla obrony
 	if group.distance_to_castle <= 5:
-		print("AI %d: Grupa %d hexów blisko zamku - WARTO!" % [team, group.size])
+		if DEBUG: print("AI %d: Grupa %d hexów blisko zamku - WARTO!" % [team, group.size])
 		return true
 	
-	print("AI %d: Grupa %d hexów - nie warto" % [team, group.size])
+	if DEBUG: print("AI %d: Grupa %d hexów - nie warto" % [team, group.size])
 	return false
 
 func collect_units(state: Dictionary):
@@ -533,12 +535,12 @@ func calculate_threat_level(kingdom: Dictionary, state: Dictionary) -> float:
 func decide_strategy(state: Dictionary):
 	"""Decyduje o strategii na turę"""
 	
-	print("AI %d: === DECYZJA STRATEGICZNA ===" % team)
+	if DEBUG: print("AI %d: === DECYZJA STRATEGICZNA ===" % team)
 	
 	# PRIORYTET 1: Obrona zamku
 	if memory.castle_under_attack:
 		current_strategy = Strategy.DEFENSIVE
-		print("AI %d: STRATEGIA -> DEFENSIVE (zamek zagrożony)" % team)
+		if DEBUG: print("AI %d: STRATEGIA -> DEFENSIVE (zamek zagrożony)" % team)
 		return
 	
 	# PRIORYTET 2: Połączenie z zamkiem sojusznika (ten sam kolor)
@@ -546,7 +548,7 @@ func decide_strategy(state: Dictionary):
 		var nearest_ally = state.ally_castles_to_connect[0]
 		if nearest_ally.distance <= 12:  # Wystarczająco blisko
 			current_strategy = Strategy.EXPANSION
-			print("AI %d: STRATEGIA -> EXPANSION (łączenie z zamkiem sojusznika #%d, dist: %d)" % [team, nearest_ally.kingdom_id, nearest_ally.distance])
+			if DEBUG: print("AI %d: STRATEGIA -> EXPANSION (łączenie z zamkiem sojusznika #%d, dist: %d)" % [team, nearest_ally.kingdom_id, nearest_ally.distance])
 			# Ustaw cel ekspansji w kierunku zamku sojusznika
 			memory.expansion_targets = [{"center": nearest_ally.castle_pos, "worth_connecting": true, "hexes": [], "size": 1}]
 			return
@@ -559,7 +561,7 @@ func decide_strategy(state: Dictionary):
 	
 	if worthy_groups.size() > 0:
 		current_strategy = Strategy.EXPANSION
-		print("AI %d: STRATEGIA -> EXPANSION (odłączone terytoria: %d)" % [team, worthy_groups.size()])
+		if DEBUG: print("AI %d: STRATEGIA -> EXPANSION (odłączone terytoria: %d)" % [team, worthy_groups.size()])
 		memory.expansion_targets = worthy_groups
 		return
 	
@@ -573,7 +575,7 @@ func decide_strategy(state: Dictionary):
 	
 	if nearby_camps.size() > 0:
 		current_strategy = Strategy.OPPORTUNISTIC
-		print("AI %d: STRATEGIA -> OPPORTUNISTIC (obozy bandytów: %d - KRYTYCZNE!)" % [team, nearby_camps.size()])
+		if DEBUG: print("AI %d: STRATEGIA -> OPPORTUNISTIC (obozy bandytów: %d - KRYTYCZNE!)" % [team, nearby_camps.size()])
 		return
 	
 	# PRIORYTET 4: Atak na słabe królestwo
@@ -582,12 +584,12 @@ func decide_strategy(state: Dictionary):
 	
 	if not attackable_kingdom.is_empty():
 		current_strategy = Strategy.AGGRESSIVE
-		print("AI %d: STRATEGIA -> AGGRESSIVE (cel: Team %d)" % [team, attackable_kingdom.team])
+		if DEBUG: print("AI %d: STRATEGIA -> AGGRESSIVE (cel: Team %d)" % [team, attackable_kingdom.team])
 		return
 	
 	# DOMYŚLNIE: Ekspansja
 	current_strategy = Strategy.EXPANSION
-	print("AI %d: STRATEGIA -> EXPANSION (domyślna)" % team)
+	if DEBUG: print("AI %d: STRATEGIA -> EXPANSION (domyślna)" % team)
 
 func calculate_my_strength(state: Dictionary) -> Dictionary:
 	"""Oblicza moją siłę bojową"""
@@ -626,7 +628,7 @@ func find_attackable_kingdom(state: Dictionary, my_strength: Dictionary) -> Dict
 		if my_strength.total > kingdom.total_strength * 1.2:
 			# I królestwo jest relatywnie blisko
 			if kingdom.distance_to_me <= 8:
-				print("AI %d: Znaleziono cel: Team %d (siła: %d vs moja: %d)" % [team, team_id, kingdom.total_strength, my_strength.total])
+				if DEBUG: print("AI %d: Znaleziono cel: Team %d (siła: %d vs moja: %d)" % [team, team_id, kingdom.total_strength, my_strength.total])
 				return kingdom
 	
 	return {}
@@ -692,7 +694,7 @@ func set_strategic_goals(state: Dictionary):
 					"target_type": target_type,
 					"priority": priority
 				})
-				print("AI %d: 🎯 WYKRYTO CEL ELIMINACJI: %s @ %s może zabić %s @ %s (priorytet: %d)" % [team, unit_data.type, attacker_pos, target_type, move_pos, priority])
+				if DEBUG: print("AI %d: 🎯 WYKRYTO CEL ELIMINACJI: %s @ %s może zabić %s @ %s (priorytet: %d)" % [team, unit_data.type, attacker_pos, target_type, move_pos, priority])
 				break  # Jedna eliminacja per jednostka
 	
 	# PRIORYTET #0: OCHRONA PRZED ODCIĘCIEM (bardzo wysoki!)
@@ -798,7 +800,7 @@ func set_strategic_goals(state: Dictionary):
 		if not has_any_defenders:
 			# CAŁKOWICIE BEZBRONNY ZAMEK - NATYCHMIASTOWY ATAK! (najwyższy priorytet)
 			priority = 400 - distance * 5  # 350-400 (wyższe niż defend_from_cutoff)
-			print("AI %d: ⚠️ WYKRYTO BEZBRONNY ZAMEK @ %s (dystans: %d, priorytet: %d)" % [team, castle_pos, distance, priority])
+			if DEBUG: print("AI %d: ⚠️ WYKRYTO BEZBRONNY ZAMEK @ %s (dystans: %d, priorytet: %d)" % [team, castle_pos, distance, priority])
 		elif distance <= 3:
 			# BLISKO - wysoki priorytet
 			priority = 280 - distance * 20  # 220-280
@@ -866,9 +868,9 @@ func set_strategic_goals(state: Dictionary):
 	
 	strategic_goals.sort_custom(func(a, b): return a.priority > b.priority)
 	
-	print("AI %d: Cele strategiczne:" % team)
+	if DEBUG: print("AI %d: Cele strategiczne:" % team)
 	for goal in strategic_goals:
-		print("  - %s (priorytet: %d)" % [goal.type, goal.priority])
+		if DEBUG: print("  - %s (priorytet: %d)" % [goal.type, goal.priority])
 
 # ============================================================================
 # CUTOFF OPPORTUNITIES
@@ -878,7 +880,7 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 	"""Znajduje możliwości odcięcia wrogich jednostek - z KOORDYNACJĄ"""
 	var opportunities = []
 	
-	print("AI %d: Sprawdzam możliwości odcięcia dla %d wrogich jednostek" % [team, state.enemy_units.size()])
+	if DEBUG: print("AI %d: Sprawdzam możliwości odcięcia dla %d wrogich jednostek" % [team, state.enemy_units.size()])
 	
 	# Dla każdej wrogiej jednostki
 	for enemy in state.enemy_units:
@@ -888,7 +890,7 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 		var enemy_pos = enemy.pos
 		var enemy_team = enemy.team
 		
-		print("AI %d: Analizuję wroga %s na %s (team: %d)" % [team, enemy.type, enemy_pos, enemy_team])
+		if DEBUG: print("AI %d: Analizuję wroga %s na %s (team: %d)" % [team, enemy.type, enemy_pos, enemy_team])
 		
 		# Znajdź pola wokół wroga
 		var neighbors = hex_grid.get_neighbors(enemy_pos)
@@ -902,7 +904,7 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 			if owner == enemy_team:
 				enemy_territory_connections.append(neighbor)
 		
-		print("AI %d: Wróg %s - połączenia: %d na polach: %s" % [team, enemy.type, enemy_territory_connections.size(), enemy_territory_connections])
+		if DEBUG: print("AI %d: Wróg %s - połączenia: %d na polach: %s" % [team, enemy.type, enemy_territory_connections.size(), enemy_territory_connections])
 		
 		# Odcinanie ma sens tylko jeśli wróg ma ≤2 połączenia
 		if enemy_territory_connections.size() <= 2 and enemy_territory_connections.size() > 0:
@@ -941,7 +943,7 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 							# Już blokujemy to połączenie!
 							pass
 			
-			print("AI %d: Pól do zajęcia (przy połączeniach): %d" % [team, fields_to_capture.size()])
+			if DEBUG: print("AI %d: Pól do zajęcia (przy połączeniach): %d" % [team, fields_to_capture.size()])
 			
 			if fields_to_capture.size() >= 1:
 				# Ile jednostek RZECZYWIŚCIE potrzebujemy?
@@ -978,7 +980,7 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 								})
 							break
 				
-				print("AI %d: Dostępne jednostki: %d" % [team, available_units.size()])
+				if DEBUG: print("AI %d: Dostępne jednostki: %d" % [team, available_units.size()])
 				
 				# Sprawdź czy mamy wystarczająco jednostek
 				var can_execute = false
@@ -987,18 +989,18 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 				
 				if available_units.size() >= units_needed:
 					can_execute = true
-					print("AI %d: ✓ Mamy wystarczająco jednostek!" % team)
+					if DEBUG: print("AI %d: ✓ Mamy wystarczająco jednostek!" % team)
 				else:
 					# Sprawdź czy możemy dokupić brakujące jednostki
 					missing_units = units_needed - available_units.size()
 					var cost = missing_units * hex_grid.FARMER_COST
 					
-					print("AI %d: Brakuje %d jednostek, koszt: %d, mamy złota: %d" % [team, missing_units, cost, state.gold])
+					if DEBUG: print("AI %d: Brakuje %d jednostek, koszt: %d, mamy złota: %d" % [team, missing_units, cost, state.gold])
 					
 					if state.gold >= cost:
 						can_buy_missing = true
 						can_execute = true
-						print("AI %d: ✓ Możemy dokupić!" % team)
+						if DEBUG: print("AI %d: ✓ Możemy dokupić!" % team)
 				
 				if can_execute:
 					# Sortuj jednostki według odległości do wroga
@@ -1072,16 +1074,16 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 						[team, enemy.type, enemy_pos, enemy_territory_connections.size(), units_needed, assigned_units.size(), 
 						(" +%d dokup" % missing_units) if can_buy_missing else "", opp_priority])
 				else:
-					print("AI %d: Nie można odciąć - brak jednostek i złota" % team)
+					if DEBUG: print("AI %d: Nie można odciąć - brak jednostek i złota" % team)
 			else:
-				print("AI %d: Pominięto - brak pól do zajęcia przy połączeniach" % team)
+				if DEBUG: print("AI %d: Pominięto - brak pól do zajęcia przy połączeniach" % team)
 		else:
 			if enemy_territory_connections.size() > 2:
-				print("AI %d: Pominięto - za dużo połączeń (%d)" % [team, enemy_territory_connections.size()])
+				if DEBUG: print("AI %d: Pominięto - za dużo połączeń (%d)" % [team, enemy_territory_connections.size()])
 			else:
-				print("AI %d: Pominięto - wróg nie ma połączeń z własnym terytorium (już otoczony?)" % team)
+				if DEBUG: print("AI %d: Pominięto - wróg nie ma połączeń z własnym terytorium (już otoczony?)" % team)
 	
-	print("AI %d: Znaleziono %d możliwości odcięcia" % [team, opportunities.size()])
+	if DEBUG: print("AI %d: Znaleziono %d możliwości odcięcia" % [team, opportunities.size()])
 	return opportunities
 
 func find_narrowest_point_on_path(path: Array, owner_team: int, state: Dictionary) -> Dictionary:
@@ -1241,11 +1243,11 @@ func execute_coordinated_cutoff(state: Dictionary, cutoff_data: Dictionary):
 	
 	var sequence = cutoff_data.move_sequence
 	
-	print("AI %d: === KOORDYNOWANE ODCIĘCIE ===" % team)
-	print("AI %d: Cel: %s (siła: %d)" % [team, cutoff_data.enemy.type, cutoff_data.enemy.strength])
-	print("AI %d: Wąskie gardło: %s" % [team, cutoff_data.bottleneck_hex])
+	if DEBUG: print("AI %d: === KOORDYNOWANE ODCIĘCIE ===" % team)
+	if DEBUG: print("AI %d: Cel: %s (siła: %d)" % [team, cutoff_data.enemy.type, cutoff_data.enemy.strength])
+	if DEBUG: print("AI %d: Wąskie gardło: %s" % [team, cutoff_data.bottleneck_hex])
 	#print("AI %d: Pola do zajęcia: %s" % [team, cutoff_data.capturable_hexes])  # DODANE
-	print("AI %d: Jednostek w sekwencji: %d" % [team, sequence.size()])
+	if DEBUG: print("AI %d: Jednostek w sekwencji: %d" % [team, sequence.size()])
 	
 	# Sortuj według priorytetu (1 = pierwszy, 2 = drugi, itd.)
 	sequence.sort_custom(func(a, b): return a.priority < b.priority)
@@ -1259,7 +1261,7 @@ func execute_coordinated_cutoff(state: Dictionary, cutoff_data: Dictionary):
 		var target = step.target
 		
 		if not is_instance_valid(unit_data.unit) or unit_data.unit in hex_grid.units_moved_this_turn:
-			print("AI %d: Jednostka %s już ruszona, pomijam" % [team, unit_data.type])
+			if DEBUG: print("AI %d: Jednostka %s już ruszona, pomijam" % [team, unit_data.type])
 			continue
 		
 		# Użyj AKTUALNEJ pozycji jednostki (mogła się ruszyć wcześniej w tej turze)
@@ -1275,12 +1277,12 @@ func execute_coordinated_cutoff(state: Dictionary, cutoff_data: Dictionary):
 				available_moves.append(move)
 		
 		if available_moves.is_empty():
-			print("AI %d: UWAGA! %s nie ma dostępnych ruchów (wszystkie zajęte)" % [team, unit_data.type])
+			if DEBUG: print("AI %d: UWAGA! %s nie ma dostępnych ruchów (wszystkie zajęte)" % [team, unit_data.type])
 			continue
 		
 		if target in available_moves:
 			# POPRAWKA: Idź bezpośrednio na cel!
-			print("AI %d: [PRIORYTET %d] %s -> %s (BEZPOŚREDNIO!)" % [team, step.priority, unit_data.type, target])
+			if DEBUG: print("AI %d: [PRIORYTET %d] %s -> %s (BEZPOŚREDNIO!)" % [team, step.priority, unit_data.type, target])
 			await execute_move(unit_data.unit, unit_data, target)
 			occupied_fields.append(target)  # NOWE: Oznacz jako zajęte
 		else:
@@ -1288,13 +1290,13 @@ func execute_coordinated_cutoff(state: Dictionary, cutoff_data: Dictionary):
 			var best_move = find_move_towards_target(current_pos, available_moves, target)
 			
 			if best_move != Vector2i.ZERO:
-				print("AI %d: [PRIORYTET %d] %s -> %s (krok w kierunku: %s)" % [team, step.priority, unit_data.type, best_move, target])
+				if DEBUG: print("AI %d: [PRIORYTET %d] %s -> %s (krok w kierunku: %s)" % [team, step.priority, unit_data.type, best_move, target])
 				await execute_move(unit_data.unit, unit_data, best_move)
 				occupied_fields.append(best_move)  # NOWE: Oznacz jako zajęte
 			else:
-				print("AI %d: UWAGA! %s nie może dojść do %s" % [team, unit_data.type, target])
+				if DEBUG: print("AI %d: UWAGA! %s nie może dojść do %s" % [team, unit_data.type, target])
 	
-	print("AI %d: === KONIEC KOORDYNACJI ===" % team)
+	if DEBUG: print("AI %d: === KONIEC KOORDYNACJI ===" % team)
 
 func find_path_through_territory(from: Vector2i, to: Vector2i, owner_team: int) -> Array:
 	"""Znajduje ścieżkę przez terytorium danego teamu"""
@@ -1552,7 +1554,7 @@ func update_memory(state: Dictionary):
 	var current_hex_count = state.my_connected_hexes.size()
 	
 	if current_hex_count < memory.previous_hex_count:
-		print("AI %d: Straciłem terytorium!" % team)
+		if DEBUG: print("AI %d: Straciłem terytorium!" % team)
 	
 	memory.previous_hex_count = current_hex_count
 	
@@ -1583,7 +1585,7 @@ func merge_units(state: Dictionary):
 				enemy_adjacent = true; break
 		
 		if enemy_adjacent:
-			print("AI %d: WRÓG PRZY ZAMKU %s - priorytetowy merge!" % [team, castle_pos])
+			if DEBUG: print("AI %d: WRÓG PRZY ZAMKU %s - priorytetowy merge!" % [team, castle_pos])
 			var farmers_near = []
 			for unit_data in state.my_units:
 				if unit_data.type == "farmer":
@@ -1598,7 +1600,7 @@ func merge_units(state: Dictionary):
 					var pos2 = farmers_near[j]
 					if not hex_grid.farmer_map.has(pos2): continue
 					if are_hexes_adjacent(pos1, pos2):
-						print("AI %d: Merguje farmerów %s+%s -> spearman (obrona zamku!)" % [team, pos1, pos2])
+						if DEBUG: print("AI %d: Merguje farmerów %s+%s -> spearman (obrona zamku!)" % [team, pos1, pos2])
 						hex_grid.merge_farmers_to_spearman(pos1, pos2)
 						await hex_grid.get_tree().create_timer(0.2).timeout
 						# Nie return - merguj więcej!
@@ -1618,7 +1620,7 @@ func merge_units(state: Dictionary):
 					var pos2 = knights_near[j]
 					if not hex_grid.knight_map.has(pos2): continue
 					if are_hexes_adjacent(pos1, pos2):
-						print("AI %d: Merguje knightów %s+%s -> cavalry (obrona zamku!)" % [team, pos1, pos2])
+						if DEBUG: print("AI %d: Merguje knightów %s+%s -> cavalry (obrona zamku!)" % [team, pos1, pos2])
 						hex_grid.merge_knights_to_cavalry(pos1, pos2)
 						await hex_grid.get_tree().create_timer(0.2).timeout
 	
@@ -1642,7 +1644,7 @@ func merge_units(state: Dictionary):
 				if hex_grid.knight_map[pos2].team != team: continue
 				
 				if are_hexes_adjacent(pos1, pos2):
-					print("AI %d: Merguje knightów %s + %s -> cavalry" % [team, pos1, pos2])
+					if DEBUG: print("AI %d: Merguje knightów %s + %s -> cavalry" % [team, pos1, pos2])
 					hex_grid.merge_knights_to_cavalry(pos1, pos2)
 					await hex_grid.get_tree().create_timer(0.2).timeout
 					merged_any_knight = true
@@ -1674,7 +1676,7 @@ func merge_units(state: Dictionary):
 					var pos2 = farmers_near_castle[j]
 					if not hex_grid.farmer_map.has(pos2): continue
 					if are_hexes_adjacent(pos1, pos2):
-						print("AI %d: Łączę farmerów %s + %s -> spearman (ATAK NA ZAMEK!)" % [team, pos1, pos2])
+						if DEBUG: print("AI %d: Łączę farmerów %s + %s -> spearman (ATAK NA ZAMEK!)" % [team, pos1, pos2])
 						hex_grid.merge_farmers_to_spearman(pos1, pos2)
 						await hex_grid.get_tree().create_timer(0.2).timeout
 	
@@ -1699,7 +1701,7 @@ func merge_units(state: Dictionary):
 				if hex_grid.farmer_map[pos2].team != team: continue
 				
 				if are_hexes_adjacent(pos1, pos2):
-					print("AI %d: Łączę farmerów %s + %s -> spearman" % [team, pos1, pos2])
+					if DEBUG: print("AI %d: Łączę farmerów %s + %s -> spearman" % [team, pos1, pos2])
 					hex_grid.merge_farmers_to_spearman(pos1, pos2)
 					await hex_grid.get_tree().create_timer(0.2).timeout
 					merged_any_farmer = true
@@ -1709,7 +1711,7 @@ func merge_units(state: Dictionary):
 				break
 	
 	if farmer_merge_count > 0:
-		print("AI %d: Łącznie zmergowano %d par farmerów" % [team, farmer_merge_count])
+		if DEBUG: print("AI %d: Łącznie zmergowano %d par farmerów" % [team, farmer_merge_count])
 
 # ============================================================================
 # BUY UNITS
@@ -1729,7 +1731,7 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 	# KLUCZOWE: Jeśli brak jednostek - kup farmera NATYCHMIAST, rezerwa = 0
 	if my_unit_count == 0:
 		reserve = 0
-		print("AI %d: BRAK JEDNOSTEK - kupuję natychmiast bez rezerwy!" % team)
+		if DEBUG: print("AI %d: BRAK JEDNOSTEK - kupuję natychmiast bez rezerwy!" % team)
 	elif net_income <= 0 or gold <= hex_grid.FARMER_COST + 3:
 		# Biedne królestwo - absolutne minimum rezerwy
 		reserve = 3
@@ -1738,10 +1740,10 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 	
 	var available_gold = max(0, gold - reserve)
 	
-	print("AI %d: Złoto: %d, Rezerwacja: %d, Dostępne: %d, Jednostki: %d" % [team, gold, reserve, available_gold, my_unit_count])
+	if DEBUG: print("AI %d: Złoto: %d, Rezerwacja: %d, Dostępne: %d, Jednostki: %d" % [team, gold, reserve, available_gold, my_unit_count])
 	
 	if available_gold < hex_grid.FARMER_COST:
-		print("AI %d: Za mało złota na jakąkolwiek jednostkę" % team)
+		if DEBUG: print("AI %d: Za mało złota na jakąkolwiek jednostkę" % team)
 		return
 	
 	# PRIORYTET #1: Dokup jednostki do ODCIĘCIA jeśli potrzeba!
@@ -1750,7 +1752,7 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 			var missing = opp.missing_units
 			var cost_per_unit = hex_grid.FARMER_COST
 			
-			print("AI %d: Dokupuję %d jednostek do ODCIĘCIA wroga %s!" % [team, missing, opp.enemy.type])
+			if DEBUG: print("AI %d: Dokupuję %d jednostek do ODCIĘCIA wroga %s!" % [team, missing, opp.enemy.type])
 			
 			# Znajdź najlepsze pozycje do spawnu (blisko celu) dla tego królestwa
 			var spawn_positions = find_best_spawn_positions(state, kingdom_id)
@@ -1787,7 +1789,7 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 				hex_grid.place_farmer_at(spawn_pos, team)
 				hex_grid.deduct_selected_kingdom_gold(team, cost_per_unit)
 				hex_grid.capture_territory(spawn_pos, team)
-				print("AI %d: ✓ FARMER na %s DO ODCIĘCIA!" % [team, spawn_pos])
+				if DEBUG: print("AI %d: ✓ FARMER na %s DO ODCIĘCIA!" % [team, spawn_pos])
 				bought += 1
 				await hex_grid.get_tree().create_timer(0.1).timeout
 			
@@ -1800,7 +1802,7 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 	var current_k_gold = hex_grid.kingdom_gold.get(kingdom_id, 0) if kingdom_id > 0 else hex_grid.team_gold.get(team, 0)
 	var units_to_buy = plan_unit_purchases(state, current_k_gold - reserve, kingdom_id)
 	
-	print("AI %d: Zaplanowano zakup %d jednostek" % [team, units_to_buy.size()])
+	if DEBUG: print("AI %d: Zaplanowano zakup %d jednostek" % [team, units_to_buy.size()])
 	
 	for purchase in units_to_buy:
 		var unit_type = purchase.type
@@ -1820,22 +1822,22 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 			hex_grid.place_farmer_at(position, team)
 			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
-			print("AI %d: ✓ Kupiono FARMER na %s za %d" % [team, position, cost])
+			if DEBUG: print("AI %d: ✓ Kupiono FARMER na %s za %d" % [team, position, cost])
 		elif unit_type == "knight":
 			hex_grid.place_knight_at(position, team)
 			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
-			print("AI %d: ✓ Kupiono KNIGHT na %s za %d" % [team, position, cost])
+			if DEBUG: print("AI %d: ✓ Kupiono KNIGHT na %s za %d" % [team, position, cost])
 		elif unit_type == "spearman":
 			hex_grid.place_spearman_at(position, team)
 			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
-			print("AI %d: ✓ Kupiono SPEARMAN na %s za %d" % [team, position, cost])
+			if DEBUG: print("AI %d: ✓ Kupiono SPEARMAN na %s za %d" % [team, position, cost])
 		elif unit_type == "cavalry":
 			hex_grid.place_cavalry_at(position, team)
 			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			hex_grid.capture_territory(position, team)
-			print("AI %d: ✓ Kupiono CAVALRY na %s za %d" % [team, position, cost])
+			if DEBUG: print("AI %d: ✓ Kupiono CAVALRY na %s za %d" % [team, position, cost])
 		
 		await hex_grid.get_tree().create_timer(0.1).timeout
 
@@ -1852,7 +1854,7 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	var spawn_positions = find_best_spawn_positions(state, kingdom_id)
 	
 	if spawn_positions.is_empty():
-		print("AI %d: Brak pozycji spawnu - pomijam zakup" % team)
+		if DEBUG: print("AI %d: Brak pozycji spawnu - pomijam zakup" % team)
 		return purchases
 	
 	var remaining_budget = budget
@@ -1956,7 +1958,7 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	if castle_under_cutoff_threat and has_cutoff_opportunities:
 		# Kup tyle farmerów ile potrzeba do odcięcia (już obsłużone w buy_units PRIORYTET #1)
 		# Tu tylko dodajemy dodatkowych farmerów jeśli budżet pozwala
-		print("AI %d: Zamek zagrożony - priorytet na odcięcie przez farmerów!" % team)
+		if DEBUG: print("AI %d: Zamek zagrożony - priorytet na odcięcie przez farmerów!" % team)
 	
 	# Zamek zagrożony przez knight/cavalry ale BRAK możliwości odcięcia → kup knight/cavalry jako kontrę
 	elif castle_under_cutoff_threat and not has_cutoff_opportunities:
@@ -1966,21 +1968,21 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 			current_gold -= hex_grid.CAVALRY_COST
 			net_income -= hex_grid.CAVALRY_UPKEEP
 			my_combat_count += 1
-			print("AI %d: Cavalry wroga, brak odcięcia - kupuję cavalry!" % team)
+			if DEBUG: print("AI %d: Cavalry wroga, brak odcięcia - kupuję cavalry!" % team)
 		elif remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < spawn_positions.size() and can_afford_unit.call(hex_grid.KNIGHT_COST, hex_grid.KNIGHT_UPKEEP):
 			purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
 			remaining_budget -= hex_grid.KNIGHT_COST
 			current_gold -= hex_grid.KNIGHT_COST
 			net_income -= hex_grid.KNIGHT_UPKEEP
 			my_combat_count += 1
-			print("AI %d: Knight wroga, brak odcięcia - kupuję knight!" % team)
+			if DEBUG: print("AI %d: Knight wroga, brak odcięcia - kupuję knight!" % team)
 	
 	# Spearman blisko → kup spearmana jako kontrę (spearmani się nawzajem blokują)
 	elif enemy_spearman_near and my_combat_count == 0 and remaining_budget >= hex_grid.SPEARMAN_COST and purchases.size() < spawn_positions.size():
 		purchases.append({"type": "spearman", "position": spawn_positions[purchases.size()], "cost": hex_grid.SPEARMAN_COST})
 		remaining_budget -= hex_grid.SPEARMAN_COST
 		my_combat_count += 1
-		print("AI %d: Spearman wroga blisko - kupuję spearmana!" % team)
+		if DEBUG: print("AI %d: Spearman wroga blisko - kupuję spearmana!" % team)
 	
 	# ============================================================
 	# FAZA 2: STRATEGIA GŁÓWNA - na podstawie bogactwa i sytuacji
@@ -1994,7 +1996,7 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 			remaining_budget -= hex_grid.CAVALRY_COST
 			current_gold -= hex_grid.CAVALRY_COST
 			net_income -= hex_grid.CAVALRY_UPKEEP
-			print("AI %d: Bogata gra - kupuję cavalry!" % team)
+			if DEBUG: print("AI %d: Bogata gra - kupuję cavalry!" % team)
 		
 		# Knighci: zawsze gdy mamy kasę i brak wystarczającej siły bojowej
 		# Priorytet: combat_count < 2 (zawsze chcemy mieć minimum 2 units bojowych)
@@ -2016,7 +2018,7 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 				my_combat_count += 1
 				bought_knights += 1
 			if bought_knights > 0:
-				print("AI %d: Bogata gra - kupuję %d knight(ów)" % [team, bought_knights])
+				if DEBUG: print("AI %d: Bogata gra - kupuję %d knight(ów)" % [team, bought_knights])
 	
 	# STRATEGIA AGRESYWNA: zawsze knighty
 	elif current_strategy == Strategy.AGGRESSIVE and my_combat_count < 2:
@@ -2068,7 +2070,7 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 							break
 			if not can_expand:
 				is_walled_in = true
-				print("AI %d: Królestwo zamknięte w murach! Oszczędzam na spearmana." % team)
+				if DEBUG: print("AI %d: Królestwo zamknięte w murach! Oszczędzam na spearmana." % team)
 	
 	var farmer_saturation = float(my_farmer_count) / max(1.0, float(my_hex_count))
 	
@@ -2083,7 +2085,7 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 			my_spearman_count += 1
 			my_combat_count += 1
 			skip_farmers = true
-			print("AI %d: Zamknięty w murach, brak farmerów - kupuję spearmana!" % team)
+			if DEBUG: print("AI %d: Zamknięty w murach, brak farmerów - kupuję spearmana!" % team)
 	
 	if not skip_farmers:
 		while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 6 and purchases.size() < spawn_positions.size():
@@ -2092,7 +2094,7 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 			remaining_budget -= hex_grid.FARMER_COST
 			my_farmer_count += 1
 	
-	print("AI %d: Zaplanowano %d zakupów, zostaje %d złota" % [team, purchases.size(), remaining_budget])
+	if DEBUG: print("AI %d: Zaplanowano %d zakupów, zostaje %d złota" % [team, purchases.size(), remaining_budget])
 	return purchases
 
 func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array:
@@ -2284,7 +2286,7 @@ func build_walls(state: Dictionary):
 		if walls_created > 0:
 			hex_grid.deduct_selected_kingdom_gold(team, cost)
 			walls_built += 1
-			print("AI %d: Zbudowano %d murów wokół %s za %d złota" % [team, walls_created, hex_pos, cost])
+			if DEBUG: print("AI %d: Zbudowano %d murów wokół %s za %d złota" % [team, walls_created, hex_pos, cost])
 		
 		await hex_grid.get_tree().create_timer(0.1).timeout
 
@@ -2341,16 +2343,16 @@ func check_and_freeze_isolated_units(state: Dictionary):
 			if not isolated_units_freeze.has(unit_data.unit):
 				# Właśnie została odcięta - zapamiętaj turę
 				isolated_units_freeze[unit_data.unit] = hex_grid.current_round
-				print("AI %d: %s @ %s została ODCIĘTA - zamrożona na 1 turę" % [team, unit_data.type, unit_pos])
+				if DEBUG: print("AI %d: %s @ %s została ODCIĘTA - zamrożona na 1 turę" % [team, unit_data.type, unit_pos])
 		else:
 			# Jednostka połączona - usuń z listy zamrożonych
 			if isolated_units_freeze.has(unit_data.unit):
-				print("AI %d: %s @ %s PRZYWRÓCONA do królestwa" % [team, unit_data.type, unit_pos])
+				if DEBUG: print("AI %d: %s @ %s PRZYWRÓCONA do królestwa" % [team, unit_data.type, unit_pos])
 				isolated_units_freeze.erase(unit_data.unit)
 
 func move_all_units(state: Dictionary):
 	"""Rusza wszystkie jednostki według strategii"""
-	print("AI %d: === Rozpoczynam ruch %d jednostek (Strategia: %s) ===" % [team, state.my_units.size(), Strategy.keys()[current_strategy]])
+	if DEBUG: print("AI %d: === Rozpoczynam ruch %d jednostek (Strategia: %s) ===" % [team, state.my_units.size(), Strategy.keys()[current_strategy]])
 	
 	# NOWE: Sprawdź i zamroź odcięte jednostki
 	check_and_freeze_isolated_units(state)
@@ -2392,7 +2394,7 @@ func move_all_units(state: Dictionary):
 			"expand_territory":
 				await expand_aggressively(state)
 	
-	print("AI %d: === Zakończono ruch jednostek ===" % team)
+	if DEBUG: print("AI %d: === Zakończono ruch jednostek ===" % team)
 
 # ============================================================================
 # MOVEMENT STRATEGIES
@@ -2403,7 +2405,7 @@ func defend_from_cutoff(state: Dictionary, goal: Dictionary):
 	var threat_data = goal.threat_data
 	var unit_pos = threat_data.unit_pos
 	
-	print("AI %d: OBRONA PRZED ODCIĘCIEM jednostki %s @ %s" % [team, threat_data.unit.type, unit_pos])
+	if DEBUG: print("AI %d: OBRONA PRZED ODCIĘCIEM jednostki %s @ %s" % [team, threat_data.unit.type, unit_pos])
 	
 	# Strategia 1: Zbuduj mury na wąskim gardle
 	if threat_data.connections <= 2:
@@ -2421,11 +2423,11 @@ func defend_from_cutoff(state: Dictionary, goal: Dictionary):
 						best_wall_hex = conn_point
 			
 			if best_wall_hex != null:
-				print("AI %d: Buduję PEŁNY HEX murów @ %s" % [team, best_wall_hex])
+				if DEBUG: print("AI %d: Buduję PEŁNY HEX murów @ %s" % [team, best_wall_hex])
 				var walls_created = hex_grid.create_hex_walls(best_wall_hex, team)
 				if walls_created > 0:
 					hex_grid.deduct_selected_kingdom_gold(team, hex_grid.WALL_COST_PER_HEX)
-					print("AI %d: Zbudowano %d murów dla ochrony" % [team, walls_created])
+					if DEBUG: print("AI %d: Zbudowano %d murów dla ochrony" % [team, walls_created])
 					return  # Mury postawione - reszta jednostek może ekspandować
 	
 	# Strategia 2: Wyślij MAKSYMALNIE 1 jednostkę do ataku na zagrożenie
@@ -2458,7 +2460,7 @@ func defend_from_cutoff(state: Dictionary, goal: Dictionary):
 			var moves = get_possible_moves(best_defender.type, current_pos)
 			var best_move = find_move_towards_target(current_pos, moves, nearest_threat.pos)
 			if best_move != Vector2i.ZERO:
-				print("AI %d: %s atakuje zagrażającego wroga -> %s (1 jednostka, reszta ekspanduje)" % [team, best_defender.type, best_move])
+				if DEBUG: print("AI %d: %s atakuje zagrażającego wroga -> %s (1 jednostka, reszta ekspanduje)" % [team, best_defender.type, best_move])
 				await execute_move(best_defender.unit, best_defender, best_move)
 			# KLUCZOWE: return po 1 jednostce - reszta armii dostaje szansę na ekspansję
 
@@ -2466,7 +2468,7 @@ func connect_detached_territory(state: Dictionary, goal: Dictionary):
 	"""Łączy odłączone terytorium z głównym"""
 	var group = goal.target_group
 	
-	print("AI %d: Łączę odłączone terytorium (%d hexów)" % [team, group.size])
+	if DEBUG: print("AI %d: Łączę odłączone terytorium (%d hexów)" % [team, group.size])
 	
 	# Znajdź jednostki do wysłania
 	var units_to_send = []
@@ -2496,7 +2498,7 @@ func connect_detached_territory(state: Dictionary, goal: Dictionary):
 		var best_move = find_move_towards_target(current_pos, moves, group.center)
 		
 		if best_move != Vector2i.ZERO:
-			print("AI %d: %s -> %s (kierunek: odłączona grupa)" % [team, unit_data.type, best_move])
+			if DEBUG: print("AI %d: %s -> %s (kierunek: odłączona grupa)" % [team, unit_data.type, best_move])
 			await execute_move(unit_data.unit, unit_data, best_move)
 
 func eliminate_high_value_target(state: Dictionary, goal: Dictionary):
@@ -2521,17 +2523,17 @@ func eliminate_high_value_target(state: Dictionary, goal: Dictionary):
 			target_still_exists = true
 	
 	if not target_still_exists:
-		print("AI %d: Cel eliminacji %s @ %s już nie istnieje" % [team, target_type, target_pos])
+		if DEBUG: print("AI %d: Cel eliminacji %s @ %s już nie istnieje" % [team, target_type, target_pos])
 		return
 	
 	# Sprawdź że cel jest nadal w zasięgu
 	var current_pos = attacker_data.unit.hex_position
 	var moves = get_possible_moves(attacker_data.type, current_pos)
 	if target_pos not in moves:
-		print("AI %d: Cel %s @ %s poza zasięgiem %s" % [team, target_type, target_pos, attacker_data.type])
+		if DEBUG: print("AI %d: Cel %s @ %s poza zasięgiem %s" % [team, target_type, target_pos, attacker_data.type])
 		return
 	
-	print("AI %d: ⚔️ ELIMINACJA: %s @ %s zabija %s @ %s!" % [team, attacker_data.type, current_pos, target_type, target_pos])
+	if DEBUG: print("AI %d: ⚔️ ELIMINACJA: %s @ %s zabija %s @ %s!" % [team, attacker_data.type, current_pos, target_type, target_pos])
 	await execute_move(attacker_data.unit, attacker_data, target_pos)
 
 func capture_castle(state: Dictionary, goal: Dictionary):
@@ -2539,7 +2541,7 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 	var castle_pos = goal.position
 	var is_walled = goal.type == "capture_walled_castle"
 	
-	print("AI %d: Atakuję zamek %s (walled: %s)" % [team, castle_pos, is_walled])
+	if DEBUG: print("AI %d: Atakuję zamek %s (walled: %s)" % [team, castle_pos, is_walled])
 	
 	# Znajdź odpowiednie jednostki
 	var suitable_units = []
@@ -2570,7 +2572,7 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 		var moves = get_possible_moves(unit_data.type, current_pos)
 		
 		if castle_pos in moves:
-			print("AI %d: %s ZAJMUJE ZAMEK %s!" % [team, unit_data.type, castle_pos])
+			if DEBUG: print("AI %d: %s ZAJMUJE ZAMEK %s!" % [team, unit_data.type, castle_pos])
 			await execute_move(unit_data.unit, unit_data, castle_pos)
 			return  # Zamek przejęty!
 	
@@ -2589,12 +2591,12 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 			var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
 			if not skip_risk_check and not risk.worth_it and risk.risk_level >= 0.9:
 				# Tylko blokuj jeśli pewne odcięcie silnej jednostki
-				print("AI %d: ⚠️ %s wstrzymuje atak (pewne odcięcie silnej jednostki)" % [team, unit_data.type])
+				if DEBUG: print("AI %d: ⚠️ %s wstrzymuje atak (pewne odcięcie silnej jednostki)" % [team, unit_data.type])
 				var safe_move = find_safe_alternative_move(unit_data, best_move, state)
 				if safe_move != Vector2i.ZERO:
 					await execute_move(unit_data.unit, unit_data, safe_move)
 				continue
-			print("AI %d: %s -> %s (cel: zamek)" % [team, unit_data.type, best_move])
+			if DEBUG: print("AI %d: %s -> %s (cel: zamek)" % [team, unit_data.type, best_move])
 			await execute_move(unit_data.unit, unit_data, best_move)
 
 func capture_bandit_camp(state: Dictionary, goal: Dictionary):
@@ -2602,7 +2604,7 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 	var camp_pos = goal.position
 	var distance = goal.get("distance", 99)
 	
-	print("AI %d: ⚔️ ATAK NA OBÓZ BANDYTÓW @ %s (dystans: %d, priorytet: %d)" % [team, camp_pos, distance, goal.priority])
+	if DEBUG: print("AI %d: ⚔️ ATAK NA OBÓZ BANDYTÓW @ %s (dystans: %d, priorytet: %d)" % [team, camp_pos, distance, goal.priority])
 	
 	# Zbierz WSZYSTKIE jednostki bojowe które mogą dotrzeć do obozu
 	var attacking_units = []
@@ -2621,7 +2623,7 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 				attacking_units.append(unit_data)
 	
 	if attacking_units.is_empty():
-		print("AI %d: Brak dostępnych jednostek do ataku na obóz" % team)
+		if DEBUG: print("AI %d: Brak dostępnych jednostek do ataku na obóz" % team)
 		return
 	
 	# Sortuj po odległości - najbliższe atakują pierwsze
@@ -2629,7 +2631,7 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 		return hex_distance(a.pos, camp_pos) < hex_distance(b.pos, camp_pos)
 	)
 	
-	print("AI %d: Wysyłam %d jednostek do ataku na obóz!" % [team, attacking_units.size()])
+	if DEBUG: print("AI %d: Wysyłam %d jednostek do ataku na obóz!" % [team, attacking_units.size()])
 	
 	# Wysyłaj jednostki jedną po drugiej
 	for unit_data in attacking_units:
@@ -2641,9 +2643,9 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 		
 		if camp_pos in moves:
 			# Bezpośrednie przejęcie obozu - ZAWSZE wykonaj, nie sprawdzaj ryzyka
-			print("AI %d: 🎯 %s ZAJMUJE OBÓZ %s!" % [team, unit_data.type, camp_pos])
+			if DEBUG: print("AI %d: 🎯 %s ZAJMUJE OBÓZ %s!" % [team, unit_data.type, camp_pos])
 			await execute_move(unit_data.unit, unit_data, camp_pos)
-			print("AI %d: ✅ OBÓZ PRZEJĘTY!" % team)
+			if DEBUG: print("AI %d: ✅ OBÓZ PRZEJĘTY!" % team)
 			return  # Obóz zdobyty, koniec!
 		else:
 			var best_move = find_move_towards_target(current_pos, moves, camp_pos)
@@ -2652,12 +2654,12 @@ func capture_bandit_camp(state: Dictionary, goal: Dictionary):
 				# Knight/cavalry sprawdzają tylko pewne odcięcie (risk >= 0.9)
 				var risk = evaluate_move_cutoff_risk(unit_data, best_move, state)
 				if unit_data.type in ["knight", "cavalry"] and not risk.worth_it and risk.risk_level >= 0.9:
-					print("AI %d: ⚠️ %s wstrzymuje marsz (pewne odcięcie)" % [team, unit_data.type])
+					if DEBUG: print("AI %d: ⚠️ %s wstrzymuje marsz (pewne odcięcie)" % [team, unit_data.type])
 					var safe_move = find_safe_alternative_move(unit_data, best_move, state)
 					if safe_move != Vector2i.ZERO:
 						await execute_move(unit_data.unit, unit_data, safe_move)
 					continue
-				print("AI %d: ⚔️ %s -> %s (atak na obóz)" % [team, unit_data.type, best_move])
+				if DEBUG: print("AI %d: ⚔️ %s -> %s (atak na obóz)" % [team, unit_data.type, best_move])
 				await execute_move(unit_data.unit, unit_data, best_move)
 				await hex_grid.get_tree().create_timer(0.1).timeout
 
@@ -2670,19 +2672,19 @@ func surround_enemy(state: Dictionary, goal: Dictionary):
 		# zamiast odtwarzać pre-obliczoną sekwencję (która może być nieaktualna)
 		var enemy = data.enemy
 		if not is_instance_valid(enemy.unit):
-			print("AI %d: surround_enemy - cel nieważny, pomijam" % team)
+			if DEBUG: print("AI %d: surround_enemy - cel nieważny, pomijam" % team)
 			return
 		await coordinate_cutoff_attack(enemy, state)
 	else:
 		# Fallback - stary system
-		print("AI %d: Używam fallback surround" % team)
+		if DEBUG: print("AI %d: Używam fallback surround" % team)
 
 func expand_around_castle(state: Dictionary):
 	"""Rozbudowuje terytorium - wysyła jednostki na GRANICĘ terytorium, nie przy zamku"""
 	if state.my_castles.is_empty():
 		return
 	
-	print("AI %d: Rozbudowa wokół zamku" % team)
+	if DEBUG: print("AI %d: Rozbudowa wokół zamku" % team)
 	
 	# Znajdź pola na granicy własnego terytorium (neutralne/wrogie sąsiadujące z naszymi)
 	var expansion_targets = []
@@ -2714,12 +2716,12 @@ func expand_around_castle(state: Dictionary):
 			var best_move = find_best_aggressive_move(unit_data, moves, state)
 			
 			if best_move != Vector2i.ZERO:
-				print("AI %d: %s rozbudowuje -> %s" % [team, unit_data.type, best_move])
+				if DEBUG: print("AI %d: %s rozbudowuje -> %s" % [team, unit_data.type, best_move])
 				await execute_move(unit_data.unit, unit_data, best_move)
 
 func expand_aggressively(state: Dictionary):
 	"""Agresywna ekspansja - leapfrog: tylne jednostki wypełniają luki po przednich"""
-	print("AI %d: AGRESYWNA EKSPANSJA" % team)
+	if DEBUG: print("AI %d: AGRESYWNA EKSPANSJA" % team)
 	
 	var units_to_move = []
 	for unit_data in state.my_units:
@@ -2760,7 +2762,7 @@ func expand_aggressively(state: Dictionary):
 		var current_pos = unit_data.unit.hex_position
 		var moves = get_possible_moves(unit_data.type, current_pos)
 		if moves.is_empty():
-			print("AI %d: UWAGA! %s na %s NIE MA RUCHÓW!" % [team, unit_data.type, current_pos])
+			if DEBUG: print("AI %d: UWAGA! %s na %s NIE MA RUCHÓW!" % [team, unit_data.type, current_pos])
 			continue
 		
 		var best_move = find_best_aggressive_move(unit_data, moves, state)
@@ -2773,22 +2775,22 @@ func expand_aggressively(state: Dictionary):
 				if unit_data.type == "spearman":
 					# Spearman ignoruje ryzyko odcięcia gdy ma cel wysokiej wartości
 					# (zamek lub silna jednostka) - to jego rola
-					print("AI %d: ⚔️ spearman ignoruje ryzyko (%s) - atakuje!" % [team, risk.reason])
+					if DEBUG: print("AI %d: ⚔️ spearman ignoruje ryzyko (%s) - atakuje!" % [team, risk.reason])
 				else:
-					print("AI %d: ⚠️ %s: agresja zablokowana (%s) - szukam bezpiecznej pozycji" % [team, unit_data.type, risk.reason])
+					if DEBUG: print("AI %d: ⚠️ %s: agresja zablokowana (%s) - szukam bezpiecznej pozycji" % [team, unit_data.type, risk.reason])
 					var safe_move = find_safe_alternative_move(unit_data, best_move, state)
 					if safe_move != Vector2i.ZERO:
-						print("AI %d: %s -> bezpieczna pozycja %s" % [team, unit_data.type, safe_move])
+						if DEBUG: print("AI %d: %s -> bezpieczna pozycja %s" % [team, unit_data.type, safe_move])
 						await execute_move(unit_data.unit, unit_data, safe_move)
 						continue
 					# Farmer bez bezpiecznego ruchu też może iść jeśli ryzyko niskie
 					if risk.risk_level >= 0.7:
-						print("AI %d: farmer STOI - zbyt ryzykowne (%.1f)" % [team, risk.risk_level])
+						if DEBUG: print("AI %d: farmer STOI - zbyt ryzykowne (%.1f)" % [team, risk.risk_level])
 						continue
-			print("AI %d: %s agresja -> %s" % [team, unit_data.type, best_move])
+			if DEBUG: print("AI %d: %s agresja -> %s" % [team, unit_data.type, best_move])
 			await execute_move(unit_data.unit, unit_data, best_move)
 		else:
-			print("AI %d: KARA! %s zmuszony do ruchu -> %s" % [team, unit_data.type, moves[0]])
+			if DEBUG: print("AI %d: KARA! %s zmuszony do ruchu -> %s" % [team, unit_data.type, moves[0]])
 			await execute_move(unit_data.unit, unit_data, moves[0])
 
 func fortify_bottleneck(state: Dictionary, goal: Dictionary):
@@ -2816,11 +2818,11 @@ func fortify_bottleneck(state: Dictionary, goal: Dictionary):
 			else:
 				return  # Wszyscy kandydaci mają już mury
 	
-	print("AI %d: 🔒 WĄSKIE GARDŁO @ %s - stawiam mury prewencyjnie!" % [team, wall_pos])
+	if DEBUG: print("AI %d: 🔒 WĄSKIE GARDŁO @ %s - stawiam mury prewencyjnie!" % [team, wall_pos])
 	var walls_created = hex_grid.create_hex_walls(wall_pos, team)
 	if walls_created > 0:
 		hex_grid.deduct_selected_kingdom_gold(team, hex_grid.WALL_COST_PER_HEX)
-		print("AI %d: Zbudowano %d murów na wąskim gardle" % [team, walls_created])
+		if DEBUG: print("AI %d: Zbudowano %d murów na wąskim gardle" % [team, walls_created])
 
 func defend_castle_all_units(state: Dictionary):
 	"""Wszystkie jednostki bronią zamku"""
@@ -2883,7 +2885,7 @@ func defend_castle_single_threat(state: Dictionary, goal: Dictionary):
 		var moves = get_possible_moves(best_unit.type, current_pos)
 		var best_move = find_move_towards_target(current_pos, moves, enemy_pos)
 		if best_move != Vector2i.ZERO:
-			print("AI %d: %s broni zamku -> %s" % [team, best_unit.type, best_move])
+			if DEBUG: print("AI %d: %s broni zamku -> %s" % [team, best_unit.type, best_move])
 			await execute_move(best_unit.unit, best_unit, best_move)
 
 # ============================================================================
@@ -3085,7 +3087,7 @@ func execute_move(unit, unit_data: Dictionary, target: Vector2i):
 	if isolated_units_freeze.has(unit):
 		var freeze_turn = isolated_units_freeze[unit]
 		if hex_grid.current_round - freeze_turn < 1:
-			print("AI %d: %s zamrożona (odcięta w turze %d)" % [team, unit_data.type, freeze_turn])
+			if DEBUG: print("AI %d: %s zamrożona (odcięta w turze %d)" % [team, unit_data.type, freeze_turn])
 			return  # NIE RUSZAJ SIĘ!
 		else:
 			# Minęła 1 tura - możesz się ruszyć
@@ -3590,17 +3592,17 @@ func coordinate_cutoff_attack(target: Dictionary, state: Dictionary) -> bool:
 	var target_unit_type = target.type
 	var target_strength = target.get("strength", 10)
 	
-	print("AI %d: === KOORDYNOWANE ODCIĘCIE ===" % team)
-	print("AI %d: Cel: %s (siła: %d)" % [team, target_unit_type, target_strength])
+	if DEBUG: print("AI %d: === KOORDYNOWANE ODCIĘCIE ===" % team)
+	if DEBUG: print("AI %d: Cel: %s (siła: %d)" % [team, target_unit_type, target_strength])
 	
 	# Znajdź pola które trzeba zablokować
 	var cutoff_points = find_multi_hex_cutoff(target_pos, state)
 	
 	if cutoff_points.is_empty():
-		print("AI %d: Nie znaleziono punktów odcięcia" % team)
+		if DEBUG: print("AI %d: Nie znaleziono punktów odcięcia" % team)
 		return false
 	
-	print("AI %d: Punkty odcięcia: %s" % [team, cutoff_points])
+	if DEBUG: print("AI %d: Punkty odcięcia: %s" % [team, cutoff_points])
 	
 	var needed = cutoff_points.size()
 	
@@ -3648,10 +3650,10 @@ func coordinate_cutoff_attack(target: Dictionary, state: Dictionary) -> bool:
 	# (zarówno te blisko jak i te dalej)
 	var all_available = units_in_range + units_approaching
 	if all_available.is_empty():
-		print("AI %d: Brak jednostek w pobliżu punktów odcięcia" % team)
+		if DEBUG: print("AI %d: Brak jednostek w pobliżu punktów odcięcia" % team)
 		return false
 	
-	print("AI %d: Niewystarczające odcięcie - przesuwam %d jednostek w kierunku celu" % [team, all_available.size()])
+	if DEBUG: print("AI %d: Niewystarczające odcięcie - przesuwam %d jednostek w kierunku celu" % [team, all_available.size()])
 	
 	# Przypisz każdą jednostkę do najbliższego punktu odcięcia i idź w jego kierunku
 	var assigned_targets = {}  # unit -> target_cutoff_point
@@ -3703,12 +3705,12 @@ func coordinate_cutoff_attack(target: Dictionary, state: Dictionary) -> bool:
 			best_move = find_move_towards_target(current_pos, moves, best_cp)
 		
 		if best_move != Vector2i.ZERO:
-			print("AI %d: %s -> %s (zbliżam się do odcięcia @ %s)" % [team, unit_data.type, best_move, best_cp])
+			if DEBUG: print("AI %d: %s -> %s (zbliżam się do odcięcia @ %s)" % [team, unit_data.type, best_move, best_cp])
 			await execute_move(unit_data.unit, unit_data, best_move)
 			point_unit_count[best_cp] = point_unit_count.get(best_cp, 0) + 1
 			executed += 1
 	
-	print("AI %d: === KONIEC KOORDYNACJI (wykonano: %d ruchów) ===" % [team, executed])
+	if DEBUG: print("AI %d: === KONIEC KOORDYNACJI (wykonano: %d ruchów) ===" % [team, executed])
 	return executed > 0
 
 func _execute_cutoff_plan(cutoff_points: Array, available_units: Array, target_pos: Vector2i, needed: int) -> bool:
@@ -3798,7 +3800,7 @@ func _execute_cutoff_plan(cutoff_points: Array, available_units: Array, target_p
 		return false
 	
 	attack_plan.sort_custom(func(a, b): return a.distance < b.distance)
-	print("AI %d: Plan odcięcia - jednostek: %d (wymagane: %d)" % [team, attack_plan.size(), needed])
+	if DEBUG: print("AI %d: Plan odcięcia - jednostek: %d (wymagane: %d)" % [team, attack_plan.size(), needed])
 	
 	var executed_moves = 0
 	for i in range(min(attack_plan.size(), 4)):
@@ -3809,7 +3811,7 @@ func _execute_cutoff_plan(cutoff_points: Array, available_units: Array, target_p
 		if unit.unit in hex_grid.units_moved_this_turn:
 			continue
 		
-		print("AI %d: [RUCH %d] %s @ %s -> %s" % [team, i+1, unit.type, unit.unit.hex_position, target_move])
+		if DEBUG: print("AI %d: [RUCH %d] %s @ %s -> %s" % [team, i+1, unit.type, unit.unit.hex_position, target_move])
 		
 		var current_from = unit.unit.hex_position if is_instance_valid(unit.unit) else unit.pos
 		if await execute_unit_move(unit.type, current_from, target_move):
@@ -3821,7 +3823,7 @@ func _execute_cutoff_plan(cutoff_points: Array, available_units: Array, target_p
 				if moves_done >= 2:
 					unit.moved = true
 	
-	print("AI %d: === KONIEC KOORDYNACJI (wykonano: %d ruchów) ===" % [team, executed_moves])
+	if DEBUG: print("AI %d: === KONIEC KOORDYNACJI (wykonano: %d ruchów) ===" % [team, executed_moves])
 	return executed_moves > 0
 	
 func execute_unit_move(unit_type: String, from: Vector2i, to: Vector2i) -> bool:
@@ -3973,7 +3975,7 @@ func find_cutoff_threats(state: Dictionary) -> Array:
 	threats.sort_custom(func(a, b): return a.priority > b.priority)
 	
 	if not threats.is_empty():
-		print("AI %d: WYKRYTO %d zagrożeń odcięcia naszych jednostek!" % [team, threats.size()])
+		if DEBUG: print("AI %d: WYKRYTO %d zagrożeń odcięcia naszych jednostek!" % [team, threats.size()])
 		for threat in threats:
 			print("  - %s @ %s (połączeń: %d, zagrożeń: %d)" % 
 				[threat.unit.type, threat.unit_pos, threat.connections, threat.vulnerable_points.size()])
@@ -3982,7 +3984,7 @@ func find_cutoff_threats(state: Dictionary) -> Array:
 
 func execute_bandit_turn(state: Dictionary):
 	"""AI dla bandytów - preferują pola królestw (kradzież złota), mogą też chodzić po neutralnych"""
-	print("AI Bandytów: Ruszam %d jednostek" % state.my_units.size())
+	if DEBUG: print("AI Bandytów: Ruszam %d jednostek" % state.my_units.size())
 	
 	if hex_grid.ui_manager:
 		hex_grid.ui_manager.set_buttons_enabled(false)
@@ -3995,7 +3997,7 @@ func execute_bandit_turn(state: Dictionary):
 		
 		var bandit_spawn_round = unit_data.unit.get("spawn_turn")
 		if bandit_spawn_round != null and bandit_spawn_round >= hex_grid.current_round - 1:
-			print("Bandyta @ %s pominięty - właśnie się zrespił (spawn: %d, current: %d)" % [unit_data.pos, bandit_spawn_round, hex_grid.current_round])
+			if DEBUG: print("Bandyta @ %s pominięty - właśnie się zrespił (spawn: %d, current: %d)" % [unit_data.pos, bandit_spawn_round, hex_grid.current_round])
 			continue
 		
 		var current_pos = unit_data.unit.hex_position
@@ -4031,7 +4033,7 @@ func execute_bandit_turn(state: Dictionary):
 			# Tylko pola bandyckie - losowy ruch
 			chosen_move = bandit_moves_list[randi() % bandit_moves_list.size()]
 		
-		print("Bandyta: %s -> %s (owner: %d)" % [current_pos, chosen_move, hex_grid.territory_map.get(chosen_move, 0)])
+		if DEBUG: print("Bandyta: %s -> %s (owner: %d)" % [current_pos, chosen_move, hex_grid.territory_map.get(chosen_move, 0)])
 		await execute_move(unit_data.unit, unit_data, chosen_move)
 		await hex_grid.get_tree().create_timer(0.1).timeout
 	

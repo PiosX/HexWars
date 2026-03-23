@@ -2,11 +2,13 @@ extends Node
 # Main.gd - Rozszerzona wersja z obsługą IAP i trwałym zapisem
 # Zastąp swój obecny main.gd tym plikiem
 
-const MAIN_MENU = preload("res://home.tscn")
-const SHOP_MENU = preload("res://shop.tscn")
-const LEVEL_SELECT = preload("res://levels.tscn")
-const HEX_GRID_SCENE = preload("res://main_scene.tscn")
-const HOWTO_MENU = preload("res://howto.tscn")
+const MAIN_MENU = "res://home.tscn"
+const SHOP_MENU = "res://shop.tscn"
+const LEVEL_SELECT = "res://levels.tscn"
+const HEX_GRID_SCENE = "res://main_scene.tscn"
+const HOWTO_MENU = "res://howto.tscn"
+
+var _scene_cache: Dictionary = {}  # cache załadowanych scen
 
 # ===== ŚCIEŻKA ZAPISU =====
 const SAVE_FILE_PATH = "user://game_data.save"
@@ -48,20 +50,35 @@ var total_levels_completed: int = 0
 var total_ads_watched: int = 0
 
 func _ready():
-	print("=== MAIN NODE STARTING ===")
 	load_game_data()
 	setup_audio()
 	setup_fade_overlay()
 	change_scene(MAIN_MENU)
-	
-	# Banner pokazuje ConsentManager po uzyskaniu zgody
-	
 	_maybe_show_rate_on_start()
+	# Załaduj w tle sceny potrzebne wkrótce
+	_preload_in_background([LEVEL_SELECT, SHOP_MENU, HEX_GRID_SCENE, HOWTO_MENU])
+
+func _preload_in_background(paths: Array):
+	for path in paths:
+		if not _scene_cache.has(path):
+			ResourceLoader.load_threaded_request(path)
+
+func _get_scene(path: String) -> Resource:
+	if _scene_cache.has(path):
+		return _scene_cache[path]
+	var status = ResourceLoader.load_threaded_get_status(path)
+	if status == ResourceLoader.THREAD_LOAD_LOADED:
+		var res = ResourceLoader.load_threaded_get(path)
+		_scene_cache[path] = res
+		return res
+	var res = load(path)
+	_scene_cache[path] = res
+	return res
 
 func _maybe_show_rate_on_start():
 	await get_tree().process_frame
 	if RatePopup.should_show(self):
-		var popup = preload("res://rate_popup.tscn").instantiate()
+		var popup = load("res://rate_popup.tscn").instantiate()
 		get_tree().root.add_child(popup)
 		popup.show_popup()
 
@@ -101,34 +118,28 @@ func save_game_data():
 	if file:
 		file.store_var(save_data)
 		file.close()
-		print("✅ Game data saved (Currency: %d, Completed: %d levels)" % [global_time_currency, completed_levels.size()])
 		return true
 	else:
-		print("❌ Failed to save game data")
 		return false
 
 func load_game_data():
 	"""Wczytuje dane gry z pliku"""
 	if not FileAccess.file_exists(SAVE_FILE_PATH):
-		print("ℹ️ No save file found, using default values")
 		return
 	
 	var file = FileAccess.open(SAVE_FILE_PATH, FileAccess.READ)
 	if not file:
-		print("❌ Failed to open save file")
 		return
 	
 	var save_data = file.get_var()
 	file.close()
 	
 	if not save_data is Dictionary:
-		print("⚠️ Invalid save data format")
 		return
 	
 	# Sprawdź wersję
 	var version = save_data.get("version", 1)
 	if version < SAVE_VERSION:
-		print("ℹ️ Migrating save data from version %d to %d" % [version, SAVE_VERSION])
 		save_data = migrate_save_data(save_data, version)
 	
 	# Wczytaj dane
@@ -149,10 +160,6 @@ func load_game_data():
 	total_levels_completed = save_data.get("total_levels_completed", 0)
 	total_ads_watched = save_data.get("total_ads_watched", 0)
 	
-	print("✅ Game data loaded:")
-	print("   - Currency: %d" % global_time_currency)
-	print("   - Completed levels: %d" % completed_levels.size())
-	print("   - Ads disabled: %s" % ads_disabled)
 
 func migrate_save_data(old_data: Dictionary, from_version: int) -> Dictionary:
 	"""Migruje stare dane do nowej wersji"""
@@ -172,7 +179,6 @@ func add_currency(amount: int):
 	"""Dodaje walutę i zapisuje"""
 	global_time_currency += amount
 	save_game_data()
-	print("💰 Currency +%d (Total: %d)" % [amount, global_time_currency])
 	
 	# Aktualizuj UI jeśli istnieje
 	update_currency_displays()
@@ -182,11 +188,9 @@ func spend_currency(amount: int) -> bool:
 	if global_time_currency >= amount:
 		global_time_currency -= amount
 		save_game_data()
-		print("💸 Currency -%d (Remaining: %d)" % [amount, global_time_currency])
 		update_currency_displays()
 		return true
 	else:
-		print("⚠️ Not enough currency! Need: %d, Have: %d" % [amount, global_time_currency])
 		return false
 
 func get_currency() -> int:
@@ -205,14 +209,12 @@ func complete_level(level_number: int, completion_time: float = 0.0):
 	if level_number not in completed_levels:
 		completed_levels.append(level_number)
 		total_levels_completed += 1
-		print("🎯 Level %d completed!" % level_number)
 	
 	# Zapisz najlepszy czas
 	if completion_time > 0:
 		var level_key = str(level_number)
 		if not high_scores.has(level_key) or completion_time < high_scores[level_key]:
 			high_scores[level_key] = completion_time
-			print("⭐ New best time for level %d: %.2fs" % [level_number, completion_time])
 	
 	save_game_data()
 	
@@ -242,7 +244,6 @@ func set_ads_disabled(disabled: bool):
 	if disabled and "no_ads" not in purchased_products:
 		purchased_products.append("no_ads")
 	save_game_data()
-	print("📵 Ads %s" % ("DISABLED" if disabled else "ENABLED"))
 
 func get_ads_disabled() -> bool:
 	"""Zwraca status wyłączenia reklam"""
@@ -253,7 +254,6 @@ func add_purchased_product(product_id: String):
 	if product_id not in purchased_products:
 		purchased_products.append(product_id)
 		save_game_data()
-		print("🛒 Product purchased: %s" % product_id)
 
 func owns_product(product_id: String) -> bool:
 	"""Sprawdza czy gracz posiada produkt"""
@@ -281,7 +281,6 @@ func get_playtime_formatted() -> String:
 
 func setup_audio():
 	"""Tworzy wszystkie AudioStreamPlayer'y"""
-	print("=== SETTING UP AUDIO ===")
 	
 	# Button sound
 	btn_sound = AudioStreamPlayer.new()
@@ -340,7 +339,6 @@ func setup_audio():
 	if music_enabled:
 		background_music.play()
 	
-	print("✅ Audio setup complete")
 
 func play_btn_sound():
 	if sound_enabled and btn_sound:
@@ -382,27 +380,28 @@ func toggle_music(enabled: bool):
 
 # ========== ZARZĄDZANIE SCENAMI ==========
 
-func change_scene(scene_resource):
+func change_scene(scene_path: String):
 	await fade_out()
-	_do_change_scene(scene_resource)
+	_do_change_scene(scene_path)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	var delay = 0.4 if scene_resource == LEVEL_SELECT else 0.2
+	var delay = 0.4 if scene_path == LEVEL_SELECT else 0.2
 	await get_tree().create_timer(delay).timeout
 	await fade_in()
 
-func _do_change_scene(scene_resource):
+func _do_change_scene(scene_path: String):
 	var admob = get_node_or_null("/root/AdMobManager")
 	if current_scene:
 		current_scene.queue_free()
 	
+	var scene_resource = _get_scene(scene_path)
 	var new_scene = scene_resource.instantiate()
 	# Upewnij się że overlay jest na wierzchu
 	add_child(new_scene)
 	current_scene = new_scene
 	
 	if admob:
-		if scene_resource == HEX_GRID_SCENE:
+		if scene_path == HEX_GRID_SCENE:
 			admob.hide_banner()
 		else:
 			admob.show_banner()
@@ -442,7 +441,7 @@ func load_game_level(level_file: String, difficulty: int, level_num: int = 0):
 	if current_scene:
 		current_scene.queue_free()
 	
-	var main_scene = HEX_GRID_SCENE.instantiate()
+	var main_scene = _get_scene(HEX_GRID_SCENE).instantiate()
 	add_child(main_scene)
 	current_scene = main_scene
 	
