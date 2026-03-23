@@ -54,11 +54,16 @@ func _ready():
 		billing_client.connected.connect(_on_billing_connected)
 		billing_client.disconnected.connect(_on_billing_disconnected)
 		billing_client.connect_error.connect(_on_billing_connect_error)
-		billing_client.on_purchases_updated.connect(_on_purchases_updated)
-		billing_client.query_purchases_response.connect(_on_query_purchases)
-		billing_client.product_details_query_completed.connect(_on_product_details_completed)
-		billing_client.purchase_acknowledged.connect(_on_purchase_acknowledged)
-		billing_client.purchase_consumed.connect(_on_purchase_consumed)
+		if billing_client.has_signal("on_purchases_updated"):
+			billing_client.on_purchases_updated.connect(_on_purchases_updated)
+		if billing_client.has_signal("query_purchases_response"):
+			billing_client.query_purchases_response.connect(_on_query_purchases)
+		if billing_client.has_signal("product_details_query_completed"):
+			billing_client.product_details_query_completed.connect(_on_product_details_completed)
+		if billing_client.has_signal("purchase_acknowledged"):
+			billing_client.purchase_acknowledged.connect(_on_purchase_acknowledged)
+		if billing_client.has_signal("purchase_consumed"):
+			billing_client.purchase_consumed.connect(_on_purchase_consumed)
 		billing_client.start_connection()
 		print("Connecting to Google Play Billing...")
 	else:
@@ -88,7 +93,6 @@ func query_product_details():
 	if not is_ready or not billing_client:
 		return
 	var product_list = PRODUCTS.keys()
-	print("Querying product details for: %s" % product_list)
 	billing_client.query_product_details(product_list, BillingClient.ProductType.INAPP)
 
 func _on_query_purchases(result: Dictionary):

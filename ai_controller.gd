@@ -951,7 +951,7 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 				# Jeśli wróg ma 2 połączenia - wystarczą 2 jednostki
 				var units_needed = min(fields_to_capture.size(), enemy_territory_connections.size())
 				
-				print("AI %d: Możliwe odcięcie! Wróg ma %d połączenia, potrzeba %d jednostek (pól dostępnych: %d)" % 
+				if DEBUG: print("AI %d: Możliwe odcięcie! Wróg ma %d połączenia, potrzeba %d jednostek (pól dostępnych: %d)" % 
 					[team, enemy_territory_connections.size(), units_needed, fields_to_capture.size()])
 				
 				# Znajdź jednostki które mogą pomóc
@@ -1070,7 +1070,7 @@ func find_cutoff_opportunities(state: Dictionary) -> Array:
 						"missing_units": missing_units
 					})
 					
-					print("AI %d: ✓ ZNALEZIONO ODCIĘCIE! Wróg %s na %s, połączeń: %d, potrzeba: %d jednostek (mamy: %d%s), priorytet: %d" % 
+					if DEBUG: print("AI %d: ✓ ZNALEZIONO ODCIĘCIE! Wróg %s na %s, połączeń: %d, potrzeba: %d jednostek (mamy: %d%s), priorytet: %d" % 
 						[team, enemy.type, enemy_pos, enemy_territory_connections.size(), units_needed, assigned_units.size(), 
 						(" +%d dokup" % missing_units) if can_buy_missing else "", opp_priority])
 				else:
@@ -3639,7 +3639,7 @@ func coordinate_cutoff_attack(target: Dictionary, state: Dictionary) -> bool:
 			if min_dist <= 4:
 				units_approaching.append(unit_data)
 	
-	print("AI %d: Połączeń do zablokowania: %d, w zasięgu: %d, zbliżających się: %d" % [
+	if DEBUG: print("AI %d: Połączeń do zablokowania: %d, w zasięgu: %d, zbliżających się: %d" % [
 		team, needed, units_in_range.size(), units_approaching.size()])
 	
 	# PRZYPADEK 1: Mamy wystarczająco jednostek - wykonaj pełne odcięcie

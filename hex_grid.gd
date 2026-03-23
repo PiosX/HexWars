@@ -1,6 +1,7 @@
 extends Node2D
 class_name HexGrid
 
+const DEBUG = false
 # --- KONFIGURACJA ---
 @export var editor_mode: bool = false
 @export_enum("Hex", "Castle_Blue", "Castle_Red", "Castle_Purple", "Castle_Yellow", 
@@ -174,23 +175,23 @@ func _ready():
 	set_team_ai(3, 0, 0.3)  # Fioletowy = Normal, defensywny
 	set_team_ai(4, 0, 0.5)  # Żółty = Normal, zbalansowany
 	
-	print("=== AI TEAMS INITIALIZED ===")
+	if DEBUG: print("=== AI TEAMS INITIALIZED ===")
 	for ai_team in ai_teams:
-		print("Team %d: AI enabled" % ai_team)
+		if DEBUG: print("Team %d: AI enabled" % ai_team)
 	
-	print("=== STEROWANIE ===")
-	print("E = Toggle tryb edytor/gra")
-	print("== EDYTOR ==")
-	print("1 = Hex | 2-5 = Zamki | 6-9 = Rycerze | Q/W/R/T = Farmerzy | I/O/P/[ = Włócznicy | ]/;/'/ = Kawaleria | M = Tryb łączenia")
-	print("Y = Farmer Bandyta | U = Oboz Bandytow")
-	print("0 = Tryb murow (kliknij dwa hexy aby polaczyc)")
-	print("LPM = Postaw | PPM = Usun | Shift+LPM = Oznacz teren")
-	print("S = Zapisz (domyślny) | L = Wczytaj | C = Wyczysc")
-	print("F1-F10 = Zapisz jako Level 1-10 (hex_layout_level1.json...)")
-	print("== GRA ==")
-	print("X = Zmien druzyne | SPACE = Zakoncz ture")
-	print("Kliknij jednostke = Wybierz | Przycisk 'Polacz' = Tryb laczenia")
-	print("==================")
+	if DEBUG: print("=== STEROWANIE ===")
+	if DEBUG: print("E = Toggle tryb edytor/gra")
+	if DEBUG: print("== EDYTOR ==")
+	if DEBUG: print("1 = Hex | 2-5 = Zamki | 6-9 = Rycerze | Q/W/R/T = Farmerzy | I/O/P/[ = Włócznicy | ]/;/'/ = Kawaleria | M = Tryb łączenia")
+	if DEBUG: print("Y = Farmer Bandyta | U = Oboz Bandytow")
+	if DEBUG: print("0 = Tryb murow (kliknij dwa hexy aby polaczyc)")
+	if DEBUG: print("LPM = Postaw | PPM = Usun | Shift+LPM = Oznacz teren")
+	if DEBUG: print("S = Zapisz (domyślny) | L = Wczytaj | C = Wyczysc")
+	if DEBUG: print("F1-F10 = Zapisz jako Level 1-10 (hex_layout_level1.json...)")
+	if DEBUG: print("== GRA ==")
+	if DEBUG: print("X = Zmien druzyne | SPACE = Zakoncz ture")
+	if DEBUG: print("Kliknij jednostke = Wybierz | Przycisk 'Polacz' = Tryb laczenia")
+	if DEBUG: print("==================")
 	
 	# Poczekaj jedną klatkę żeby scena była gotowa
 	await get_tree().process_frame
@@ -242,12 +243,12 @@ func _ready():
 	var editor_ui = get_parent().get_node_or_null("LevelEditorUI")
 	if editor_ui:
 		editor_ui.setup_for_hex_grid(self)
-		print("✓ Panel połączony z HexGrid!")
+		if DEBUG: print("✓ Panel połączony z HexGrid!")
 		
 	var map_gen_ui = get_parent().get_node_or_null("MapGeneratorUI")
 	if map_gen_ui:
 		map_gen_ui.setup_for_hex_grid(self)
-		print("✓ MapGeneratorUI połączony z HexGrid!")
+		if DEBUG: print("✓ MapGeneratorUI połączony z HexGrid!")
 	
 	# Wyśrodkuj kamerę na zamku gracza (team 1) lub środku mapy
 	center_camera_on_start()
@@ -274,14 +275,14 @@ func center_camera_on_start():
 	
 	if player_castle_pos != Vector2i.ZERO:
 		target_world_pos = hex_to_pixel(player_castle_pos)
-		print("📷 Kamera: cel = zamek gracza @ %s" % player_castle_pos)
+		if DEBUG: print("📷 Kamera: cel = zamek gracza @ %s" % player_castle_pos)
 	else:
 		# Fallback: środek geometryczny mapy
 		var sum = Vector2.ZERO
 		for coords in hex_map:
 			sum += hex_to_pixel(coords)
 		target_world_pos = sum / hex_map.size()
-		print("📷 Kamera: cel = środek mapy")
+		if DEBUG: print("📷 Kamera: cel = środek mapy")
 	
 	# Oblicz pozycję self.position tak żeby target był na środku ekranu
 	var desired = (viewport_size / 2.0) - target_world_pos * zoom
@@ -292,7 +293,7 @@ func center_camera_on_start():
 	desired.y = clamp(desired.y, -bounds.end.y, -bounds.position.y)
 	
 	self.position = desired
-	print("📷 Kamera ustawiona: %s" % self.position)
+	if DEBUG: print("📷 Kamera ustawiona: %s" % self.position)
 
 func _ensure_unique_kingdom_ids():
 	"""Po wczytaniu pliku: upewnij się że każdy zamek ma unikalny kingdom_id w zakresie swojego teamu.
@@ -314,7 +315,7 @@ func _ensure_unique_kingdom_ids():
 		if old_kid != new_kid:
 			remap[old_kid] = new_kid
 			castle_kingdom_id[coords] = new_kid
-			print("Renumber: kid %d → %d (team %d)" % [old_kid, new_kid, t])
+			if DEBUG: print("Renumber: kid %d → %d (team %d)" % [old_kid, new_kid, t])
 	
 	# Zaktualizuj next_kingdom_id_per_team
 	for t in [1, 2, 3, 4]:
@@ -548,7 +549,7 @@ func _collect_castle_gold_on_capture(castle_coords: Vector2i, new_team: int, old
 		# Odejmij od starego królestwa
 		if old_kid > 0:
 			kingdom_gold[old_kid] = max(0, kingdom_gold.get(old_kid, 0) - captured_gold)
-		print("Zebrano ", captured_gold, " złota z zamku (new_team=", new_team, " old_team=", old_team, ")")
+		if DEBUG: print("Zebrano ", captured_gold, " złota z zamku (new_team=", new_team, " old_team=", old_team, ")")
 	castle_gold.erase(castle_coords)
 	if new_team > 0 and new_team <= 4:
 		_rebuild_team_gold(new_team)
@@ -636,7 +637,7 @@ func _input(event):
 				#clear_highlights()
 				#merge_mode = false
 				#wall_placement_mode = false
-				#print("Tryb: ", "GRA" if game_mode else "EDYTOR")
+				#if DEBUG: print("Tryb: ", "GRA" if game_mode else "EDYTOR")
 				#update_ui()
 				#if game_mode:
 					#pulse_available_units()
@@ -738,28 +739,28 @@ func _input(event):
 					if wall_placement_mode:
 						wall_hexes_selected.clear()
 						current_team = 1  # ← domyślnie niebieski
-						print("TRYB MUROW (druzyna: ", current_team, ")")
-						print("Klikaj hexy. Zmien druzyne: F1-F4. Enter = utworz")
+						if DEBUG: print("TRYB MUROW (druzyna: ", current_team, ")")
+						if DEBUG: print("Klikaj hexy. Zmien druzyne: F1-F4. Enter = utworz")
 					else:
 						create_walls_between_selected()
 						wall_hexes_selected.clear()
-						print("Mury utworzone")
+						if DEBUG: print("Mury utworzone")
 			KEY_F1:
 				if not game_mode and wall_placement_mode:
 					current_team = 1
-					print("Mury dla: NIEBIESKIEJ")
+					if DEBUG: print("Mury dla: NIEBIESKIEJ")
 			KEY_F2:
 				if not game_mode and wall_placement_mode:
 					current_team = 2
-					print("Mury dla: CZERWONEJ")
+					if DEBUG: print("Mury dla: CZERWONEJ")
 			KEY_F3:
 				if not game_mode and wall_placement_mode:
 					current_team = 3
-					print("Mury dla: FIOLETOWEJ")
+					if DEBUG: print("Mury dla: FIOLETOWEJ")
 			KEY_F4:
 				if not game_mode and wall_placement_mode:
 					current_team = 4
-					print("Mury dla: ZOLTEJ")
+					if DEBUG: print("Mury dla: ZOLTEJ")
 			KEY_X:
 				if game_mode:
 					cycle_team()
@@ -776,53 +777,53 @@ func _input(event):
 					var timestamp = Time.get_datetime_string_from_system().replace(":", "-").replace(" ", "_")
 					var path = "user://screenshot_%s.png" % timestamp
 					screenshot.save_png(path)
-					print("✓ Screenshot zapisany: %s" % path)
+					if DEBUG: print("✓ Screenshot zapisany: %s" % path)
 			KEY_N:
 				if not game_mode:
 					show_kingdom_labels = not show_kingdom_labels
 					_update_all_kingdom_labels()
-					print("Etykiety królestw: ", "WIDOCZNE" if show_kingdom_labels else "UKRYTE")
+					if DEBUG: print("Etykiety królestw: ", "WIDOCZNE" if show_kingdom_labels else "UKRYTE")
 			# QUICK SAVE SHORTCUTS - F1 to F10 save as level 1-10
 			KEY_F1:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level1.json")
-					print("✓ Saved as Level 1")
+					if DEBUG: print("✓ Saved as Level 1")
 			KEY_F2:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level2.json")
-					print("✓ Saved as Level 2")
+					if DEBUG: print("✓ Saved as Level 2")
 			KEY_F3:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level3.json")
-					print("✓ Saved as Level 3")
+					if DEBUG: print("✓ Saved as Level 3")
 			KEY_F4:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level4.json")
-					print("✓ Saved as Level 4")
+					if DEBUG: print("✓ Saved as Level 4")
 			KEY_F5:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level5.json")
-					print("✓ Saved as Level 5")
+					if DEBUG: print("✓ Saved as Level 5")
 			KEY_F6:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level6.json")
-					print("✓ Saved as Level 6")
+					if DEBUG: print("✓ Saved as Level 6")
 			KEY_F7:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level7.json")
-					print("✓ Saved as Level 7")
+					if DEBUG: print("✓ Saved as Level 7")
 			KEY_F8:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level8.json")
-					print("✓ Saved as Level 8")
+					if DEBUG: print("✓ Saved as Level 8")
 			KEY_F9:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level9.json")
-					print("✓ Saved as Level 9")
+					if DEBUG: print("✓ Saved as Level 9")
 			KEY_F10:
 				if not game_mode:
 					save_layout_to_file("hex_layout_level10.json")
-					print("✓ Saved as Level 10")
+					if DEBUG: print("✓ Saved as Level 10")
 			#KEY_ESCAPE:
 				#if wall_placement_mode or buy_mode != "":
 					#wall_placement_mode = false
@@ -911,7 +912,7 @@ func _input(event):
 								if hex_coords not in bandit_camp_ownership[editor_last_camp_id]:
 									bandit_camp_ownership[editor_last_camp_id].append(hex_coords)
 								bandits_need_camp.erase(hex_coords)
-								print("EDYTOR: Bandyta @ %s przypisany do obozu #%d" % [hex_coords, editor_last_camp_id])
+								if DEBUG: print("EDYTOR: Bandyta @ %s przypisany do obozu #%d" % [hex_coords, editor_last_camp_id])
 					"Castle_Bandit":
 						# Postaw obóz i ustaw go jako aktywny dla kolejnych bandytów
 						place_castle_at(hex_coords, -1)
@@ -934,11 +935,11 @@ func _input(event):
 								if bpos not in bandit_camp_ownership[editor_last_camp_id]:
 									bandit_camp_ownership[editor_last_camp_id].append(bpos)
 								bandits_need_camp.erase(bpos)
-								print("EDYTOR: Wstecznie przypisano bandytę @ %s do obozu #%d" % [bpos, editor_last_camp_id])
+								if DEBUG: print("EDYTOR: Wstecznie przypisano bandytę @ %s do obozu #%d" % [bpos, editor_last_camp_id])
 							# Pokaż etykietę złota
 							var camp_id_val = new_camp.get_meta("camp_id")
 							_set_bandit_camp_gold_label(new_camp, bandit_camp_gold.get(camp_id_val, 10))
-							print("EDYTOR: Nowy obóz bandytów #%d @ %s (kolejne bandyty będą do niego przypisane)" % [editor_last_camp_id, hex_coords])
+							if DEBUG: print("EDYTOR: Nowy obóz bandytów #%d @ %s (kolejne bandyty będą do niego przypisane)" % [editor_last_camp_id, hex_coords])
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			remove_all_at(hex_coords)
 			
@@ -1004,13 +1005,13 @@ func _unhandled_input(event):
 func handle_wall_placement(hex_coords: Vector2i):
 	"""Obsluguje zaznaczanie hexow do murow"""
 	if not hex_map.has(hex_coords):
-		print("Brak hexa na tej pozycji")
+		if DEBUG: print("Brak hexa na tej pozycji")
 		return
 	
 	# Sprawdz czy to wlasne terytorium (w trybie gry)
 	if game_mode:
 		if territory_map.get(hex_coords, 0) != current_team:
-			print("To nie twoje terytorium!")
+			if DEBUG: print("To nie twoje terytorium!")
 			return
 	
 	var hex = get_hex_at(hex_coords)
@@ -1027,13 +1028,13 @@ func handle_wall_placement(hex_coords: Vector2i):
 		
 		# Jesli ma 6 murow (pelne otoczenie) - nie pozwol zaznaczyc
 		if walls_count >= 6:
-			print("To pole ma juz pelne otoczenie murami!")
+			if DEBUG: print("To pole ma juz pelne otoczenie murami!")
 			return
 	
 	# Dodaj lub usun hex z listy
 	if hex_coords in wall_hexes_selected:
 		wall_hexes_selected.erase(hex_coords)
-		print("Odznaczono hex: ", hex_coords)
+		if DEBUG: print("Odznaczono hex: ", hex_coords)
 		remove_hex_outline(hex_coords)
 	else:
 		# Sprawdz limit zlota
@@ -1041,11 +1042,11 @@ func handle_wall_placement(hex_coords: Vector2i):
 			var current_cost = wall_hexes_selected.size() * WALL_COST_PER_HEX
 			var new_cost = current_cost + WALL_COST_PER_HEX
 			if not _can_afford(current_team, new_cost):
-				print("Nie stac cie na wiecej scian! Masz: ", get_selected_kingdom_gold(current_team), " zlota")
+				if DEBUG: print("Nie stac cie na wiecej scian! Masz: ", get_selected_kingdom_gold(current_team), " zlota")
 				return
 		
 		wall_hexes_selected.append(hex_coords)
-		print("Zaznaczono hex: ", hex_coords, " (Koszt: ", wall_hexes_selected.size() * WALL_COST_PER_HEX, ")")
+		if DEBUG: print("Zaznaczono hex: ", hex_coords, " (Koszt: ", wall_hexes_selected.size() * WALL_COST_PER_HEX, ")")
 		draw_hex_outline(hex_coords, Color.WHITE)
 		get_node("/root/Main").play_put_sound()
 		
@@ -1092,17 +1093,17 @@ func remove_hex_outline(hex_coords: Vector2i):
 func create_walls_between_selected():
 	"""Każdy hex tworzy swoje własne walle na WSZYSTKICH 6 krawędziach"""
 	if wall_hexes_selected.size() < 1:
-		print("Zaznacz przynajmniej 1 hex")
+		if DEBUG: print("Zaznacz przynajmniej 1 hex")
 		return
 	
-	print("=== Tworzenie walli ===")
-	print("Zaznaczone hexy: ", wall_hexes_selected)
+	if DEBUG: print("=== Tworzenie walli ===")
+	if DEBUG: print("Zaznaczone hexy: ", wall_hexes_selected)
 	
 	# W trybie gry sprawdz czy wszystkie hexy sa wlasne
 	if game_mode:
 		for hex_coords in wall_hexes_selected:
 			if territory_map.get(hex_coords, 0) != current_team:
-				print("Nie mozesz stawiac scian na neutralnym terenie!")
+				if DEBUG: print("Nie mozesz stawiac scian na neutralnym terenie!")
 				return
 	
 	var walls_created = 0
@@ -1116,7 +1117,7 @@ func create_walls_between_selected():
 	for hex_coords in wall_hexes_selected:
 		remove_hex_outline(hex_coords)
 	
-	print("Utworzono walli: ", walls_created)
+	if DEBUG: print("Utworzono walli: ", walls_created)
 	
 func create_hex_walls(hex_coords: Vector2i, wall_team: int) -> int:
 	"""Tworzy 6 osobnych walli wokol hexa (kazda krawedz jako osobny wall)"""
@@ -1144,7 +1145,7 @@ func create_hex_walls(hex_coords: Vector2i, wall_team: int) -> int:
 		
 		# Sprawdz czy juz jest wall na tej krawedzi
 		if wall_map.has(edge_key):
-			print("  -> Wall juz istnieje na krawedzi ", i, " hexa ", hex_coords)
+			if DEBUG: print("  -> Wall juz istnieje na krawedzi ", i, " hexa ", hex_coords)
 			continue
 		
 		# Dodaj wall do mapy
@@ -1164,7 +1165,7 @@ func create_hex_walls(hex_coords: Vector2i, wall_team: int) -> int:
 		
 		walls_created += 1
 	
-	print("Hex ", hex_coords, " otrzymal ", walls_created, " walli")
+	if DEBUG: print("Hex ", hex_coords, " otrzymal ", walls_created, " walli")
 	return walls_created
 
 func cycle_team():
@@ -1177,7 +1178,7 @@ func cycle_team():
 	var first_ct = active_ct[0] if not active_ct.is_empty() else 1
 	if current_team == first_ct and old_team != first_ct:
 		current_round += 1
-		print("=== KONIEC RUNDY ===")
+		if DEBUG: print("=== KONIEC RUNDY ===")
 	
 	clear_highlights()
 	merge_mode = false
@@ -1196,9 +1197,9 @@ func cycle_team():
 				create_walls_between_selected()
 				current_team = saved_team
 				_deduct_gold(old_team, cost)
-				print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
+				if DEBUG: print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
 			else:
-				print("Nie stac na mury przy Next Turn - anulowano")
+				if DEBUG: print("Nie stac na mury przy Next Turn - anulowano")
 		for hex_coords in wall_hexes_selected:
 			remove_hex_outline(hex_coords)
 		wall_hexes_selected.clear()
@@ -1209,7 +1210,7 @@ func cycle_team():
 		ui_manager.reset_wall_button()
 	
 	var team_names = {1: "NIEBIESKI", 2: "CZERWONY", 3: "FIOLETOWY", 4: "ZOLTY", 5: "BANDYCI"}
-	print("Druzyna: ", team_names.get(current_team, "NIEZNANA"))
+	if DEBUG: print("Druzyna: ", team_names.get(current_team, "NIEZNANA"))
 	
 	# DODAJ: Sprawdź czy bandyci potrzebują obozu
 	if current_team == 5:
@@ -1220,7 +1221,7 @@ func cycle_team():
 	
 func check_bandits_need_camp():
 	"""Sprawdza czy bandyci bez obozu stoja na pustym miejscu - jesli tak, twórz obóz"""
-	print("=== TURA BANDYTOW - sprawdzam obozy ===")
+	if DEBUG: print("=== TURA BANDYTOW - sprawdzam obozy ===")
 	
 	var bandits_without_camp = []
 	
@@ -1240,18 +1241,18 @@ func check_bandits_need_camp():
 			break
 	
 	if has_camp:
-		print("Bandyci mają już obóz")
+		if DEBUG: print("Bandyci mają już obóz")
 		return
 	
-	print("Bandyci NIE mają obozu - szukam miejsca...")
+	if DEBUG: print("Bandyci NIE mają obozu - szukam miejsca...")
 	
 	# Spróbuj postawić obóz obok którejkolwiek jednostki
 	var camp_placed = place_bandit_camp_near_units(bandits_without_camp, bandits_without_camp)
 	
 	if camp_placed:
-		print("✓ Utworzono obóz bandytów")
+		if DEBUG: print("✓ Utworzono obóz bandytów")
 	else:
-		print("✗ Brak miejsca na obóz - jednostki izolowane")
+		if DEBUG: print("✗ Brak miejsca na obóz - jednostki izolowane")
 
 func _on_end_turn():
 	if not game_mode or game_over:
@@ -1264,9 +1265,9 @@ func _on_end_turn():
 			if _can_afford(current_team, cost):
 				create_walls_between_selected()
 				_deduct_gold(current_team, cost)
-				print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
+				if DEBUG: print("Auto-scalono mury za: ", cost, " zlota (Next Turn)")
 			else:
-				print("Nie stac na mury przy Next Turn - anulowano")
+				if DEBUG: print("Nie stac na mury przy Next Turn - anulowano")
 		for hex_coords in wall_hexes_selected:
 			remove_hex_outline(hex_coords)
 		wall_hexes_selected.clear()
@@ -1280,7 +1281,7 @@ func _on_end_turn():
 	var active_eco = get_active_teams()
 	var last_active_team = active_eco[-1] if not active_eco.is_empty() else 4
 	if current_team == last_active_team:
-		print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII PER KINGDOM ===" % current_round)
+		if DEBUG: print("=== KONIEC RUNDY %d - NALICZANIE EKONOMII PER KINGDOM ===" % current_round)
 		for t in teams_to_check:
 			var all_kids: Array = []
 			for coords in castle_map:
@@ -1297,11 +1298,11 @@ func _on_end_turn():
 				var upkeep = calculate_upkeep_for_kingdom(kid)
 				var net = income - upkeep
 				kingdom_gold[kid] = max(0, kingdom_gold.get(kid, 0) + net)
-				print("  Kingdom %d (team %d): +%d dochód, -%d koszty = net %d → złoto: %d" % [kid, t, income, upkeep, net, kingdom_gold[kid]])
+				if DEBUG: print("  Kingdom %d (team %d): +%d dochód, -%d koszty = net %d → złoto: %d" % [kid, t, income, upkeep, net, kingdom_gold[kid]])
 			
 			_rebuild_team_gold(t)
 			_redistribute_castle_gold(t)
-			print("  Team %d łącznie: %d złota" % [t, team_gold[t]])
+			if DEBUG: print("  Team %d łącznie: %d złota" % [t, team_gold[t]])
 		
 		# Sprawdź bankructwa PO naliczeniu ekonomii
 		for t in teams_to_check:
@@ -1317,7 +1318,7 @@ func _on_end_turn():
 				# Bankrutuje gdy złoto = 0 i koszty > dochodu (net ujemny = złoto przybite do 0)
 				var k_income = calculate_income_for_kingdom(kid)
 				if k_gold == 0 and k_income < k_upkeep:
-					print("⚠ Kingdom %d (team %d) bankrutuje! (złoto=%d, dochód=%d, koszty=%d)" % [kid, t, k_gold, k_income, k_upkeep])
+					if DEBUG: print("⚠ Kingdom %d (team %d) bankrutuje! (złoto=%d, dochód=%d, koszty=%d)" % [kid, t, k_gold, k_income, k_upkeep])
 					handle_bankruptcy(t)
 		
 		# Wykonaj bankructwa w tej samej rundzie
@@ -1366,14 +1367,14 @@ func _on_end_turn():
 		# === TURA BANDYTÓW NA KOŃCU RUNDY ===
 		# Bandyci ruszają się po zakończeniu rundy wszystkich graczy
 		if farmer_map.values().any(func(f): return is_instance_valid(f) and f.team == -1):
-			print("=== TURA BANDYTÓW (koniec rundy %d) ===" % (current_round - 1))
+			if DEBUG: print("=== TURA BANDYTÓW (koniec rundy %d) ===" % (current_round - 1))
 			
 			# Utwórz AI dla bandytów jeśli nie istnieje
 			if not ai_controllers.has(-1):
 				var bandit_ai = AIController.new(self, -1, 0, 0.5)
 				add_child(bandit_ai)
 				ai_controllers[-1] = bandit_ai
-				print("AI dla bandytów utworzone")
+				if DEBUG: print("AI dla bandytów utworzone")
 			
 			# Wykonaj turę bandytów
 			await get_tree().create_timer(0.3).timeout
@@ -1384,7 +1385,7 @@ func _on_end_turn():
 			units_moved_this_turn.clear()
 			cavalry_moves_this_turn.clear()
 			
-			print("=== KONIEC TURY BANDYTÓW ===")
+			if DEBUG: print("=== KONIEC TURY BANDYTÓW ===")
 	
 	# UI
 	update_ui()
@@ -1435,7 +1436,7 @@ func _on_end_turn():
 func _on_rewind_turn():
 	"""Obsługa przycisku cofania tury"""
 	if not game_mode:
-		print("Cofanie tur dostępne tylko w trybie gry!")
+		if DEBUG: print("Cofanie tur dostępne tylko w trybie gry!")
 		return
 	
 	var active_t = {}
@@ -1443,12 +1444,12 @@ func _on_rewind_turn():
 		if castle_map[coords].team > 0:
 			active_t[castle_map[coords].team] = true
 	if not turn_history.can_rewind(max(1, active_t.size())):
-		print("Nie można cofnąć tury!")
+		if DEBUG: print("Nie można cofnąć tury!")
 		return
 	
 	get_node("/root/Main").play_btn_sound()
 	
-	print("=== COFANIE TURY ===")
+	if DEBUG: print("=== COFANIE TURY ===")
 	
 	# Wyczyść aktualny stan UI
 	clear_highlights()
@@ -1477,7 +1478,7 @@ func _on_rewind_turn():
 	var success = await turn_history.restore_multiple_turns(self, num_teams, 3)
 	
 	if success:
-		print("✓ Tura cofnięta pomyślnie!")
+		if DEBUG: print("✓ Tura cofnięta pomyślnie!")
 		# NAPRAWKA: Wymuś reset is_highlighted na WSZYSTKICH hexach
 		# i odśwież sprite.modulate z aktualnego current_color
 		for coords in hex_map.keys():
@@ -1492,12 +1493,12 @@ func _on_rewind_turn():
 			update_hex_color(coords)
 		update_ui()
 	else:
-		print("✗ Nie udało się cofnąć tury")
+		if DEBUG: print("✗ Nie udało się cofnąć tury")
 	
 func handle_bankruptcy(team: int):
 	"""Obsluguje bankructwo - OZNACZ do konwersji, ale nie konwertuj od razu"""
-	print("=== BANKRUCTWO DRUZYNY ", team, " ===")
-	print("Jednostki zostana zbuntowane po zakonczeniu rundy wszystkich graczy")
+	if DEBUG: print("=== BANKRUCTWO DRUZYNY ", team, " ===")
+	if DEBUG: print("Jednostki zostana zbuntowane po zakonczeniu rundy wszystkich graczy")
 	
 	# Zaznacz druzyne jako zbankrutowana
 	if not has_meta("bankrupt_teams"):
@@ -1514,10 +1515,10 @@ func process_bankruptcies():
 	if bankrupt_teams.is_empty():
 		return
 	
-	print("=== PRZETWARZANIE BANKRUCTW ===")
+	if DEBUG: print("=== PRZETWARZANIE BANKRUCTW ===")
 	
 	for team in bankrupt_teams.keys():
-		print("Zbuntowanie druzyny: ", team)
+		if DEBUG: print("Zbuntowanie druzyny: ", team)
 		
 		var team_units = []
 		
@@ -1539,7 +1540,7 @@ func process_bankruptcies():
 				team_units.append(coords)
 		
 		if team_units.is_empty():
-			print("Brak jednostek do zbuntowania")
+			if DEBUG: print("Brak jednostek do zbuntowania")
 			continue
 		
 		# Przeksztalc wszystkie jednostki w bandytow
@@ -1562,29 +1563,29 @@ func process_bankruptcies():
 		# Postaw oboz bandytow obok jednostek
 		place_bandit_camp_near_units(team_units, team_units)
 		
-		print("Wszystkie jednostki druzyny ", team, " zbuntowaly sie!")
+		if DEBUG: print("Wszystkie jednostki druzyny ", team, " zbuntowaly sie!")
 	
 	# Wyczysc liste zbankrutowanych
 	bankrupt_teams.clear()
-	print("=== KONIEC PRZETWARZANIA BANKRUCTW ===")
+	if DEBUG: print("=== KONIEC PRZETWARZANIA BANKRUCTW ===")
 
 func _on_merge_button_pressed():
 	"""Aktywuje tryb łączenia"""
-	print("=== PRZYCISK POLACZ ===")
-	print("Selected unit: ", selected_unit)
+	if DEBUG: print("=== PRZYCISK POLACZ ===")
+	if DEBUG: print("Selected unit: ", selected_unit)
 	
 	if not selected_unit:
-		print("Najpierw zaznacz jednostkę!")
+		if DEBUG: print("Najpierw zaznacz jednostkę!")
 		return
 	
 	if not (selected_unit is Farmer or selected_unit is Spearman or selected_unit is Knight):
-		print("Można łączyć tylko farmerów, spearmanów lub knightów!")
+		if DEBUG: print("Można łączyć tylko farmerów, spearmanów lub knightów!")
 		return
 	
 	merge_mode = true
 	clear_highlights()
 	
-	print("TRYB LACZENIA AKTYWNY")
+	if DEBUG: print("TRYB LACZENIA AKTYWNY")
 	
 	if selected_unit is Farmer:
 		for coords in farmer_map:
@@ -1594,7 +1595,7 @@ func _on_merge_button_pressed():
 				if hex:
 					hex.highlight(HIGHLIGHT_COLOR_MERGE)
 					highlighted_hexes.append(hex)
-		print("Tryb laczenia: Kliknij farmera aby polaczyc w spearmana")
+		if DEBUG: print("Tryb laczenia: Kliknij farmera aby polaczyc w spearmana")
 	
 	elif selected_unit is Spearman:
 		for coords in spearman_map:
@@ -1604,7 +1605,7 @@ func _on_merge_button_pressed():
 				if hex:
 					hex.highlight(HIGHLIGHT_COLOR_MERGE)
 					highlighted_hexes.append(hex)
-		print("Tryb laczenia: Kliknij spearmana aby polaczyc w knighta")
+		if DEBUG: print("Tryb laczenia: Kliknij spearmana aby polaczyc w knighta")
 	
 	elif selected_unit is Knight:
 		for coords in knight_map:
@@ -1614,7 +1615,7 @@ func _on_merge_button_pressed():
 				if hex:
 					hex.highlight(HIGHLIGHT_COLOR_MERGE)
 					highlighted_hexes.append(hex)
-		print("Tryb laczenia: Kliknij knighta aby polaczyc w cavalry")
+		if DEBUG: print("Tryb laczenia: Kliknij knighta aby polaczyc w cavalry")
 
 func can_attack_through_walls(attacker, target_pos: Vector2i) -> bool:
 	"""STARA FUNKCJA - zachowana dla kompatybilności. Teraz używaj try_break_walls."""
@@ -1631,7 +1632,7 @@ func can_attack_through_walls(attacker, target_pos: Vector2i) -> bool:
 		return true
 	
 	# CEL JEST OTOCZONY MURAMI
-	print("Cel otoczony murami (", wall_count, "/6)")
+	if DEBUG: print("Cel otoczony murami (", wall_count, "/6)")
 	
 	if attacker is Knight:
 		if target is Farmer:
@@ -1714,7 +1715,7 @@ func try_break_walls(attacker, from: Vector2i, to: Vector2i) -> bool:
 	var attacker_power = get_attacker_wall_power(attacker)
 	if attacker_power == 0:
 		# Farmer nie może niszczyć murów - blokuj ruch
-		print("Farmer nie może niszczyć murów!")
+		if DEBUG: print("Farmer nie może niszczyć murów!")
 		return true  # Pochłoń turę i zablokuj (farmer traci ruch)
 	
 	# Sprawdź co jest w środku
@@ -1725,7 +1726,7 @@ func try_break_walls(attacker, from: Vector2i, to: Vector2i) -> bool:
 	# SPECJALNA ŚCIEŻKA: puste pole z murami + knight/cavalry = wejdź od razu (1 ruch)
 	# Niszcz mury wizualnie i kontynuuj normalny ruch (nie pochłaniaj tury)
 	if defense_level == 0 and attacker_power >= 2:
-		print("=== NISZCZENIE MURÓW na %s! (puste, siła=%d) - kontynuuje ruch! ===" % [to, attacker_power])
+		if DEBUG: print("=== NISZCZENIE MURÓW na %s! (puste, siła=%d) - kontynuuje ruch! ===" % [to, attacker_power])
 		purge_walls_connected_to(to)
 		get_node("/root/Main").play_put_sound()
 		return false  # NIE pochłaniaj tury - pozwól na normalny ruch
@@ -1733,11 +1734,11 @@ func try_break_walls(attacker, from: Vector2i, to: Vector2i) -> bool:
 	# Sprawdź czy atakujący ma wystarczającą siłę
 	if attacker_power < defense_level:
 		# Np. spearman vs knight w murach - za słaby
-		print("Za słaby by przebić mury! (siła=%d, obrona=%d)" % [attacker_power, defense_level])
+		if DEBUG: print("Za słaby by przebić mury! (siła=%d, obrona=%d)" % [attacker_power, defense_level])
 		return true  # Pochłoń turę, nie wchodź
 	
 	# Atakujący MA wystarczającą siłę - NISZCZ MURY!
-	print("=== NISZCZENIE MURÓW na %s! (siła=%d, obrona=%d) ===" % [to, attacker_power, defense_level])
+	if DEBUG: print("=== NISZCZENIE MURÓW na %s! (siła=%d, obrona=%d) ===" % [to, attacker_power, defense_level])
 	
 	# Animacja: mury błyskają i znikają
 	if has_meta("wall_lines"):
@@ -1764,7 +1765,7 @@ func try_break_walls(attacker, from: Vector2i, to: Vector2i) -> bool:
 	
 	# Zniszcz mury
 	purge_walls_connected_to(to)
-	print("Mury na %s zniszczone! Jednostka %s zostaje." % [to, defender.get_class() if defender else "brak"])
+	if DEBUG: print("Mury na %s zniszczone! Jednostka %s zostaje." % [to, defender.get_class() if defender else "brak"])
 	
 	# Zaznacz atakującego jako ruszonego (stracił turę)
 	if attacker not in units_moved_this_turn:
@@ -2044,7 +2045,7 @@ func remove_castle_at(hex_coords: Vector2i):
 			var camp_id = castle.get_meta("camp_id")
 			if bandit_camp_ownership.has(camp_id):
 				var bandit_units = bandit_camp_ownership[camp_id].duplicate()
-				print("Obóz bandytów #%d zniszczony - odłączam %d bandytów (pozostają żywi)" % [camp_id, bandit_units.size()])
+				if DEBUG: print("Obóz bandytów #%d zniszczony - odłączam %d bandytów (pozostają żywi)" % [camp_id, bandit_units.size()])
 				for unit_pos in bandit_units:
 					unit_to_camp.erase(unit_pos)
 				bandit_camp_ownership.erase(camp_id)
@@ -2152,21 +2153,21 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 		elif target is Castle:
 			# Cavalry może przejąć obóz bandytów
 			if target.team == -1:
-				print("=== CAVALRY PRZEJMUJE OBÓZ BANDYTÓW ===")
+				if DEBUG: print("=== CAVALRY PRZEJMUJE OBÓZ BANDYTÓW ===")
 				
 				_add_gold_to_unit_kingdom(cavalry, BANDIT_CAMP_REWARD)
-				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
+				if DEBUG: print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
 				
 				# ===== NOWE: Znajdź ID obozu =====
 				var destroyed_camp = castle_map[to]
 				var camp_id = destroyed_camp.get_meta("camp_id", -1)
 				
 				if camp_id == -1:
-					print("BŁĄD: Obóz nie ma ID!")
+					if DEBUG: print("BŁĄD: Obóz nie ma ID!")
 					remove_castle_at(to)
 					return
 				
-				print("Zniszczono obóz bandytów ID:", camp_id)
+				if DEBUG: print("Zniszczono obóz bandytów ID:", camp_id)
 				
 				# ===== NOWE: Znajdź TYLKO jednostki z tego obozu =====
 				var bandit_units = []
@@ -2183,7 +2184,7 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 						elif cavalry_map.has(coords) and cavalry_map[coords].team == -1:
 							bandit_units.append(coords)
 				
-				print("Znaleziono jednostek z tego obozu:", bandit_units.size())
+				if DEBUG: print("Znaleziono jednostek z tego obozu:", bandit_units.size())
 				
 				# Usuń obóz
 				remove_castle_at(to)
@@ -2219,7 +2220,7 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 				if to not in bandit_territories:
 					bandit_territories.append(to)
 				
-				print("Znaleziono terytoriów tego obozu:", bandit_territories.size())
+				if DEBUG: print("Znaleziono terytoriów tego obozu:", bandit_territories.size())
 				
 				# Usuń mury
 				for coords in bandit_territories:
@@ -2233,14 +2234,14 @@ func move_cavalry(from: Vector2i, to: Vector2i):
 					territory_map.erase(coords)
 					update_hex_color(coords)
 				
-				print("Obóz bandytów", camp_id, "przejęty przez cavalry!")
+				if DEBUG: print("Obóz bandytów", camp_id, "przejęty przez cavalry!")
 
 			elif target.team != cavalry.team and target.team > 0 and target.team <= 4:
 				var old_team_cv = target.team
 				capture_castle(to, cavalry.team, old_team_cv)
 		else:
 			if target.team == cavalry.team:
-				print("Nie można atakować własnej jednostki!")
+				if DEBUG: print("Nie można atakować własnej jednostki!")
 				return
 			return
 	
@@ -2324,7 +2325,7 @@ func merge_knights_to_cavalry(knight1_pos: Vector2i, knight2_pos: Vector2i):
 		if new_cav:
 			cavalry_moves_this_turn[new_cav] = 2
 	
-	print("Utworzono cavalry!")
+	if DEBUG: print("Utworzono cavalry!")
 	merge_mode = false
 	if selected_unit:
 		clear_selected_unit_highlight()
@@ -2347,7 +2348,7 @@ func on_cavalry_clicked(cavalry):
 		# Kontynuuj normalnie poniżej
 	
 	if merge_mode:
-		print("Cavalry nie może być łączony!")
+		if DEBUG: print("Cavalry nie może być łączony!")
 		return
 	
 	# Aktualizuj wybrane królestwo dla UI (każda cavalry)
@@ -2366,7 +2367,7 @@ func on_cavalry_clicked(cavalry):
 	get_node("/root/Main").play_select_sound()
 	var moves_done = cavalry_moves_this_turn.get(cavalry, 0)
 	if moves_done >= 2:
-		print("Cavalry wykonał już 2 ruchy w tej turze")
+		if DEBUG: print("Cavalry wykonał już 2 ruchy w tej turze")
 		return
 	
 	# NOWE: Odklikanie
@@ -2470,21 +2471,21 @@ func move_spearman(from: Vector2i, to: Vector2i):
 				player_lost = true
 			
 			if old_team == -1:
-				print("=== SPEARMAN PRZEJMUJE OBÓZ BANDYTÓW ===")
+				if DEBUG: print("=== SPEARMAN PRZEJMUJE OBÓZ BANDYTÓW ===")
 				
 				_add_gold_to_unit_kingdom(spearman, BANDIT_CAMP_REWARD)
-				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
+				if DEBUG: print("Otrzymano ", BANDIT_CAMP_REWARD, " złota!")
 				
 				# ===== NOWE: Znajdź ID obozu =====
 				var destroyed_camp = castle_map[to]
 				var camp_id = destroyed_camp.get_meta("camp_id", -1)
 				
 				if camp_id == -1:
-					print("BŁĄD: Obóz nie ma ID!")
+					if DEBUG: print("BŁĄD: Obóz nie ma ID!")
 					remove_castle_at(to)
 					return
 				
-				print("Zniszczono obóz bandytów ID:", camp_id)
+				if DEBUG: print("Zniszczono obóz bandytów ID:", camp_id)
 				
 				# ===== NOWE: Znajdź TYLKO jednostki z tego obozu =====
 				var bandit_units = []
@@ -2501,7 +2502,7 @@ func move_spearman(from: Vector2i, to: Vector2i):
 						elif cavalry_map.has(coords) and cavalry_map[coords].team == -1:
 							bandit_units.append(coords)
 				
-				print("Znaleziono jednostek z tego obozu:", bandit_units.size())
+				if DEBUG: print("Znaleziono jednostek z tego obozu:", bandit_units.size())
 				
 				# Usuń obóz
 				remove_castle_at(to)
@@ -2537,7 +2538,7 @@ func move_spearman(from: Vector2i, to: Vector2i):
 				if to not in bandit_territories:
 					bandit_territories.append(to)
 				
-				print("Znaleziono terytoriów tego obozu:", bandit_territories.size())
+				if DEBUG: print("Znaleziono terytoriów tego obozu:", bandit_territories.size())
 				
 				# Usuń mury
 				for coords in bandit_territories:
@@ -2551,10 +2552,10 @@ func move_spearman(from: Vector2i, to: Vector2i):
 					territory_map.erase(coords)
 					update_hex_color(coords)
 				
-				print("Obóz bandytów", camp_id, "przejęty przez spearmana!")
+				if DEBUG: print("Obóz bandytów", camp_id, "przejęty przez spearmana!")
 
 			elif old_team > 0 and old_team <= 4:
-				print("=== SPEARMAN PRZEJMUJE ZAMEK GRACZA ===")
+				if DEBUG: print("=== SPEARMAN PRZEJMUJE ZAMEK GRACZA ===")
 				capture_castle(to, spearman.team, old_team)
 	
 	# DODAJ: Obsługa ataku na wrogie jednostki
@@ -2574,12 +2575,12 @@ func move_spearman(from: Vector2i, to: Vector2i):
 			if target.team == -1:
 				remove_knight_at(to)
 			else:
-				print("Spearman nie może zaatakować knighta gracza!")
+				if DEBUG: print("Spearman nie może zaatakować knighta gracza!")
 				return
 		else:
 			# Własna jednostka lub zamek
 			if target.team == spearman.team:
-				print("Nie można atakować własnej jednostki!")
+				if DEBUG: print("Nie można atakować własnej jednostki!")
 				return
 			return
 	
@@ -2652,7 +2653,7 @@ func merge_farmers_to_spearman(farmer1_pos: Vector2i, farmer2_pos: Vector2i):
 		if new_sp:
 			units_moved_this_turn.append(new_sp)
 	
-	print("Utworzono spearmana!")
+	if DEBUG: print("Utworzono spearmana!")
 	merge_mode = false
 	if selected_unit:
 		clear_selected_unit_highlight()
@@ -2686,7 +2687,7 @@ func merge_spearmen_to_knight(spearman1_pos: Vector2i, spearman2_pos: Vector2i):
 		if new_kn:
 			units_moved_this_turn.append(new_kn)
 	
-	print("Utworzono knighta!")
+	if DEBUG: print("Utworzono knighta!")
 	merge_mode = false
 	if selected_unit:
 		clear_selected_unit_highlight()
@@ -2833,22 +2834,22 @@ func move_knight(from: Vector2i, to: Vector2i):
 				player_lost = true
 			
 			if old_team == -1:
-				print("=== PRZEJECIE OBOZU BANDYTOW ===")
+				if DEBUG: print("=== PRZEJECIE OBOZU BANDYTOW ===")
 				
 				_add_gold_to_unit_kingdom(knight, BANDIT_CAMP_REWARD)
-				print("Otrzymano ", BANDIT_CAMP_REWARD, " złota za przejęcie obozu!")
+				if DEBUG: print("Otrzymano ", BANDIT_CAMP_REWARD, " złota za przejęcie obozu!")
 				
 				# ===== NOWE: Znajdź ID obozu =====
 				var destroyed_camp = castle_map[to]
 				var camp_id = destroyed_camp.get_meta("camp_id", -1)
 				
 				if camp_id == -1:
-					print("BŁĄD: Obóz nie ma ID!")
+					if DEBUG: print("BŁĄD: Obóz nie ma ID!")
 					# Usun oboz
 					remove_castle_at(to)
 					return
 				
-				print("Zniszczono obóz bandytów ID:", camp_id)
+				if DEBUG: print("Zniszczono obóz bandytów ID:", camp_id)
 				
 				# ===== NOWE: Znajdź TYLKO jednostki z tego obozu =====
 				var bandit_units = []
@@ -2861,7 +2862,7 @@ func move_knight(from: Vector2i, to: Vector2i):
 						elif farmer_map.has(coords) and farmer_map[coords].team == -1:
 							bandit_units.append(coords)
 				
-				print("Znaleziono jednostek z tego obozu:", bandit_units.size())
+				if DEBUG: print("Znaleziono jednostek z tego obozu:", bandit_units.size())
 				
 				# Usun oboz
 				remove_castle_at(to)
@@ -2893,7 +2894,7 @@ func move_knight(from: Vector2i, to: Vector2i):
 				if to not in bandit_territories:
 					bandit_territories.append(to)
 				
-				print("Znaleziono terytoriow tego obozu:", bandit_territories.size())
+				if DEBUG: print("Znaleziono terytoriow tego obozu:", bandit_territories.size())
 				
 				# Usun mury
 				for coords in bandit_territories:
@@ -2907,9 +2908,9 @@ func move_knight(from: Vector2i, to: Vector2i):
 					territory_map.erase(coords)
 					update_hex_color(coords)
 				
-				print("Oboz bandytow", camp_id, "przejety!")
+				if DEBUG: print("Oboz bandytow", camp_id, "przejety!")
 				
-				print("Oboz bandytow przejety! Jednostki i terytoria usuniete.")
+				if DEBUG: print("Oboz bandytow przejety! Jednostki i terytoria usuniete.")
 			else:
 				# NORMALNA OBSLUGA: Przejecie zamku gracza (team 1-4)
 				capture_castle(to, knight.team, old_team)
@@ -2932,10 +2933,10 @@ func move_knight(from: Vector2i, to: Vector2i):
 				remove_spearman_at(to)
 		else:
 			if target.team == knight.team:
-				print("Nie mozna atakowac wlasnej jednostki!")
+				if DEBUG: print("Nie mozna atakowac wlasnej jednostki!")
 				return
 			if target is Cavalry:
-				print("Knight nie może zaatakować Cavalry!")
+				if DEBUG: print("Knight nie może zaatakować Cavalry!")
 				return
 	
 	# Przenies rycerza
@@ -3020,7 +3021,7 @@ func remove_wall(hex1: Vector2i, hex2: Vector2i):
 			
 func purge_walls_connected_to(hex_coords: Vector2i):
 	"""Usuwa TYLKO walle tego konkretnego hexa (6 krawedzi)"""
-	print("PURGE: usuwam walle hexa ", hex_coords)
+	if DEBUG: print("PURGE: usuwam walle hexa ", hex_coords)
 	
 	for edge_index in range(6):
 		var edge_key = "%d,%d-edge%d" % [hex_coords.x, hex_coords.y, edge_index]
@@ -3068,13 +3069,13 @@ func place_farmer_at(hex_coords: Vector2i, team: int):
 			if not bandit_camp_ownership.has(camp_id):
 				bandit_camp_ownership[camp_id] = []
 			bandit_camp_ownership[camp_id].append(hex_coords)
-			print("Bandyta @ %s auto-przypisany do obozu #%d" % [hex_coords, camp_id])
+			if DEBUG: print("Bandyta @ %s auto-przypisany do obozu #%d" % [hex_coords, camp_id])
 		else:
 			# Brak obozu - spróbuj postawić obóz na najbliższym wolnym neutralnym polu
 			var camp_placed = place_bandit_camp_on_nearest_neutral(hex_coords)
 			if not camp_placed:
 				bandits_need_camp.append(hex_coords)
-				print("Bandyta @ %s czeka na obóz" % hex_coords)
+				if DEBUG: print("Bandyta @ %s czeka na obóz" % hex_coords)
 
 func spawn_bandit_at(hex_coords: Vector2i):
 	"""Stawia bandytę. Hex wygląda szaro (bandyta tu stoi) ale territory_map się nie zmienia.
@@ -3122,7 +3123,7 @@ func move_farmer(from: Vector2i, to: Vector2i):
 	# NOWA MECHANIKA MURÓW: Farmer nie może niszczyć murów w ogóle
 	var wall_count = count_walls_around(to)
 	if wall_count >= 6:
-		print("Farmer nie może wejść na pole z murami!")
+		if DEBUG: print("Farmer nie może wejść na pole z murami!")
 		return
 	
 	# DODAJ: Obsługa ataku na wrogiego farmera
@@ -3135,7 +3136,7 @@ func move_farmer(from: Vector2i, to: Vector2i):
 			remove_farmer_at(to)
 		else:
 			# Nie może atakować innych jednostek
-			print("Farmer może atakować tylko farmera!")
+			if DEBUG: print("Farmer może atakować tylko farmera!")
 			return
 	
 	# Przenieś farmera
@@ -3207,11 +3208,11 @@ func check_bandit_camp_after_move(from: Vector2i, to: Vector2i):
 		if castle_map[coords].team == BANDIT_TEAM:
 			return  # Już mają obóz
 	
-	print("Bandyta ruszył się - sprawdzam czy można postawić obóz na ", from)
+	if DEBUG: print("Bandyta ruszył się - sprawdzam czy można postawić obóz na ", from)
 	
 	var hex = get_hex_at(from)
 	if not hex or hex.occupied_object != null:
-		print("Pole zajęte - nie można postawić obozu")
+		if DEBUG: print("Pole zajęte - nie można postawić obozu")
 		return
 	
 	# Sprawdź czy są mury wokół (jeśli tak - nie stawiaj)
@@ -3222,7 +3223,7 @@ func check_bandit_camp_after_move(from: Vector2i, to: Vector2i):
 			wall_count += 1
 	
 	if wall_count >= 6:
-		print("Pole otoczone murami - nie można postawić obozu")
+		if DEBUG: print("Pole otoczone murami - nie można postawić obozu")
 		return
 	
 	# Postaw obóz!
@@ -3249,7 +3250,7 @@ func check_bandit_camp_after_move(from: Vector2i, to: Vector2i):
 	var cid = castle.get_meta("camp_id")
 	_set_bandit_camp_gold_label(castle, bandit_camp_gold.get(cid, 10))
 	
-	print("✓ Utworzono obóz bandytów na ", from)
+	if DEBUG: print("✓ Utworzono obóz bandytów na ", from)
 
 func merge_farmers(farmer1_pos: Vector2i, farmer2_pos: Vector2i):
 	"""Laczy dwoch farmerow w rycerza"""
@@ -3269,7 +3270,7 @@ func merge_farmers(farmer1_pos: Vector2i, farmer2_pos: Vector2i):
 	# Stworz rycerza w miejscu pierwszego farmera
 	place_knight_at(farmer1_pos, farmer1.team)
 	
-	print("Utworzono rycerza!")
+	if DEBUG: print("Utworzono rycerza!")
 	merge_mode = false
 	clear_highlights()
 	update_ui()
@@ -3516,7 +3517,7 @@ func recalculate_kingdoms(team: int):
 	
 	# Po scaleniu: zaktualizuj selected_kingdom_per_team i kingdom_gold
 	if not merged_into.is_empty():
-		print("MERGE team %d: merged_into=%s, kingdom_gold przed=%s" % [team, str(merged_into), str(kingdom_gold)])
+		if DEBUG: print("MERGE team %d: merged_into=%s, kingdom_gold przed=%s" % [team, str(merged_into), str(kingdom_gold)])
 		for old_kid in merged_into:
 			var canonical_kid = merged_into[old_kid]
 			if selected_kingdom_per_team.get(team, -1) == old_kid:
@@ -3529,7 +3530,7 @@ func recalculate_kingdoms(team: int):
 			for coords in team_castles:
 				if castle_kingdom_id.get(coords, 0) == old_kid:
 					castle_kingdom_id[coords] = canonical_kid
-		print("MERGE team %d: kingdom_gold po=%s" % [team, str(kingdom_gold)])
+		if DEBUG: print("MERGE team %d: kingdom_gold po=%s" % [team, str(kingdom_gold)])
 		_rebuild_team_gold(team)
 		_redistribute_castle_gold(team)
 		_update_castle_gold_labels()
@@ -3586,7 +3587,7 @@ func recalculate_kingdoms(team: int):
 		var gold_per_castle = total_gold / total_castles_count
 		var gold_remainder = total_gold % total_castles_count
 
-		print("SPLIT kingdom %d (team %d): %d grup, łącznie złoto %d" % [split_kid, team, groups.size(), total_gold])
+		if DEBUG: print("SPLIT kingdom %d (team %d): %d grup, łącznie złoto %d" % [split_kid, team, groups.size(), total_gold])
 
 		# Pierwsza grupa (największa lub pierwsza) zatrzymuje oryginalny kid
 		# Posortuj grupy malejąco po rozmiarze żeby największa dostała canonical kid
@@ -3605,7 +3606,7 @@ func recalculate_kingdoms(team: int):
 			if g_idx == 0:
 				# Największa grupa zachowuje split_kid
 				kingdom_gold[split_kid] = group_gold
-				print("  Grupa 0 (%d zamków) → kid %d, złoto %d" % [group_size, split_kid, group_gold])
+				if DEBUG: print("  Grupa 0 (%d zamków) → kid %d, złoto %d" % [group_size, split_kid, group_gold])
 			else:
 				# Pozostałe grupy dostają nowy kid
 				if not next_kingdom_id_per_team.has(team):
@@ -3615,7 +3616,7 @@ func recalculate_kingdoms(team: int):
 				kingdom_gold[new_kid] = group_gold
 				for c in group:
 					castle_kingdom_id[c] = new_kid
-				print("  Grupa %d (%d zamków) → nowy kid %d, złoto %d" % [g_idx, group_size, new_kid, group_gold])
+				if DEBUG: print("  Grupa %d (%d zamków) → nowy kid %d, złoto %d" % [g_idx, group_size, new_kid, group_gold])
 
 		_rebuild_team_gold(team)
 		_redistribute_castle_gold(team)
@@ -3883,8 +3884,8 @@ func capture_territory(hex_coords: Vector2i, team: int):
 	
 func remove_walls_around_captured_hex(hex_coords: Vector2i, old_team: int):
 	"""Usuwa TYLKO walle przejętego hexa, nie dotyka walli sąsiadów"""
-	print("=== USUWANIE WALLI ===")
-	print("Przejete pole: ", hex_coords, " (stary team: ", old_team, ")")
+	if DEBUG: print("=== USUWANIE WALLI ===")
+	if DEBUG: print("Przejete pole: ", hex_coords, " (stary team: ", old_team, ")")
 	
 	# Usun TYLKO 6 walli tego hexa (nie dotykaj sasiadow!)
 	for edge_index in range(6):
@@ -3900,9 +3901,9 @@ func remove_walls_around_captured_hex(hex_coords: Vector2i, old_team: int):
 					wall_lines[edge_key].queue_free()
 					wall_lines.erase(edge_key)
 			
-			print("  -> Usunieto wall edge", edge_index, " hexa ", hex_coords)
+			if DEBUG: print("  -> Usunieto wall edge", edge_index, " hexa ", hex_coords)
 	
-	print("=== KONIEC USUWANIA WALLI ===")
+	if DEBUG: print("=== KONIEC USUWANIA WALLI ===")
 	
 func check_team_isolation(team: int):
 	"""Sprawdza czy jakas czesc terytorium druzyny zostala odcieta"""
@@ -3920,7 +3921,7 @@ func check_team_isolation(team: int):
 			castle_territories.append(coords)
 	
 	if castle_territories.is_empty():
-		print("Druzyna ", team, " nie ma zamku - konwersja calego terytorium")
+		if DEBUG: print("Druzyna ", team, " nie ma zamku - konwersja calego terytorium")
 		for coords in team_territories:
 			convert_to_mercenary(coords)
 		return
@@ -3944,13 +3945,13 @@ func check_team_isolation(team: int):
 	
 	# Konwertuj kazdy odciety region (1 oboz na region)
 	for region in isolated_regions:
-		print("Znaleziono odciety region z ", region.size(), " polami")
+		if DEBUG: print("Znaleziono odciety region z ", region.size(), " polami")
 		convert_isolated_region(region, team)
 		
 func convert_isolated_region(region: Array, original_team: int):
 	"""Konwertuje TYLKO pola z jednostkami na bandytów, reszta pozostaje u wlasciciela (odcieta)"""
-	print("=== KONWERSJA ODCIETEGO REGIONU ===")
-	print("Pola w regionie: ", region.size())
+	if DEBUG: print("=== KONWERSJA ODCIETEGO REGIONU ===")
+	if DEBUG: print("Pola w regionie: ", region.size())
 	
 	# Znajdz wszystkie jednostki w regionie
 	var units_positions = []
@@ -3964,11 +3965,11 @@ func convert_isolated_region(region: Array, original_team: int):
 		elif cavalry_map.has(coords):
 			units_positions.append(coords)
 	
-	print("Jednostek do konwersji: ", units_positions.size())
+	if DEBUG: print("Jednostek do konwersji: ", units_positions.size())
 	
 	# KLUCZOWY FIX: Jeśli nie ma jednostek - NIE TWÓRZ OBOZU
 	if units_positions.is_empty():
-		print("Brak jednostek w odcietym regionie - pomijam tworzenie obozu")
+		if DEBUG: print("Brak jednostek w odcietym regionie - pomijam tworzenie obozu")
 		return
 	
 	# Przeksztalc TYLKO knight/cavalry/spearman w farmerow bandytow, farmery królestwa usuń
@@ -3992,7 +3993,7 @@ func convert_isolated_region(region: Array, original_team: int):
 				continue
 	
 	# Usun mury TYLKO z pol które faktycznie stały się bandyckie
-	print("Usuwanie walli tylko z pol bandyckich...")
+	if DEBUG: print("Usuwanie walli tylko z pol bandyckich...")
 	for coords in units_positions:
 		# Usuń mury tylko jeśli na tym polu stoi bandyta
 		if farmer_map.has(coords) and farmer_map[coords].team == BANDIT_TEAM:
@@ -4014,20 +4015,20 @@ func convert_isolated_region(region: Array, original_team: int):
 			bandit_units.append(coords)
 	
 	if bandit_units.is_empty():
-		print("Po konwersji brak jednostek bandytow - pomijam tworzenie obozu")
-		print("=== KONIEC KONWERSJI REGIONU ===")
+		if DEBUG: print("Po konwersji brak jednostek bandytow - pomijam tworzenie obozu")
+		if DEBUG: print("=== KONIEC KONWERSJI REGIONU ===")
 		return
 	
-	print("Tworzenie obozu dla ", bandit_units.size(), " bandytow...")
+	if DEBUG: print("Tworzenie obozu dla ", bandit_units.size(), " bandytow...")
 	
 	# Postaw JEDEN oboz bandytow dla jednostek
 	var camp_placed = place_bandit_camp_near_units(units_positions, units_positions)
 	
 	if not camp_placed:
-		print("UWAGA: Nie znaleziono miejsca na oboz bandytow!")
+		if DEBUG: print("UWAGA: Nie znaleziono miejsca na oboz bandytow!")
 	
-	print("=== KONIEC KONWERSJI REGIONU ===")
-	print("Bandytow: ", units_positions.size(), " | Pola wlasciciela (odciete): ", region.size() - units_positions.size())
+	if DEBUG: print("=== KONIEC KONWERSJI REGIONU ===")
+	if DEBUG: print("Bandytow: ", units_positions.size(), " | Pola wlasciciela (odciete): ", region.size() - units_positions.size())
 
 func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 	"""Przejmuje zamek wroga.
@@ -4035,10 +4036,10 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 	- Multi-castle: pola połączone z innym zamkiem old_team zostają, odcięte → neutralne + bandyci
 	- Last castle: wszystkie pola → neutralne, wszystkie jednostki → bandyci
 	"""
-	print("=== PRZEJECIE ZAMKU %s: team %d -> team %d ===" % [str(castle_coords), old_team, new_team])
+	if DEBUG: print("=== PRZEJECIE ZAMKU %s: team %d -> team %d ===" % [str(castle_coords), old_team, new_team])
 	
 	if not castle_map.has(castle_coords):
-		print("BLAD: Brak zamku na ", castle_coords)
+		if DEBUG: print("BLAD: Brak zamku na ", castle_coords)
 		return
 	
 	# Zbierz zloto PRZED usunieciem
@@ -4143,7 +4144,7 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 		_update_castle_gold_labels()
 		update_ui()
 		check_victory()
-		print("=== KONIEC PRZEJECIA (multi-castle) ===")
+		if DEBUG: print("=== KONIEC PRZEJECIA (multi-castle) ===")
 		return
 	
 	# === LAST CASTLE ===
@@ -4204,7 +4205,7 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 			await get_tree().create_timer(0.4).timeout
 			dp2.show_defeat(current_level_number)
 	
-	print("=== KONIEC PRZEJECIA ZAMKU ===")
+	if DEBUG: print("=== KONIEC PRZEJECIA ZAMKU ===")
 func get_nearest_hexes(center: Vector2i, count: int, old_team: int, new_team: int) -> Array:
 	"""Zwraca N najblizszych pol wroga lub pustych"""
 	var candidates = []
@@ -4278,8 +4279,8 @@ func convert_to_mercenary(hex_coords: Vector2i):
 	# Zbierz wszystkie odciete pola tego samego terytorium
 	var isolated_territories = get_isolated_region(hex_coords, original_team)
 	
-	print("=== KONWERSJA PO ODCIĘCIU ===")
-	print("Odciete pola: ", isolated_territories.size())
+	if DEBUG: print("=== KONWERSJA PO ODCIĘCIU ===")
+	if DEBUG: print("Odciete pola: ", isolated_territories.size())
 	
 	# Kategoryzuj jednostki
 	var strong_units = []   # knight, cavalry -> bandyci
@@ -4295,15 +4296,15 @@ func convert_to_mercenary(hex_coords: Vector2i):
 		elif farmer_map.has(coords):
 			weak_units.append(coords)
 	
-	print("Silnych (->bandyci): ", strong_units.size(), " | Słabych (->znikają): ", weak_units.size())
+	if DEBUG: print("Silnych (->bandyci): ", strong_units.size(), " | Słabych (->znikają): ", weak_units.size())
 	
 	# Słabe jednostki po prostu znikają
 	for coords in weak_units:
 		if spearman_map.has(coords):
-			print("Spearman na ", coords, " ginie po odcięciu")
+			if DEBUG: print("Spearman na ", coords, " ginie po odcięciu")
 			remove_spearman_at(coords)
 		elif farmer_map.has(coords):
-			print("Farmer na ", coords, " ginie po odcięciu")
+			if DEBUG: print("Farmer na ", coords, " ginie po odcięciu")
 			var farmer = farmer_map[coords]
 			farmer.queue_free()
 			farmer_map.erase(coords)
@@ -4337,10 +4338,10 @@ func convert_to_mercenary(hex_coords: Vector2i):
 	if not bandit_positions.is_empty():
 		var camp_placed = place_bandit_camp_near_units(bandit_positions, bandit_positions)
 		if not camp_placed:
-			print("UWAGA: Nie znaleziono miejsca na obóz bandytów!")
+			if DEBUG: print("UWAGA: Nie znaleziono miejsca na obóz bandytów!")
 	
-	print("=== KONIEC KONWERSJI ===")
-	print("Bandytów: ", bandit_positions.size(), " | Odcięte pola: ", isolated_territories.size())
+	if DEBUG: print("=== KONIEC KONWERSJI ===")
+	if DEBUG: print("Bandytów: ", bandit_positions.size(), " | Odcięte pola: ", isolated_territories.size())
 	
 func place_bandit_camp_near_units(units_positions: Array, available_territories: Array) -> bool:
 	"""Stawia oboz bandytow na wolnym polu obok jednostek"""
@@ -4357,10 +4358,10 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 			if neighbor not in adjacent_hexes:
 				adjacent_hexes.append(neighbor)
 	
-	print("Dostepnych pol na oboz w regionie: ", adjacent_hexes.size())
+	if DEBUG: print("Dostepnych pol na oboz w regionie: ", adjacent_hexes.size())
 	
 	if adjacent_hexes.is_empty():
-		print("Brak miejsca w regionie - szukam neutralnych pol...")
+		if DEBUG: print("Brak miejsca w regionie - szukam neutralnych pol...")
 		for unit_pos in units_positions:
 			var neighbors = get_neighbors(unit_pos)
 			for neighbor in neighbors:
@@ -4383,7 +4384,7 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 				break
 	
 	if adjacent_hexes.is_empty():
-		print("BLAD: Nie znaleziono miejsca na oboz bandytow!")
+		if DEBUG: print("BLAD: Nie znaleziono miejsca na oboz bandytow!")
 		return false
 	
 	var camp_pos = adjacent_hexes[0]
@@ -4395,7 +4396,7 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 		if castle.team == BANDIT_TEAM:
 			var dist = hex_distance(camp_pos, existing_camp_pos)
 			if dist <= 4:
-				print("Oboz za blisko innego obozu (odleglosc: %d) - pomijam" % dist)
+				if DEBUG: print("Oboz za blisko innego obozu (odleglosc: %d) - pomijam" % dist)
 				too_close_to_camp = true
 				break
 	
@@ -4430,8 +4431,8 @@ func place_bandit_camp_near_units(units_positions: Array, available_territories:
 	bandit_camp_gold[camp_id] = 10
 	_set_bandit_camp_gold_label(castle, 10)
 	
-	print("Utworzono oboz bandytow ID:", camp_id, " na:", camp_pos)
-	print("Przypisano ", units_positions.size(), " jednostek do obozu")
+	if DEBUG: print("Utworzono oboz bandytow ID:", camp_id, " na:", camp_pos)
+	if DEBUG: print("Przypisano ", units_positions.size(), " jednostek do obozu")
 	return true
 
 func get_isolated_region(start_pos: Vector2i, team: int) -> Array:
@@ -4498,7 +4499,7 @@ func add_wall(hex1: Vector2i, hex2: Vector2i, wall_team: int = 0):
 	
 	# Sprawdz czy juz jest
 	if has_wall_between(hex1, hex2):
-		print("Wall juz istnieje!")
+		if DEBUG: print("Wall juz istnieje!")
 		return
 	
 	# Stworz wall dla hex1
@@ -4506,7 +4507,7 @@ func add_wall(hex1: Vector2i, hex2: Vector2i, wall_team: int = 0):
 	var edge_index = neighbors.find(hex2)
 	
 	if edge_index == -1:
-		print("BLAD: hex2 nie jest sasiadem hex1!")
+		if DEBUG: print("BLAD: hex2 nie jest sasiadem hex1!")
 		return
 	
 	# Oblicz pozycje krawedzi
@@ -5090,7 +5091,7 @@ func on_hex_clicked(hex: Hex):
 	update_ui()
 	
 	if selected_unit and hex not in highlighted_hexes:
-		print("Pole poza zasięgiem!")
+		if DEBUG: print("Pole poza zasięgiem!")
 		return
 	
 	if buy_mode == "" and is_instance_valid(hex.occupied_object) and hex.occupied_object is Farmer and selected_unit is Cavalry:
@@ -5339,7 +5340,7 @@ func on_hex_clicked(hex: Hex):
 			if clicked_farmer.team == current_team and clicked_farmer != selected_unit:
 				merge_farmers(selected_unit.hex_position, clicked_pos)
 				return
-		print("Wybierz farmera tej samej druzyny")
+		if DEBUG: print("Wybierz farmera tej samej druzyny")
 		return
 	
 	if hex in highlighted_hexes and selected_unit:
@@ -5395,7 +5396,7 @@ func on_knight_clicked(knight: Knight):
 		return
 	
 	if knight in units_moved_this_turn:
-		print("Ta jednostka już się ruszyła w tej turze")
+		if DEBUG: print("Ta jednostka już się ruszyła w tej turze")
 		return
 	
 	get_node("/root/Main").play_select_sound()
@@ -5460,7 +5461,7 @@ func on_farmer_clicked(farmer):
 			return
 	
 	if farmer in units_moved_this_turn:
-		print("Ta jednostka już się ruszyła w tej turze")
+		if DEBUG: print("Ta jednostka już się ruszyła w tej turze")
 		return
 		
 	get_node("/root/Main").play_select_sound()
@@ -5496,7 +5497,7 @@ func on_farmer_clicked(farmer):
 func on_castle_clicked(castle: Castle):
 	if not game_mode:
 		return
-	print("Zamek druzyny ", castle.team)
+	if DEBUG: print("Zamek druzyny ", castle.team)
 	# Aktualizuj wybrane królestwo dla UI - użyj hex_kingdom_map który jest zawsze aktualny
 	var pos = castle.hex_position
 	var kid = hex_kingdom_map.get(pos, castle_kingdom_id.get(pos, 0))
@@ -5594,7 +5595,7 @@ func save_layout():
 	if file:
 		file.store_string(JSON.stringify(data, "\t"))
 		file.close()
-		print("✓ Zapisano uklad")
+		if DEBUG: print("✓ Zapisano uklad")
 
 func save_layout_to_file(file_name: String):
 	"""Saves layout to a specific file (for level editor)"""
@@ -5686,9 +5687,9 @@ func save_layout_to_file(file_name: String):
 	if file:
 		file.store_string(JSON.stringify(data, "\t"))
 		file.close()
-		print("✓ Zapisano uklad do: ", full_path)
+		if DEBUG: print("✓ Zapisano uklad do: ", full_path)
 	else:
-		print("✗ Błąd zapisu do: ", full_path)
+		if DEBUG: print("✗ Błąd zapisu do: ", full_path)
 
 func load_layout() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -5795,7 +5796,7 @@ func load_layout() -> bool:
 	
 	current_round = 1
 	update_ui()
-	print("✓ Wczytano uklad")
+	if DEBUG: print("✓ Wczytano uklad")
 	if turn_history:
 		turn_history.reset_rewinds()
 	return true
@@ -5809,8 +5810,8 @@ func load_layout_from_file(file_name: String) -> bool:
 	
 	var file = FileAccess.open(full_path, FileAccess.READ)
 	if not file:
-		print("✗ Nie można otworzyć pliku: ", full_path)
-		print("Błąd FileAccess: ", FileAccess.get_open_error())
+		if DEBUG: print("✗ Nie można otworzyć pliku: ", full_path)
+		if DEBUG: print("Błąd FileAccess: ", FileAccess.get_open_error())
 		return false
 	
 	var json_text = file.get_as_text()
@@ -5818,7 +5819,7 @@ func load_layout_from_file(file_name: String) -> bool:
 	
 	var json = JSON.new()
 	if json.parse(json_text) != OK:
-		print("✗ Błąd parsowania JSON: ", full_path)
+		if DEBUG: print("✗ Błąd parsowania JSON: ", full_path)
 		return false
 	
 	var data = json.data
@@ -5981,7 +5982,7 @@ func load_layout_from_file(file_name: String) -> bool:
 	if ui_manager:
 		ui_manager.set_buttons_enabled(true)
 	
-	print("✓ Wczytano poziom z: ", full_path)
+	if DEBUG: print("✓ Wczytano poziom z: ", full_path)
 	
 	if turn_history:
 		turn_history.reset_rewinds()
@@ -6416,8 +6417,8 @@ func _on_buy_knight():
 	if ui_manager: ui_manager.set_buy_button_active("knight", true)
 
 func _on_buy_wall():
-	print("=== _on_buy_wall wywolane ===")
-	print("wall_placement_mode przed: ", wall_placement_mode)
+	if DEBUG: print("=== _on_buy_wall wywolane ===")
+	if DEBUG: print("wall_placement_mode przed: ", wall_placement_mode)
 	
 	if selected_unit:
 		clear_selected_unit_highlight()
@@ -6431,9 +6432,9 @@ func _on_buy_wall():
 			if _can_afford(current_team, cost):
 				create_walls_between_selected()
 				_deduct_gold(current_team, cost)
-				print("Kupiono sciany za: ", cost, " zlota")
+				if DEBUG: print("Kupiono sciany za: ", cost, " zlota")
 			else:
-				print("Nie stac cie! Koszt: ", cost, ", masz: ", get_selected_kingdom_gold(current_team))
+				if DEBUG: print("Nie stac cie! Koszt: ", cost, ", masz: ", get_selected_kingdom_gold(current_team))
 		
 		wall_placement_mode = false
 		
@@ -6447,11 +6448,11 @@ func _on_buy_wall():
 		clear_highlights()
 		update_ui()
 		pulse_available_units()
-		print("Zakonczono stawianie scian")
+		if DEBUG: print("Zakonczono stawianie scian")
 		return
 	
 	if not _can_afford(current_team, WALL_COST_PER_HEX):
-		print("Nie stac na sciany")
+		if DEBUG: print("Nie stac na sciany")
 		return
 	
 	wall_placement_mode = true
@@ -6461,7 +6462,7 @@ func _on_buy_wall():
 	if ui_manager:
 		ui_manager.set_wall_button_active(true)
 	
-	print("wall_placement_mode po aktywacji: ", wall_placement_mode)
+	if DEBUG: print("wall_placement_mode po aktywacji: ", wall_placement_mode)
 	
 	var connected = get_connected_territories(current_team)
 	
@@ -6471,7 +6472,7 @@ func _on_buy_wall():
 			hex.highlight(TEAM_COLORS[current_team].lightened(0.3))
 			highlighted_hexes.append(hex)
 	
-	print("Tryb zakupu: Wall - klikaj pola, potem kliknij przycisk ponownie aby kupic")
+	if DEBUG: print("Tryb zakupu: Wall - klikaj pola, potem kliknij przycisk ponownie aby kupic")
 	
 func get_border_of_connected_territories(team: int, connected_territories: Array) -> Array[Vector2i]:
 	"""Zwraca granice TYLKO dla polaczenych terytoriow (promien 1 wokol nich)"""
@@ -6699,7 +6700,7 @@ func set_team_ai(team: int, difficulty: int, aggression: float = 0.5):
 		add_child(ai)
 		ai_controllers[team] = ai
 		ai_teams.append(team)
-		print("AI ustawione dla drużyny %d (%s, Agresywność: %.1f)" % [team, "HARD" if difficulty == 1 else "NORMAL", aggression])
+		if DEBUG: print("AI ustawione dla drużyny %d (%s, Agresywność: %.1f)" % [team, "HARD" if difficulty == 1 else "NORMAL", aggression])
 
 func remove_team_ai(team: int):
 	"""Usuwa AI z teamu"""
@@ -6708,7 +6709,7 @@ func remove_team_ai(team: int):
 		ai.queue_free()
 		ai_controllers.erase(team)
 		ai_teams.erase(team)
-		print("AI usunięte z drużyny %d" % team)
+		if DEBUG: print("AI usunięte z drużyny %d" % team)
 
 func spawn_farmer_at(pos: Vector2i, team_id: int):
 	"""Spawuje farmera na danej pozycji"""
@@ -6789,7 +6790,7 @@ func place_bandit_camp_on_nearest_neutral(unit_pos: Vector2i) -> bool:
 			bandit_camp_ownership[existing_id] = []
 		if unit_pos not in bandit_camp_ownership[existing_id]:
 			bandit_camp_ownership[existing_id].append(unit_pos)
-		print("Bandyta @ %s przypisany do istniejącego obozu #%d" % [unit_pos, existing_id])
+		if DEBUG: print("Bandyta @ %s przypisany do istniejącego obozu #%d" % [unit_pos, existing_id])
 		return true
 	
 	# BFS - szukaj wolnego neutralnego/bandyckiego pola
@@ -6817,7 +6818,7 @@ func place_bandit_camp_on_nearest_neutral(unit_pos: Vector2i) -> bool:
 			break
 	
 	if candidate == Vector2i.ZERO:
-		print("Bandyta @ %s: brak miejsca na nowy obóz" % unit_pos)
+		if DEBUG: print("Bandyta @ %s: brak miejsca na nowy obóz" % unit_pos)
 		return false
 	
 	# Sprawdź odległość od istniejących obozów
@@ -6851,12 +6852,12 @@ func place_bandit_camp_on_nearest_neutral(unit_pos: Vector2i) -> bool:
 	unit_to_camp[unit_pos] = camp_id
 	# Pokaż etykietę złota
 	_set_bandit_camp_gold_label(castle, 10)
-	print("✓ Nowy obóz #%d @ %s dla bandyty @ %s" % [camp_id, candidate, unit_pos])
+	if DEBUG: print("✓ Nowy obóz #%d @ %s dla bandyty @ %s" % [camp_id, candidate, unit_pos])
 	return true
 
 
 func process_bandit_occupation_income():
-	print("=== BANDYCI: przetwarzanie okupacji ===")
+	if DEBUG: print("=== BANDYCI: przetwarzanie okupacji ===")
 	
 	for pos in farmer_map.keys():
 		var f = farmer_map.get(pos)
@@ -6870,7 +6871,7 @@ func process_bandit_occupation_income():
 		if pos not in connected:
 			territory_map[pos] = 0
 			update_hex_color(pos)
-			print("Bandyta @ %s: odcięte pole → neutralne" % pos)
+			if DEBUG: print("Bandyta @ %s: odcięte pole → neutralne" % pos)
 			continue
 		# Pole połączone - kradnie 1 gold
 		var camp_id = unit_to_camp.get(pos, -1)
@@ -6878,7 +6879,7 @@ func process_bandit_occupation_income():
 			camp_id = find_nearest_bandit_camp(pos)
 		if camp_id > 0:
 			bandit_camp_gold[camp_id] = bandit_camp_gold.get(camp_id, 0) + 1
-			print("Bandyta @ %s kradnie 1g → obóz #%d (łącznie: %d)" % [pos, camp_id, bandit_camp_gold[camp_id]])
+			if DEBUG: print("Bandyta @ %s kradnie 1g → obóz #%d (łącznie: %d)" % [pos, camp_id, bandit_camp_gold[camp_id]])
 			# Aktualizuj etykietę złota obozu
 			for cpos in castle_map:
 				if castle_map[cpos].team == BANDIT_TEAM and castle_map[cpos].has_meta("camp_id") and castle_map[cpos].get_meta("camp_id") == camp_id:
@@ -6908,7 +6909,7 @@ func process_bandit_occupation_income():
 			spawn_pos = nb
 			break
 		if spawn_pos == Vector2i.ZERO:
-			print("Obóz #%d: brak miejsca na spawn" % camp_id)
+			if DEBUG: print("Obóz #%d: brak miejsca na spawn" % camp_id)
 			continue
 		bandit_camp_gold[camp_id] -= 3
 		place_farmer_at(spawn_pos, BANDIT_TEAM)
@@ -6922,7 +6923,7 @@ func process_bandit_occupation_income():
 			nf.set("spawn_turn", current_round)
 		bandit_spawn_hexes[spawn_pos] = true
 		update_hex_color(spawn_pos)
-		print("✓ Obóz #%d spawn @ %s (gold: %d)" % [camp_id, spawn_pos, bandit_camp_gold[camp_id]])
+		if DEBUG: print("✓ Obóz #%d spawn @ %s (gold: %d)" % [camp_id, spawn_pos, bandit_camp_gold[camp_id]])
 
 
 func find_nearest_bandit_camp(unit_pos: Vector2i) -> int:
@@ -6958,17 +6959,17 @@ func find_nearest_bandit_camp(unit_pos: Vector2i) -> int:
 
 func _on_defeat_rewind_2_turns():
 	"""Wywoływane gdy użytkownik kliknie przycisk rewind (niebieski)"""
-	print("=== DEFEAT POPUP: Rewind 2 turns ===")
+	if DEBUG: print("=== DEFEAT POPUP: Rewind 2 turns ===")
 	
 	# Sprawdź czy mamy 2 rewindy
 	var rewind_label = ui_manager.rewind_counter.get_node_or_null("RewindLabel")
 	if not rewind_label:
-		print("ERROR: Brak RewindLabel")
+		if DEBUG: print("ERROR: Brak RewindLabel")
 		return
 	
 	var current_rewinds = int(rewind_label.text)
 	if current_rewinds < 6:
-		print("Nie wystarczajaco rewindow: %d (potrzeba 2)" % current_rewinds)
+		if DEBUG: print("Nie wystarczajaco rewindow: %d (potrzeba 2)" % current_rewinds)
 		return
 	
 	# Oblicz ile tur trzeba cofnąć aby wrócić do początku ostatnich 2 PEŁNYCH rund gracza (team 1)
@@ -6980,13 +6981,13 @@ func _on_defeat_rewind_2_turns():
 	var num_teams = max(1, active_teams.size())
 	var turns_to_rewind = 2 * num_teams  # 2 rundy × liczba teamów
 	
-	print("Cofanie %d tur (2 rundy x %d teamów)" % [turns_to_rewind, num_teams])
+	if DEBUG: print("Cofanie %d tur (2 rundy x %d teamów)" % [turns_to_rewind, num_teams])
 	
 	# Użyj nowej funkcji która cofa wiele tur naraz
 	var success = await turn_history.restore_multiple_turns(self, turns_to_rewind, 6)
 	
 	if not success:
-		print("ERROR: Nie udało się cofnąć tur!")
+		if DEBUG: print("ERROR: Nie udało się cofnąć tur!")
 		return
 	
 	# Odśwież UI po cofnięciu
@@ -7005,11 +7006,11 @@ func _on_defeat_rewind_2_turns():
 		if defeat_popup and defeat_popup.has_method("hide_popup"):
 			defeat_popup.hide_popup()
 	
-	print("=== Cofnieto 2 rundy (powrot do team 1) ===")
+	if DEBUG: print("=== Cofnieto 2 rundy (powrot do team 1) ===")
 
 func _on_defeat_watch_ad():
 	"""Wywoływane gdy użytkownik kliknie Watch Ad"""
-	print("=== DEFEAT POPUP: Watch Ad ===")
+	if DEBUG: print("=== DEFEAT POPUP: Watch Ad ===")
 	
 	# TODO: Tutaj możesz dodać logikę wyświetlania reklamy
 	# Po obejrzeniu reklamy wywołaj rewind:

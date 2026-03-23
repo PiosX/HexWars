@@ -1,6 +1,7 @@
 extends CanvasLayer
 class_name LevelSelect
 
+const DEBUG = false
 # === COLORS ===
 const BG_COLOR = Color("121218")
 const PANEL_BG = Color("1A1A28")
@@ -278,7 +279,7 @@ class LevelHex extends Area2D:
 	
 	func _on_input_event(_viewport, event, _shape_idx):
 		if event is InputEventMouseButton and event.pressed:
-			print("Hex clicked! Level: ", level_number, " Completed: ", completed, " Current: ", is_current)
+			if DEBUG: print("Hex clicked! Level: ", level_number, " Completed: ", completed, " Current: ", is_current)
 			
 			# Navigate up to find LevelSelect instance
 			var node = get_parent()
@@ -298,7 +299,7 @@ class LevelHex extends Area2D:
 							var data = level_select.level_data[grid_position]
 							data.level += 1
 							level_select.update_all_hexes_from_progress()
-							print("Increased to ", data.level)
+							if DEBUG: print("Increased to ", data.level)
 						else:
 							level_select.on_hex_clicked(self)
 					elif event.button_index == MOUSE_BUTTON_RIGHT:
@@ -307,7 +308,7 @@ class LevelHex extends Area2D:
 							var data = level_select.level_data[grid_position]
 							data.level = max(1, data.level - 1)  # Don't go below 1
 							level_select.update_all_hexes_from_progress()
-							print("Decreased to ", data.level)
+							if DEBUG: print("Decreased to ", data.level)
 				elif event.button_index == MOUSE_BUTTON_LEFT:
 					# Normal click handling
 					level_select.on_hex_clicked(self)
@@ -904,7 +905,7 @@ func remove_hex_at(grid_pos: Vector2i):
 		level_data.erase(grid_pos)
 
 func on_hex_clicked(hex: LevelHex):
-	print("on_hex_clicked - Editor mode: ", editor_mode)
+	if DEBUG: print("on_hex_clicked - Editor mode: ", editor_mode)
 	get_node("/root/Main").play_btn_sound()
 	if editor_mode:
 		handle_editor_click(hex)
@@ -912,11 +913,11 @@ func on_hex_clicked(hex: LevelHex):
 		handle_play_click(hex)
 
 func handle_editor_click(hex: LevelHex):
-	print("Editor click - Stage: ", edit_stage)
+	if DEBUG: print("Editor click - Stage: ", edit_stage)
 	match edit_stage:
 		0:  # Place hexes stage
 			# Hex already exists, do nothing
-			print("Stage 0 - hex already placed")
+			if DEBUG: print("Stage 0 - hex already placed")
 			pass
 		1:  # Assign numbers - LMB increases, RMB decreases
 			if not level_data.has(hex.grid_position):
@@ -926,32 +927,32 @@ func handle_editor_click(hex: LevelHex):
 					"difficulty": 0,
 					"level_file": ""
 				}
-				print("Assigned number ", number_counter, " to hex at ", hex.grid_position)
+				if DEBUG: print("Assigned number ", number_counter, " to hex at ", hex.grid_position)
 				update_all_hexes_from_progress()
 				number_counter += 1
 			else:
 				# Hex already has a number - allow changing it
-				print("Hex already has number: ", level_data[hex.grid_position].level, " - can change with LMB/RMB")
+				if DEBUG: print("Hex already has number: ", level_data[hex.grid_position].level, " - can change with LMB/RMB")
 		2:  # Assign difficulty
 			if level_data.has(hex.grid_position):
 				var data = level_data[hex.grid_position]
 				data.difficulty = (data.difficulty % 3) + 1
-				print("Set difficulty to ", data.difficulty, " for hex at ", hex.grid_position)
+				if DEBUG: print("Set difficulty to ", data.difficulty, " for hex at ", hex.grid_position)
 				update_all_hexes_from_progress()
 			else:
-				print("Hex has no level number yet!")
+				if DEBUG: print("Hex has no level number yet!")
 		3:  # Assign level files
-			print("Stage 3 - Use console to assign level files")
-			print("Example: get_node('/root/Main/LevelSelect').assign_level_file_to_level(1, 'hex_layout_level1.json')")
+			if DEBUG: print("Stage 3 - Use console to assign level files")
+			if DEBUG: print("Example: get_node('/root/Main/LevelSelect').assign_level_file_to_level(1, 'hex_layout_level1.json')")
 
 func handle_play_click(hex: LevelHex):
-	print("handle_play_click called - Level: ", hex.level_number, " Current: ", hex.is_current, " Completed: ", hex.completed)
+	if DEBUG: print("handle_play_click called - Level: ", hex.level_number, " Current: ", hex.is_current, " Completed: ", hex.completed)
 	
 	if not (hex.is_current or hex.completed):
-		print("Hex is locked, ignoring click")
+		if DEBUG: print("Hex is locked, ignoring click")
 		return  # Can't select locked levels
 	
-	print("Hex is clickable, selecting...")
+	if DEBUG: print("Hex is clickable, selecting...")
 	get_node("/root/Main").play_btn_sound()
 	# Deselect previous
 	if selected_hex and is_instance_valid(selected_hex):
@@ -1222,10 +1223,10 @@ func _on_play_level():
 		var difficulty = hex_data.get("difficulty", 1)
 		
 		if level_file.is_empty():
-			print("ERROR: No level file assigned to this level!")
+			if DEBUG: print("ERROR: No level file assigned to this level!")
 			return
 		
-		print("Starting level file: ", level_file, " difficulty: ", difficulty)
+		if DEBUG: print("Starting level file: ", level_file, " difficulty: ", difficulty)
 		level_selected.emit(level_file, difficulty)
 
 # === INPUT HANDLING ===
@@ -1346,19 +1347,19 @@ func clamp_to_bounds(pos: Vector2) -> Vector2:
 
 func toggle_editor_mode():
 	editor_mode = !editor_mode
-	print("Editor mode: ", editor_mode)
+	if DEBUG: print("Editor mode: ", editor_mode)
 	if editor_mode:
 		title_label.text = "EDITOR MODE"
 		set_edit_stage(0)
-		print("=== EDITOR CONTROLS ===")
-		print("E - Toggle editor mode")
-		print("S - Save level data")
-		print("L - Load level data")
-		print("R - Reset progress (clears all completed levels)")
-		print("1 - Stage 0: Place hexes")
-		print("2 - Stage 1: Assign numbers")
-		print("3 - Stage 2: Assign difficulty")
-		print("4 - Stage 3: Assign level files")
+		if DEBUG: print("=== EDITOR CONTROLS ===")
+		if DEBUG: print("E - Toggle editor mode")
+		if DEBUG: print("S - Save level data")
+		if DEBUG: print("L - Load level data")
+		if DEBUG: print("R - Reset progress (clears all completed levels)")
+		if DEBUG: print("1 - Stage 0: Place hexes")
+		if DEBUG: print("2 - Stage 1: Assign numbers")
+		if DEBUG: print("3 - Stage 2: Assign difficulty")
+		if DEBUG: print("4 - Stage 3: Assign level files")
 	else:
 		title_label.text = "CHOOSE LEVEL"
 		edit_stage = 0
@@ -1366,7 +1367,7 @@ func toggle_editor_mode():
 func set_edit_stage(stage: int):
 	edit_stage = stage
 	var stage_names = ["PLACE HEXES", "ASSIGN NUMBERS", "ASSIGN DIFFICULTY", "ASSIGN LEVEL FILES"]
-	print("Edit stage: ", stage_names[stage])
+	if DEBUG: print("Edit stage: ", stage_names[stage])
 	title_label.text = stage_names[stage]
 	
 	if stage == 1:
@@ -1724,19 +1725,19 @@ func save_level_data():
 	if file:
 		file.store_string(JSON.stringify(save_dict, "\t"))
 		file.close()
-		print("Level data saved to ", SAVE_PATH)
+		if DEBUG: print("Level data saved to ", SAVE_PATH)
 	else:
-		print("Failed to save level data")
+		if DEBUG: print("Failed to save level data")
 
 func load_level_data() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
-		print("No saved level data found")
+		if DEBUG: print("No saved level data found")
 		create_default_levels()
 		return false
 	
 	var file = FileAccess.open(SAVE_PATH, FileAccess.READ)
 	if not file:
-		print("Failed to open save file")
+		if DEBUG: print("Failed to open save file")
 		return false
 	
 	var json_string = file.get_as_text()
@@ -1745,7 +1746,7 @@ func load_level_data() -> bool:
 	var json = JSON.new()
 	var parse_result = json.parse(json_string)
 	if parse_result != OK:
-		print("Failed to parse JSON")
+		if DEBUG: print("Failed to parse JSON")
 		return false
 	
 	var save_dict = json.data
@@ -1774,7 +1775,7 @@ func load_level_data() -> bool:
 		level_data[grid_pos] = data
 	
 	center_camera_on_current_level()
-	print("Level data loaded from ", SAVE_PATH)
+	if DEBUG: print("Level data loaded from ", SAVE_PATH)
 	
 	# Wczytaj nazwy grup
 	group_names.clear()
@@ -1832,7 +1833,7 @@ func mark_level_completed(level_num: int):
 	# Update all hexes
 	update_all_hexes_from_progress()
 	
-	print("Level ", level_num, " marked as completed!")
+	if DEBUG: print("Level ", level_num, " marked as completed!")
 
 func update_all_hexes_from_progress():
 	"""Updates all hex visuals based on current progress"""
@@ -1883,7 +1884,7 @@ func save_progress_data():
 func load_progress_data():
 	var main = get_node_or_null("/root/Main")
 	if not main:
-		print("No Main node found - starting fresh")
+		if DEBUG: print("No Main node found - starting fresh")
 		progress_data = {}
 		return
 	
@@ -1892,11 +1893,11 @@ func load_progress_data():
 	for level_num in main.completed_levels:
 		progress_data[str(level_num)] = {"completed": true}
 	
-	print("Progress loaded from Main: ", main.completed_levels.size(), " completed levels")
+	if DEBUG: print("Progress loaded from Main: ", main.completed_levels.size(), " completed levels")
 
 func print_available_level_files():
 	"""Prints all available level files in res://levels/ directory"""
-	print("=== AVAILABLE LEVEL FILES ===")
+	if DEBUG: print("=== AVAILABLE LEVEL FILES ===")
 	var dir = DirAccess.open("res://levels/")
 	if dir:
 		dir.list_dir_begin()
@@ -1910,28 +1911,28 @@ func print_available_level_files():
 		
 		dir.list_dir_end()
 		
-		print("Found ", level_files.size(), " level files:")
+		if DEBUG: print("Found ", level_files.size(), " level files:")
 		for file in level_files:
-			print("  - ", file)
+			if DEBUG: print("  - ", file)
 		
 		# Print unassigned levels
-		print("\n=== LEVEL ASSIGNMENTS ===")
+		if DEBUG: print("\n=== LEVEL ASSIGNMENTS ===")
 		var assigned_files = {}
 		for grid_pos in level_data.keys():
 			var data = level_data[grid_pos]
 			if data.has("level_file") and not data.level_file.is_empty():
 				assigned_files[data.level_file] = data.level
 		
-		print("Assigned:")
+		if DEBUG: print("Assigned:")
 		for file in assigned_files.keys():
-			print("  Level ", assigned_files[file], " -> ", file)
+			if DEBUG: print("  Level ", assigned_files[file], " -> ", file)
 		
-		print("\nUnassigned:")
+		if DEBUG: print("\nUnassigned:")
 		for file in level_files:
 			if not assigned_files.has(file):
-				print("  ", file)
+				if DEBUG: print("  ", file)
 	else:
-		print("ERROR: Could not open res://levels/ directory")
+		if DEBUG: print("ERROR: Could not open res://levels/ directory")
 
 func assign_level_file_to_level(level_num: int, file_name: String):
 	"""Assigns a level file to a specific level number (call from console)"""
@@ -1939,11 +1940,11 @@ func assign_level_file_to_level(level_num: int, file_name: String):
 		var data = level_data[grid_pos]
 		if data.level == level_num:
 			data["level_file"] = file_name
-			print("Assigned ", file_name, " to level ", level_num)
+			if DEBUG: print("Assigned ", file_name, " to level ", level_num)
 			save_level_data()
 			return
 	
-	print("ERROR: No hex with level number ", level_num)
+	if DEBUG: print("ERROR: No hex with level number ", level_num)
 
 func get_selected_level_number() -> int:
 	"""Returns the currently selected level number"""
@@ -1958,7 +1959,7 @@ func get_selected_level_number() -> int:
 func reset_progress():
 	"""Resets all level progress (only in editor mode)"""
 	if not editor_mode:
-		print("ERROR: Can only reset progress in editor mode!")
+		if DEBUG: print("ERROR: Can only reset progress in editor mode!")
 		return
 	
 	# Clear progress data
@@ -1970,18 +1971,18 @@ func reset_progress():
 		main.completed_levels.clear()
 		main.high_scores.clear()
 		main.save_game_data()
-		print("Main progress cleared")
+		if DEBUG: print("Main progress cleared")
 	
 	# Delete progress file if it exists
 	if FileAccess.file_exists(PROGRESS_PATH):
 		DirAccess.remove_absolute(PROGRESS_PATH)
-		print("Progress file deleted: ", PROGRESS_PATH)
+		if DEBUG: print("Progress file deleted: ", PROGRESS_PATH)
 	
 	# Update all hexes to reflect reset state
 	update_all_hexes_from_progress()
 	
-	print("=== PROGRESS RESET COMPLETE ===")
-	print("All levels are now locked except Level 1")
+	if DEBUG: print("=== PROGRESS RESET COMPLETE ===")
+	if DEBUG: print("All levels are now locked except Level 1")
 
 # === SETTINGS ===
 func _on_settings_pressed():
@@ -2018,7 +2019,7 @@ func _on_info_pressed():
 	"""Opens info/tutorial"""
 	get_node("/root/Main").play_btn_sound()
 	OS.shell_open("market://details?id=com.redmoongames.hexwars")
-	print("Info pressed")
+	if DEBUG: print("Info pressed")
 
 func _on_viewport_size_changed():
 	var viewport_size = get_viewport().get_visible_rect().size

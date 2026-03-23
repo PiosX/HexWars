@@ -73,10 +73,6 @@ func save_turn_snapshot(hex_grid) -> void:
 	if snapshots.size() > MAX_SNAPSHOTS:
 		snapshots.pop_front()
 	
-	print("=== SNAPSHOT ZAPISANY ===")
-	print("Runda: ", snapshot.round, " | Drużyna: ", snapshot.team)
-	print("Snapshottów w historii: ", snapshots.size())
-	
 func _serialize_bandit_ownership(ownership: Dictionary) -> Dictionary:
 	var result = {}
 	for camp_id in ownership:
@@ -87,18 +83,15 @@ func restore_previous_turn(hex_grid) -> bool:
 	"""Przywraca stan z poprzedniej tury - KOSZTUJE 1 WALUTĘ"""
 	
 	if not can_rewind():
-		print("Brak dostępnych cofnięć (brak waluty)!")
 		return false
 	
 	if snapshots.is_empty():
-		print("Brak snapshottów do przywrócenia!")
 		return false
 	
 	# Usuń ostatni snapshot (aktualny stan)
 	var snapshot = snapshots.pop_back()
 	
 	if snapshots.is_empty():
-		print("To była pierwsza tura - nie można cofnąć dalej!")
 		snapshots.append(snapshot)  # Przywróć snapshot
 		return false
 	
@@ -106,9 +99,6 @@ func restore_previous_turn(hex_grid) -> bool:
 	var previous = snapshots[snapshots.size() - 1]
 	
 	var main = get_node("/root/Main")
-	print("=== COFANIE TURY ===")
-	print("Z rundy ", hex_grid.current_round, " do rundy ", previous.round)
-	print("Cofnięć pozostało: ", main.get_currency() - 1)
 	
 	# Wyczyść aktualny stan
 	_clear_current_state(hex_grid)
@@ -118,10 +108,8 @@ func restore_previous_turn(hex_grid) -> bool:
 	
 	# Zmniejsz walutę o 1
 	if not main.spend_currency(1):
-		print("ERROR: Nie udało się zużyć waluty!")
 		return false
 	
-	print("=== TURA COFNIĘTA (pozostało waluty: %d) ===" % main.get_currency())
 	return true
 
 func restore_multiple_turns(hex_grid, num_turns: int, rewinds_cost: int = 1) -> bool:
@@ -131,18 +119,13 @@ func restore_multiple_turns(hex_grid, num_turns: int, rewinds_cost: int = 1) -> 
 	
 	var main = get_node_or_null("/root/Main")
 	if not main:
-		print("ERROR: Brak dostępu do Main!")
 		return false
 	
 	if main.get_currency() < rewinds_cost:
-		print("Nie wystarczająco waluty! Potrzeba: %d, masz: %d" % [rewinds_cost, main.get_currency()])
 		return false
 	
 	if snapshots.size() < num_turns + 1:
-		print("Za mało snapshottów w historii! Potrzeba: %d, masz: %d" % [num_turns + 1, snapshots.size()])
 		return false
-	
-	print("=== COFANIE %d TUR (koszt: %d waluty) ===" % [num_turns, rewinds_cost])
 	
 	# Usuń N ostatnich snapshottów
 	for i in range(num_turns):
@@ -154,8 +137,6 @@ func restore_multiple_turns(hex_grid, num_turns: int, rewinds_cost: int = 1) -> 
 	# Pobierz snapshot do którego wracamy
 	var target = snapshots[snapshots.size() - 1]
 	
-	print("Cofanie do rundy %d, team %d" % [target.round, target.team])
-	
 	# Wyczyść aktualny stan
 	_clear_current_state(hex_grid)
 	
@@ -164,10 +145,8 @@ func restore_multiple_turns(hex_grid, num_turns: int, rewinds_cost: int = 1) -> 
 	
 	# Zmniejsz walutę
 	if not main.spend_currency(rewinds_cost):
-		print("ERROR: Nie udało się zużyć waluty!")
 		return false
 	
-	print("=== COFNIĘTO %d TUR (pozostało waluty: %d) ===" % [num_turns, main.get_currency()])
 	return true
 
 func _serialize_units(unit_map: Dictionary) -> Dictionary:
@@ -370,4 +349,3 @@ func reset_rewinds() -> void:
 	"""Resetuje snapshoty (np. na początku nowej gry)
 	Waluta nie jest resetowana - jest zarządzana przez Main"""
 	snapshots.clear()
-	print("Historia tur wyczyszczona")

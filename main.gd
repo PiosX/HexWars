@@ -2,11 +2,11 @@ extends Node
 # Main.gd - Rozszerzona wersja z obsługą IAP i trwałym zapisem
 # Zastąp swój obecny main.gd tym plikiem
 
-const MAIN_MENU = "res://home.tscn"
-const SHOP_MENU = "res://shop.tscn"
-const LEVEL_SELECT = "res://levels.tscn"
-const HEX_GRID_SCENE = "res://main_scene.tscn"
-const HOWTO_MENU = "res://howto.tscn"
+const MAIN_MENU = preload("res://home.tscn")
+const SHOP_MENU = preload("res://shop.tscn")
+const LEVEL_SELECT = preload("res://levels.tscn")
+const HEX_GRID_SCENE = preload("res://main_scene.tscn")
+const HOWTO_MENU = preload("res://howto.tscn")
 
 var _scene_cache: Dictionary = {}  # cache załadowanych scen
 
@@ -56,7 +56,6 @@ func _ready():
 	change_scene(MAIN_MENU)
 	_maybe_show_rate_on_start()
 	# Załaduj w tle sceny potrzebne wkrótce
-	_preload_in_background([LEVEL_SELECT, SHOP_MENU, HEX_GRID_SCENE, HOWTO_MENU])
 
 func _preload_in_background(paths: Array):
 	for path in paths:
@@ -380,28 +379,26 @@ func toggle_music(enabled: bool):
 
 # ========== ZARZĄDZANIE SCENAMI ==========
 
-func change_scene(scene_path: String):
+func change_scene(scene_resource):
 	await fade_out()
-	_do_change_scene(scene_path)
+	_do_change_scene(scene_resource)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	var delay = 0.4 if scene_path == LEVEL_SELECT else 0.2
+	var delay = 0.4 if scene_resource == LEVEL_SELECT else 0.2
 	await get_tree().create_timer(delay).timeout
 	await fade_in()
 
-func _do_change_scene(scene_path: String):
+func _do_change_scene(scene_resource):
 	var admob = get_node_or_null("/root/AdMobManager")
 	if current_scene:
 		current_scene.queue_free()
 	
-	var scene_resource = _get_scene(scene_path)
 	var new_scene = scene_resource.instantiate()
-	# Upewnij się że overlay jest na wierzchu
 	add_child(new_scene)
 	current_scene = new_scene
 	
 	if admob:
-		if scene_path == HEX_GRID_SCENE:
+		if scene_resource == HEX_GRID_SCENE:
 			admob.hide_banner()
 		else:
 			admob.show_banner()
@@ -441,7 +438,7 @@ func load_game_level(level_file: String, difficulty: int, level_num: int = 0):
 	if current_scene:
 		current_scene.queue_free()
 	
-	var main_scene = _get_scene(HEX_GRID_SCENE).instantiate()
+	var main_scene = HEX_GRID_SCENE.instantiate()
 	add_child(main_scene)
 	current_scene = main_scene
 	
