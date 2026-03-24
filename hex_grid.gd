@@ -1414,6 +1414,8 @@ func _on_end_turn():
 		ai_is_playing = true
 		if ui_manager: ui_manager.update_ui_data()  # Odśwież żeby zablokować UNDO
 		await get_tree().create_timer(0.5).timeout
+		if not ai_is_playing:
+			return
 		await ai_controllers[current_team].execute_turn()
 		# Po zakończeniu tury AI - przelicz królestwa (naprawia znikające numerki)
 		for t in [1, 2, 3, 4]:
@@ -5806,6 +5808,7 @@ func load_layout_from_file(file_name: String) -> bool:
 	"""Loads layout from a specific file (for level loading)"""
 	# Reset game_over flag when loading new level
 	game_over = false
+	ai_is_playing = false
 
 	for ai_team in ai_controllers:
 		var ai = ai_controllers[ai_team]

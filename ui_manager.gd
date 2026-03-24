@@ -1372,19 +1372,20 @@ func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: V
 		get_node("/root/Main").play_switch_sound()
 
 func _on_restart_pressed():
-	print("Restart pressed")
 	get_node("/root/Main").play_btn_sound()
+	_on_close_settings()
 	
-	settings_overlay.visible = false
-	settings_popup.visible = false
-
-	if hex_grid and hex_grid.has_meta("current_level_file"):
-		var level_file = hex_grid.get_meta("current_level_file")
-		if not level_file.is_empty() and hex_grid.has_method("load_layout_from_file"):
-			await get_tree().create_timer(0.35).timeout
-			if is_instance_valid(hex_grid):
-				hex_grid.load_layout_from_file(level_file)
-				print("Level restarted from settings: ", level_file)
+	await get_tree().create_timer(0.3).timeout
+	
+	if not is_instance_valid(hex_grid):
+		return
+	if not hex_grid.has_meta("current_level_file"):
+		return
+	
+	var level_file = hex_grid.get_meta("current_level_file")
+	var level_num = hex_grid.current_level_number
+	
+	get_node("/root/Main").load_game_level(level_file, 0, level_num)
 
 func _on_howto_pressed():
 	get_node("/root/Main").play_btn_sound()

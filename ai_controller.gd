@@ -1,7 +1,7 @@
 extends Node
 class_name AIController
 
-const DEBUG = true
+const DEBUG = false
 
 enum Difficulty {
 	NORMAL,
@@ -100,6 +100,9 @@ func _get_my_kingdom_ids() -> Array:
 			if kid > 0 and kid not in kids:
 				kids.append(kid)
 	return kids
+	
+func _is_interrupted() -> bool:
+	return not hex_grid.ai_is_playing
 
 func execute_turn():
 	if DEBUG: print("=== AI (Team %d, %s, Aggro: %.1f) zaczyna turę ===" % [team, "HARD" if difficulty == Difficulty.HARD else "NORMAL", aggression_level])
@@ -119,18 +122,22 @@ func execute_turn():
 		return
 	
 	# NAJPIERW MERGE - żeby scalone jednostki mogły od razu ruszyć (zamek pod atakiem!)
+	if _is_interrupted(): return
 	await merge_units(state)
 	
 	# Odśwież stan po merge (nowe jednostki mogą teraz atakować)
+	if _is_interrupted(): return
 	state = analyze_game_state()
 	update_memory(state)
 	decide_strategy(state)
 	set_strategic_goals(state)
 	
 	# RUCH - scalone jednostki już mogą atakować
+	if _is_interrupted(): return
 	await move_all_units(state)
 	
 	# Kupuj jednostki i buduj mury - OSOBNO DLA KAŻDEGO KRÓLESTWA
+	if _is_interrupted(): return
 	var all_kingdom_ids = _get_my_kingdom_ids()
 	for kid in all_kingdom_ids:
 		# Ustaw aktywne królestwo
@@ -2425,6 +2432,7 @@ func move_all_units(state: Dictionary):
 	sorted_goals.sort_custom(func(a, b): return a.priority > b.priority)
 	
 	for goal in sorted_goals:
+		if _is_interrupted(): return
 		# Sprawdź czy są wolne jednostki
 		var free_units_exist = false
 		for u in state.my_units:
