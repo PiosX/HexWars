@@ -43,7 +43,6 @@ var shadow: TextureRect
 var main_panel: Panel
 var watch_box: Panel
 var use_box: Panel
-var time_owned: int = 5  # Number of time rewinds owned
 
 signal home_pressed
 signal retry_pressed
@@ -120,31 +119,6 @@ func setup_ui():
 	bg_rect.anchor_bottom = 1
 	bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg_rect.z_index = -1
-	
-	# Simple gradient without shader (more reliable)
-	var gradient = Gradient.new()
-	gradient.set_color(0, BG_GRADIENT_TOP)
-	gradient.set_color(1, BG_GRADIENT_BOTTOM)
-	
-	var gradient_texture = GradientTexture2D.new()
-	gradient_texture.gradient = gradient
-	gradient_texture.fill_from = Vector2(0, 0)
-	gradient_texture.fill_to = Vector2(0, 1)
-	gradient_texture.width = 480
-	gradient_texture.height = 780
-	
-	var texture_rect = TextureRect.new()
-	texture_rect.texture = gradient_texture
-	texture_rect.anchor_left = 0
-	texture_rect.anchor_right = 1
-	texture_rect.anchor_top = 0
-	texture_rect.anchor_bottom = 1
-	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	texture_rect.stretch_mode = TextureRect.STRETCH_SCALE
-	texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texture_rect.z_index = -1
-	
-	main_panel.add_child(texture_rect)
 	
 	# Panel border (separate control)
 	var border_panel = Panel.new()
@@ -336,7 +310,7 @@ func setup_ui():
 	use_box = create_option_box_with_time(
 		TIME_ICON,
 		"Use",
-		"(%d owned)" % time_owned,
+		"(0 owned)",
 		USE_BG,
 		USE_BORDER,
 		USE_BORDER_HOVER,
@@ -667,6 +641,11 @@ func create_button(text: String, icon_path: String, bg_color: Color, hover_color
 func show_defeat(level: int):
 	"""Shows defeat popup with animation (no confetti)"""
 	get_node("/root/Main").play_defeat_sound()
+	
+	var subtitle = use_box.get_node_or_null("Content/Subtitle")
+	if subtitle:
+		subtitle.text = "(%d owned)" % get_node("/root/Main").global_time_currency
+	
 	# Update level text
 	var level_label = main_panel.get_node("Content/LevelLabel")
 	if level_label:

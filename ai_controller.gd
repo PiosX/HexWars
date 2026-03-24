@@ -1,7 +1,7 @@
 extends Node
 class_name AIController
 
-const DEBUG = false
+const DEBUG = true
 
 enum Difficulty {
 	NORMAL,
@@ -55,6 +55,8 @@ var memory: Dictionary = {
 var strategic_goals: Array = []
 var isolated_units_freeze: Dictionary = {}  # NOWE: {unit_instance: turn_isolated}
 var units_moved_on_own_territory: Dictionary = {}  # NOWE: {unit_instance: true} - jednostki które już przeszły po swoim terenie w tej turze
+var unit_own_territory_turns: Dictionary = {}  # {unit: ile_tur_na_własnym}
+var unit_last_positions: Dictionary = {}
 
 # ============================================================================
 # INITIALIZATION
@@ -806,14 +808,18 @@ func set_strategic_goals(state: Dictionary):
 			priority = 280 - distance * 20  # 220-280
 		
 		if priority > 0:
-			strategic_goals.append({
-				"type": "capture_castle",
-				"position": castle_pos,
-				"priority": priority,
-				"target_team": castle_team,
-				"distance": distance,
-				"defenseless": not has_any_defenders
-			})
+			var my_castle_pos = state.my_castles[0] if not state.my_castles.is_empty() else Vector2i.ZERO
+			if my_castle_pos == Vector2i.ZERO or is_castle_reachable(my_castle_pos, castle_pos):
+				strategic_goals.append({
+					"type": "capture_castle",
+					"position": castle_pos,
+					"priority": priority,
+					"target_team": castle_team,
+					"distance": distance,
+					"defenseless": not has_any_defenders
+				})
+			else:
+				if DEBUG: print("AI %d: Zamek %s nieosiągalny - pomijam cel" % [team, castle_pos])
 	
 	for castle_pos in state.walled_enemy_castles:
 		var distance = get_min_unit_distance_to(castle_pos, state.my_units)
@@ -1732,11 +1738,12 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 	if my_unit_count == 0:
 		reserve = 0
 		if DEBUG: print("AI %d: BRAK JEDNOSTEK - kupuję natychmiast bez rezerwy!" % team)
-	elif net_income <= 0 or gold <= hex_grid.FARMER_COST + 3:
-		# Biedne królestwo - absolutne minimum rezerwy
-		reserve = 3
+	elif net_income <= 0:
+		# Biedne królestwo (netto <= 0): złoto i tak nie rośnie - kup bez rezerwy
+		reserve = 0
+		if DEBUG: print("AI %d: Netto dochód <= 0 - rezerwa = 0, kup farmera!" % team)
 	else:
-		reserve = max(upkeep + 3, 3)
+		reserve = 3
 	
 	var available_gold = max(0, gold - reserve)
 	
@@ -1895,8 +1902,10 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 					"spearman": threat_level += 2
 					_: threat_level += 1
 	
-	# Policz mój dochód i czy mam nadwyżkę
-	var net_income = state.income - state.upkeep
+	# Policz mój dochód i czy mam nadwyżkę - użyj danych konkretnego królestwa!
+	var k_income = hex_grid.calculate_income_for_kingdom(kingdom_id) if kingdom_id > 0 else state.income
+	var k_upkeep = hex_grid.calculate_upkeep_for_kingdom(kingdom_id) if kingdom_id > 0 else state.upkeep
+	var net_income = k_income - k_upkeep
 	# is_rich: efektywny budżet (już po odjęciu rezerwy) >= 30
 	var is_rich = remaining_budget >= 30
 	# Dobry dochód = 18+ netto → AI stać na drogie jednostki
@@ -2291,16 +2300,23 @@ func build_walls(state: Dictionary):
 		await hex_grid.get_tree().create_timer(0.1).timeout
 
 func plan_hexes_for_walling(state: Dictionary) -> Array:
-	"""Zwraca listę hexów które powinny dostać mury - TYLKO gdy zagrożeni!"""
 	var hexes = []
 	
-	# TYLKO gdy zamek jest pod atakiem - otocz zamek murami
+	# Sprawdź czy gracz (team 1) może w ogóle dotrzeć do naszego zamku
+	var player_can_reach = is_player_reachable(state)
+	
+	# Jeśli gracz nie może dotrzeć - nie muruj w ogóle
+	if not player_can_reach:
+		return hexes
+	
+	# TYLKO gdy zamek jest pod atakiem
 	if memory.castle_under_attack:
 		for castle_pos in state.my_castles:
-			if count_walls_around(castle_pos) < 6:
-				hexes.append(castle_pos)
+			if not has_all_walls_on_hex(castle_pos):
+				if castle_pos not in hexes:
+					hexes.append(castle_pos)
 	
-	# Gdy cavalry/knight wroga jest blisko zamku (dist ≤ 4) - otocz zamek
+	# Gdy cavalry/knight wroga jest blisko zamku (dist ≤ 4)
 	if not state.my_castles.is_empty():
 		var castle_pos = state.my_castles[0]
 		var strong_threat_close = false
@@ -2310,11 +2326,58 @@ func plan_hexes_for_walling(state: Dictionary) -> Array:
 					strong_threat_close = true
 					break
 		if strong_threat_close:
-			if count_walls_around(castle_pos) < 6:
-				hexes.append(castle_pos)
+			if not has_all_walls_on_hex(castle_pos):
+				if castle_pos not in hexes:
+					hexes.append(castle_pos)
 	
-	# NIE muruj własnych jednostek proaktywnie - to tylko marnowanie złota
 	return hexes
+
+func is_player_reachable(state: Dictionary) -> bool:
+	"""Sprawdza czy gracz (team 1) może dotrzeć do naszego terytorium przez flood fill"""
+	if state.my_castles.is_empty():
+		return true  # Nie wiemy - zakładamy zagrożenie
+	
+	# Zbierz wszystkie hexy gracza
+	var player_hexes = {}
+	for coords in hex_grid.territory_map:
+		if hex_grid.territory_map[coords] == 1:
+			player_hexes[coords] = true
+	
+	if player_hexes.is_empty():
+		return false
+	
+	# Flood fill od terytorium gracza przez neutralne i własne hexy
+	# Sprawdź czy możemy dotrzeć do któregoś z naszych hexów
+	var visited = {}
+	var queue = player_hexes.keys()
+	for pos in queue:
+		visited[pos] = true
+	
+	var our_territory = {}
+	for coords in hex_grid.territory_map:
+		if hex_grid.territory_map[coords] == team:
+			our_territory[coords] = true
+	
+	var head = 0
+	while head < queue.size():
+		var current = queue[head]
+		head += 1
+		
+		if our_territory.has(current):
+			return true  # Gracz może dotrzeć do nas
+		
+		for neighbor in hex_grid.get_neighbors(current):
+			if visited.has(neighbor):
+				continue
+			if not hex_grid.hex_map.has(neighbor):
+				continue
+			var owner = hex_grid.territory_map.get(neighbor, 0)
+			# Można przejść przez neutralne, własne gracza lub nasze
+			if owner == 0 or owner == 1 or owner == team:
+				visited[neighbor] = true
+				queue.append(neighbor)
+	
+	return false  # Gracz nie może dotrzeć
 
 # ============================================================================
 # MOVE UNITS
@@ -2356,6 +2419,7 @@ func move_all_units(state: Dictionary):
 	
 	# NOWE: Sprawdź i zamroź odcięte jednostki
 	check_and_freeze_isolated_units(state)
+	force_stagnant_units_to_attack(state)
 	
 	var sorted_goals = strategic_goals.duplicate()
 	sorted_goals.sort_custom(func(a, b): return a.priority > b.priority)
@@ -2540,6 +2604,10 @@ func capture_castle(state: Dictionary, goal: Dictionary):
 	"""Próbuje zdobyć wrogi zamek"""
 	var castle_pos = goal.position
 	var is_walled = goal.type == "capture_walled_castle"
+	
+	if not is_castle_reachable(state.my_castles[0] if not state.my_castles.is_empty() else castle_pos, castle_pos):
+		if DEBUG: print("AI %d: Zamek %s NIEOSIĄGALNY - pomijam" % [team, castle_pos])
+		return
 	
 	if DEBUG: print("AI %d: Atakuję zamek %s (walled: %s)" % [team, castle_pos, is_walled])
 	
@@ -4073,3 +4141,116 @@ func get_bandit_moves(from: Vector2i) -> Array:
 					moves.append(neighbor)
 	
 	return moves
+
+func force_stagnant_units_to_attack(state: Dictionary):
+	"""Wymusza atak dla jednostek kręcących się po własnym terenie > 2 tury"""
+	var connected_territory = hex_grid.get_connected_territories(team)
+	var connected_set = {}
+	for pos in connected_territory:
+		connected_set[pos] = true
+	
+	for unit_data in state.my_units:
+		if not is_instance_valid(unit_data.unit):
+			continue
+		if unit_data.unit in hex_grid.units_moved_this_turn:
+			continue
+		
+		var unit = unit_data.unit
+		var unit_pos = unit.hex_position
+		var last_pos = unit_last_positions.get(unit, unit_pos)
+		
+		# Sprawdź czy jednostka jest na własnym terenie
+		var is_on_own = connected_set.has(unit_pos)
+		
+		if is_on_own and unit_pos == last_pos:
+			# Jednostka stoi w miejscu na własnym terenie
+			var turns_idle = unit_own_territory_turns.get(unit, 0) + 1
+			unit_own_territory_turns[unit] = turns_idle
+			
+			if turns_idle >= 2:
+				# Wymuś ruch na wrogie lub neutralne
+				var forced = await force_unit_to_enemy_territory(unit, unit_data.type, state)
+				if forced:
+					unit_own_territory_turns[unit] = 0
+		else:
+			unit_own_territory_turns[unit] = 0
+		
+		unit_last_positions[unit] = unit_pos
+
+func force_unit_to_enemy_territory(unit, unit_type: String, state: Dictionary) -> bool:
+	"""Rusza jednostkę na najbliższe wrogie lub neutralne pole"""
+	var unit_pos = unit.hex_position
+	
+	# Znajdź najbliższe wrogie/neutralne pole
+	var best_target = Vector2i(-999, -999)
+	var best_dist = 999
+	
+	for coords in hex_grid.hex_map:
+		var owner = hex_grid.territory_map.get(coords, 0)
+		if owner != team:  # Wrogie lub neutralne
+			var dist = hex_distance(unit_pos, coords)
+			if dist < best_dist and dist <= 2:
+				best_dist = dist
+				best_target = coords
+	
+	if best_target == Vector2i(-999, -999):
+		return false
+	
+	# Spróbuj ruszyć jednostkę
+	var neighbors = hex_grid.get_neighbors(unit_pos)
+	var best_step = Vector2i(-999, -999)
+	var best_step_dist = 999
+	
+	for nb in neighbors:
+		if not hex_grid.hex_map.has(nb):
+			continue
+		var owner = hex_grid.territory_map.get(nb, 0)
+		if owner == team:
+			continue  # Nie cofaj na własne
+		var dist = hex_distance(nb, best_target)
+		if dist < best_step_dist:
+			best_step_dist = dist
+			best_step = nb
+	
+	if best_step == Vector2i(-999, -999):
+		return false
+	
+	# Wykonaj ruch
+	if hex_grid.has_method("move_unit"):
+		hex_grid.move_unit(unit, best_step)
+		return true
+	
+	return false
+	
+func has_all_walls_on_hex(pos: Vector2i) -> bool:
+	"""Sprawdza czy hex ma już wszystkie 6 ścian przez wall_map"""
+	for i in range(6):
+		var edge_key = "%d,%d-edge%d" % [pos.x, pos.y, i]
+		if not hex_grid.wall_map.has(edge_key):
+			return false
+	return true
+	
+func is_castle_reachable(from: Vector2i, castle_pos: Vector2i) -> bool:
+	"""Sprawdza czy zamek jest osiągalny przez połączone terytorium (flood fill)"""
+	var visited = {}
+	var queue = [from]
+	visited[from] = true
+	var head = 0
+	
+	while head < queue.size():
+		var current = queue[head]
+		head += 1
+		
+		if current == castle_pos:
+			return true
+		
+		for neighbor in hex_grid.get_neighbors(current):
+			if visited.has(neighbor):
+				continue
+			if not hex_grid.hex_map.has(neighbor):
+				continue
+			# Można przejść przez własne terytorium, neutralne lub wrogie (ale nie przepaście)
+			visited[neighbor] = true
+			queue.append(neighbor)
+	
+	return false

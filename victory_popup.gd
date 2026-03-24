@@ -109,31 +109,6 @@ func setup_ui():
 	bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bg_rect.z_index = -1
 	
-	# Simple gradient without shader (more reliable)
-	var gradient = Gradient.new()
-	gradient.set_color(0, BG_GRADIENT_TOP)
-	gradient.set_color(1, BG_GRADIENT_BOTTOM)
-	
-	var gradient_texture = GradientTexture2D.new()
-	gradient_texture.gradient = gradient
-	gradient_texture.fill_from = Vector2(0, 0)
-	gradient_texture.fill_to = Vector2(0, 1)
-	gradient_texture.width = 480
-	gradient_texture.height = 760
-	
-	var texture_rect = TextureRect.new()
-	texture_rect.texture = gradient_texture
-	texture_rect.anchor_left = 0
-	texture_rect.anchor_right = 1
-	texture_rect.anchor_top = 0
-	texture_rect.anchor_bottom = 1
-	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	texture_rect.stretch_mode = TextureRect.STRETCH_SCALE
-	texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texture_rect.z_index = -1
-	
-	main_panel.add_child(texture_rect)
-	
 	# Panel border (separate control)
 	var border_panel = Panel.new()
 	border_panel.name = "Border"

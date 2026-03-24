@@ -4196,7 +4196,6 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 	_update_bandit_camp_gold_labels()
 	_update_castle_gold_labels()
 	update_ui()
-	check_victory()
 	
 	if old_team == 1:
 		game_over = true
@@ -4204,6 +4203,8 @@ func capture_castle(castle_coords: Vector2i, new_team: int, old_team: int):
 			var dp2 = get_meta("defeat_popup")
 			await get_tree().create_timer(0.4).timeout
 			dp2.show_defeat(current_level_number)
+	else:
+		check_victory()
 	
 	if DEBUG: print("=== KONIEC PRZEJECIA ZAMKU ===")
 func get_nearest_hexes(center: Vector2i, count: int, old_team: int, new_team: int) -> Array:
@@ -5805,7 +5806,13 @@ func load_layout_from_file(file_name: String) -> bool:
 	"""Loads layout from a specific file (for level loading)"""
 	# Reset game_over flag when loading new level
 	game_over = false
-	
+
+	for ai_team in ai_controllers:
+		var ai = ai_controllers[ai_team]
+		if is_instance_valid(ai):
+			ai.unit_own_territory_turns.clear()
+			ai.unit_last_positions.clear()
+
 	var full_path = "res://levels/" + file_name
 	
 	var file = FileAccess.open(full_path, FileAccess.READ)
@@ -6645,6 +6652,9 @@ func get_next_active_team(from_team: int) -> int:
 func check_victory():
 	"""Sprawdza czy gracz wygral (przejal wszystkie wrogie zamki)"""
 	if not game_mode:
+		return
+		
+	if game_over:
 		return
 	
 	var enemy_castles = 0
