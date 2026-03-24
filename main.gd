@@ -434,6 +434,9 @@ func _on_play_pressed(level_file: String, difficulty: int, level_num: int):
 	load_game_level(level_file, difficulty, level_num)
 
 func load_game_level(level_file: String, difficulty: int, level_num: int = 0):
+	var admob_early = get_node_or_null("/root/AdMobManager")
+	if admob_early and admob_early.has_method("hide_banner"):
+		admob_early.hide_banner()
 	await fade_out()
 	if current_scene:
 		current_scene.queue_free()
@@ -494,7 +497,11 @@ func load_game_level(level_file: String, difficulty: int, level_num: int = 0):
 		if ui_manager.tab_changed.is_connected(_on_tab_changed):
 			ui_manager.tab_changed.disconnect(_on_tab_changed)
 		
+		if ui_manager.retry_pressed.is_connected(_on_defeat_retry):
+			ui_manager.retry_pressed.disconnect(_on_defeat_retry)
+		
 		ui_manager.tab_changed.connect(_on_tab_changed)
+		ui_manager.retry_pressed.connect(_on_defeat_retry)
 		sync_audio_settings_to_ui(ui_manager)
 	
 	# Ukryj banner podczas gry

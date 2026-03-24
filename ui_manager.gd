@@ -3,6 +3,7 @@ class_name UIManager
 
 signal ui_ready
 signal tab_changed(tab_name: String)
+signal retry_pressed
 # --- COLORS ---
 const BG_PANEL = Color("121218")
 const BG_BOX = Color("1A1A28")
@@ -51,6 +52,7 @@ var settings_popup: Control
 var settings_overlay: ColorRect
 var sound_enabled: bool = true
 var music_enabled: bool = true
+var restart_btn: Button
 
 # Icons paths
 const ICON_SETTINGS = "res://ui/settings.png"
@@ -454,7 +456,7 @@ func setup_settings_popup():
 	vbox.add_child(buttons_vbox)
 	
 	# Restart button
-	var restart_btn = create_settings_button("Restart", ICON_RESTART)
+	restart_btn = create_settings_button("Restart", ICON_RESTART)
 	restart_btn.pressed.connect(_on_restart_pressed)
 	buttons_vbox.add_child(restart_btn)
 	
@@ -1371,38 +1373,18 @@ func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: V
 		get_node("/root/Main").toggle_music(new_state)
 		get_node("/root/Main").play_switch_sound()
 
+func _on_retry_pressed():
+	get_node("/root/Main").play_btn_sound()
+	retry_pressed.emit()
+	_on_close_settings()
+
 func _on_restart_pressed():
 	get_node("/root/Main").play_btn_sound()
-	
-	# Zabij AI natychmiast
-	hex_grid.ai_is_playing = false
-	for team in hex_grid.ai_controllers:
-		var ai = hex_grid.ai_controllers[team]
-		if is_instance_valid(ai):
-			ai.set_process(false)
-			ai.queue_free()
-	hex_grid.ai_controllers.clear()
-	
 	_on_close_settings()
-	await get_tree().create_timer(0.3).timeout
-	
-	if not is_instance_valid(hex_grid):
-		return
-	if not hex_grid.has_meta("current_level_file"):
-		return
-	
-	var level_file = hex_grid.get_meta("current_level_file")
-	hex_grid.load_layout_from_file(level_file)
-	
-	# Odtwórz AI po reloadzie
-	hex_grid.set_team_ai(2, 1, 0.5)
-	hex_grid.set_team_ai(3, 0, 0.3)
-	hex_grid.set_team_ai(4, 0, 0.5)
-	
-	await get_tree().process_frame
-	await get_tree().process_frame
-	if is_instance_valid(hex_grid) and hex_grid.ui_manager:
-		hex_grid.ui_manager.set_buttons_enabled(true)
+	if hex_grid and hex_grid.turn_history:
+		set_buttons_enabled(false)
+		await hex_grid.turn_history.restore_initial(hex_grid)
+		set_buttons_enabled(true)
 
 func _on_howto_pressed():
 	get_node("/root/Main").play_btn_sound()
@@ -1440,6 +1422,10 @@ func set_buttons_enabled(enabled: bool):
 		var next_btn = next_button.get_meta("button")
 		if is_instance_valid(next_btn):
 			next_btn.disabled = not enabled
+			
+	if is_instance_valid(restart_btn):
+		restart_btn.disabled = not enabled
+		restart_btn.modulate = Color(1, 1, 1, 0.4) if not enabled else Color.WHITE
 	
 	# Odswież przyciski zakupu — update_ui_data sprawdzi ai_is_playing i złoto
 	update_ui_data()

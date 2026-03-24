@@ -5996,6 +5996,7 @@ func load_layout_from_file(file_name: String) -> bool:
 	
 	if turn_history:
 		turn_history.reset_rewinds()
+		turn_history.save_initial_snapshot(self)
 		turn_history.save_turn_snapshot(self)
 	
 	return true

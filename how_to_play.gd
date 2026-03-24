@@ -89,11 +89,6 @@ func _ready():
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 	for i in range(buttons.size()):
 		buttons[i].pressed.connect(_scroll_to_section.bind(i))
-		
-	var admob = get_node_or_null("/root/AdMobManager")
-	if admob:
-		admob.banner_loaded_signal.connect(func(): admob.show_banner(), CONNECT_ONE_SHOT)
-		admob.show_banner()
 
 func setup_top_panel():
 	"""Creates top panel with settings, level, and currency"""

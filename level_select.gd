@@ -358,11 +358,6 @@ func _ready():
 	var editor_ui = get_node_or_null("LevelEditorUI")
 	if editor_ui:
 		editor_ui.setup_for_level_select(self)
-		
-	var admob = get_node_or_null("/root/AdMobManager")
-	if admob:
-		admob.banner_loaded_signal.connect(func(): admob.show_banner(), CONNECT_ONE_SHOT)
-		admob.show_banner()
 
 func setup_background():
 	background = ColorRect.new()

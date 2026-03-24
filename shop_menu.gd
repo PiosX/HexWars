@@ -73,11 +73,6 @@ func _ready():
 	
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
-	
-	var admob = get_node_or_null("/root/AdMobManager")
-	if admob:
-		admob.banner_loaded_signal.connect(func(): admob.show_banner(), CONNECT_ONE_SHOT)
-		admob.show_banner()
 
 func setup_background():
 	"""Creates dark background"""

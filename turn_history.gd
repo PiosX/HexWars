@@ -5,6 +5,9 @@ class_name TurnHistory
 var snapshots: Array = []
 const MAX_SNAPSHOTS = 50
 
+# Snapshot stanu początkowego - zapisywany raz przy starcie poziomu
+var initial_snapshot: Dictionary = {}
+
 # USUNIĘTE: Nie używamy już lokalnego licznika rewindów
 # Teraz korzystamy z global_time_currency z Main
 
@@ -27,7 +30,13 @@ func get_rewinds_remaining() -> int:
 
 func save_turn_snapshot(hex_grid) -> void:
 	"""Zapisuje snapshot stanu gry na koniec tury"""
-	
+	var snapshot = _build_snapshot(hex_grid)
+	snapshots.append(snapshot)
+	if snapshots.size() > MAX_SNAPSHOTS:
+		snapshots.pop_front()
+
+func _build_snapshot(hex_grid) -> Dictionary:
+	"""Buduje słownik snapshota z aktualnego stanu gry"""
 	var snapshot = {
 		"round": hex_grid.current_round,
 		"team": hex_grid.current_team,
@@ -66,13 +75,8 @@ func save_turn_snapshot(hex_grid) -> void:
 			bandit_castle_camp_ids[coords] = c.get_meta("camp_id")
 	snapshot["bandit_castle_camp_ids"] = bandit_castle_camp_ids
 	
-	# Dodaj snapshot na koniec listy
-	snapshots.append(snapshot)
-	
-	# Ogranicz rozmiar historii
-	if snapshots.size() > MAX_SNAPSHOTS:
-		snapshots.pop_front()
-	
+	return snapshot
+
 func _serialize_bandit_ownership(ownership: Dictionary) -> Dictionary:
 	var result = {}
 	for camp_id in ownership:
@@ -305,6 +309,9 @@ func _restore_state(hex_grid, snapshot: Dictionary) -> void:
 	# Aktualizuj etykiety PO przywróceniu danych
 	if hex_grid.has_method("_update_bandit_camp_gold_labels"):
 		hex_grid._update_bandit_camp_gold_labels()
+		
+	for coords in hex_grid.hex_map.keys():
+		hex_grid.update_hex_color(coords)
 	
 	await hex_grid.get_tree().create_timer(0.05).timeout
 	hex_grid.pulse_available_units()
@@ -349,3 +356,56 @@ func reset_rewinds() -> void:
 	"""Resetuje snapshoty (np. na początku nowej gry)
 	Waluta nie jest resetowana - jest zarządzana przez Main"""
 	snapshots.clear()
+	initial_snapshot.clear()
+
+func save_initial_snapshot(hex_grid) -> void:
+	"""Zapisuje stan początkowy poziomu - wywoływane raz po wczytaniu planszy"""
+	initial_snapshot = _build_snapshot(hex_grid)
+
+func restore_initial(hex_grid) -> bool:
+	"""Przywraca stan z początku poziomu (używane przez Restart) - BEZ kosztu waluty"""
+	if initial_snapshot.is_empty():
+		return false
+	snapshots.clear()
+	_clear_current_state(hex_grid)
+	await _restore_state(hex_grid, initial_snapshot)
+	# Przywróć initial_snapshot jako jedyny snapshot w historii
+	snapshots.append(initial_snapshot.duplicate(true))
+	
+	# === NAPRAWA: Wymuś pełne odświeżenie kolorów WSZYSTKICH hexów ===
+	await hex_grid.get_tree().process_frame  # Poczekaj na załadowanie wszystkich obiektów
+	
+	# Dla każdego hexa na mapie
+	for coords in hex_grid.hex_map.keys():
+		# Wymuś aktualizację koloru z territory_map
+		hex_grid.update_hex_color(coords)
+		
+		# Dodatkowo usuń wszelkie efekty wizualne (podświetlenia, migotania)
+		var hex = hex_grid.get_hex_at(coords)
+		if hex and hex.sprite:
+			# Zresetuj stan zaznaczenia
+			hex.is_highlighted = false
+			if hex.has_meta("is_unit_selected"):
+				hex.set_meta("is_unit_selected", false)
+			# Usuń etykiety królestw które mogą być błędne
+			if hex.has_method("set_kingdom_label"):
+				var kid = hex_grid.hex_kingdom_map.get(coords, 0)
+				hex.set_kingdom_label(hex_grid.kid_to_display(kid) if hex_grid.has_method("kid_to_display") else kid, hex_grid.show_kingdom_labels if "show_kingdom_labels" in hex_grid else false)
+	
+	# Odśwież etykiety zamków
+	for coords in hex_grid.castle_map.keys():
+		var castle = hex_grid.castle_map[coords]
+		if castle and is_instance_valid(castle) and castle.has_method("update_label_visibility"):
+			castle.update_label_visibility(hex_grid.show_kingdom_labels if "show_kingdom_labels" in hex_grid else false)
+		if castle and castle.has_method("set_kingdom_label"):
+			var kid = hex_grid.castle_kingdom_id.get(coords, 0)
+			castle.set_kingdom_label(hex_grid.kid_to_display(kid) if hex_grid.has_method("kid_to_display") else kid, hex_grid.show_kingdom_labels if "show_kingdom_labels" in hex_grid else false)
+	
+	# Odśwież pasek dominacji i UI
+	if hex_grid.ui_manager:
+		hex_grid.ui_manager.update_dominance_bar()
+		hex_grid.ui_manager.update_ui_data()
+	
+	hex_grid.pulse_available_units()
+	
+	return true
