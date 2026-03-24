@@ -1373,8 +1373,17 @@ func _on_toggle_pressed(btn: Button, circle: Panel, type: String, parent_vbox: V
 
 func _on_restart_pressed():
 	get_node("/root/Main").play_btn_sound()
-	_on_close_settings()
 	
+	# Zabij AI natychmiast
+	hex_grid.ai_is_playing = false
+	for team in hex_grid.ai_controllers:
+		var ai = hex_grid.ai_controllers[team]
+		if is_instance_valid(ai):
+			ai.set_process(false)
+			ai.queue_free()
+	hex_grid.ai_controllers.clear()
+	
+	_on_close_settings()
 	await get_tree().create_timer(0.3).timeout
 	
 	if not is_instance_valid(hex_grid):
@@ -1383,9 +1392,17 @@ func _on_restart_pressed():
 		return
 	
 	var level_file = hex_grid.get_meta("current_level_file")
-	var level_num = hex_grid.current_level_number
+	hex_grid.load_layout_from_file(level_file)
 	
-	get_node("/root/Main").load_game_level(level_file, 0, level_num)
+	# Odtwórz AI po reloadzie
+	hex_grid.set_team_ai(2, 1, 0.5)
+	hex_grid.set_team_ai(3, 0, 0.3)
+	hex_grid.set_team_ai(4, 0, 0.5)
+	
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(hex_grid) and hex_grid.ui_manager:
+		hex_grid.ui_manager.set_buttons_enabled(true)
 
 func _on_howto_pressed():
 	get_node("/root/Main").play_btn_sound()
