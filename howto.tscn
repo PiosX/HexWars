@@ -1,4 +1,4 @@
-[gd_scene load_steps=36 format=3 uid="uid://ch5agd5eh56rf"]
+[gd_scene format=3 uid="uid://ch5agd5eh56rf"]
 
 [ext_resource type="Script" uid="uid://ym1sevs1o2m3" path="res://how_to_play.gd" id="1_22vny"]
 [ext_resource type="Texture2D" uid="uid://cpgjegtmqjyi" path="res://ui/how/t1.png" id="2_0i51p"]
@@ -180,10 +180,10 @@ corner_radius_top_right = 30
 corner_radius_bottom_right = 30
 corner_radius_bottom_left = 30
 
-[node name="Node2D" type="CanvasLayer"]
+[node name="Node2D" type="CanvasLayer" unique_id=564235198]
 script = ExtResource("1_22vny")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=870078679]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -191,7 +191,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.0705882, 0.0705882, 0.0941176, 1)
 
-[node name="ContentWrapper" type="MarginContainer" parent="."]
+[node name="ContentWrapper" type="MarginContainer" parent="." unique_id=260969437]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -201,13 +201,13 @@ mouse_filter = 0
 theme_override_constants/margin_top = 136
 theme_override_constants/margin_bottom = 300
 
-[node name="ContentScroll" type="ScrollContainer" parent="ContentWrapper"]
+[node name="ContentScroll" type="ScrollContainer" parent="ContentWrapper" unique_id=1822562674]
 layout_mode = 2
 mouse_filter = 0
 mouse_force_pass_scroll_events = false
 horizontal_scroll_mode = 0
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll" unique_id=141749213]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -217,21 +217,21 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="MainContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer"]
+[node name="MainContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer" unique_id=1191965589]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
 theme_override_constants/separation = 24
 
-[node name="ContentsPanel" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="ContentsPanel" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=1882040503]
 custom_minimum_size = Vector2(0, 240)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel" unique_id=270360346]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -244,170 +244,170 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="ContentsLayout" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer"]
+[node name="ContentsLayout" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer" unique_id=276163629]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout" unique_id=892020421]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/HeaderRow" unique_id=198823404]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("2_0i51p")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/HeaderRow" unique_id=1810753471]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "Contents"
 
-[node name="Divider" type="ColorRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout"]
+[node name="Divider" type="ColorRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout" unique_id=1998840800]
 custom_minimum_size = Vector2(0, 1)
 layout_mode = 2
 size_flags_vertical = 2
 color = Color(0.164706, 0.164706, 0.25098, 1)
 
-[node name="ButtonGrid" type="HFlowContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout"]
+[node name="ButtonGrid" type="HFlowContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout" unique_id=1994513982]
 layout_mode = 2
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
 
-[node name="ButtonRow1" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+[node name="ButtonRow1" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid" unique_id=2139796536]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
-theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
-theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
 theme_override_font_sizes/font_size = 20
-theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
 theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
 text = "1. Your Goal"
 
-[node name="ButtonRow2" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+[node name="ButtonRow2" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid" unique_id=237526211]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
-theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
-theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
 theme_override_font_sizes/font_size = 20
-theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
 theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
 text = "2. Overview"
 
-[node name="ButtonRow3" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+[node name="ButtonRow3" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid" unique_id=1689763416]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
-theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
-theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
 theme_override_font_sizes/font_size = 20
-theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
 theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
 text = "3. Kingdoms
 "
 
-[node name="ButtonRow4" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+[node name="ButtonRow4" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid" unique_id=908351770]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
-theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
-theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
 theme_override_font_sizes/font_size = 20
-theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
 theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
 text = "4. Economy
 "
 
-[node name="ButtonRow5" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+[node name="ButtonRow5" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid" unique_id=1841283125]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
-theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
-theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
 theme_override_font_sizes/font_size = 20
-theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
 theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
 text = "5. Units"
 
-[node name="ButtonRow6" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+[node name="ButtonRow6" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid" unique_id=22278247]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
-theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
-theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
 theme_override_font_sizes/font_size = 20
-theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
 theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
 text = "6. Rules"
 
-[node name="ButtonRow7" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid"]
+[node name="ButtonRow7" type="Button" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/ContentsPanel/MarginContainer/ContentsLayout/ButtonGrid" unique_id=1757667863]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 focus_mode = 0
-theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
-theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
-theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_colors/font_color = Color(0.415686, 0.447059, 0.509804, 1)
 theme_override_colors/font_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_hover_pressed_color = Color(0.317647, 0.635294, 1, 1)
+theme_override_colors/font_disabled_color = Color(0.290196, 0.333333, 0.396078, 1)
 theme_override_font_sizes/font_size = 20
-theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
-theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
 theme_override_styles/normal = SubResource("StyleBoxFlat_875cv")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/hover = SubResource("StyleBoxFlat_0i51p")
+theme_override_styles/disabled = SubResource("StyleBoxFlat_875cv")
 text = "7. Bandits"
 
-[node name="SectionGoal" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="SectionGoal" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=304389451]
 custom_minimum_size = Vector2(0, 250)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal" unique_id=695382648]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -420,31 +420,31 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer"]
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer" unique_id=812469898]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent" unique_id=1283286135]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/HeaderRow" unique_id=1696894253]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("2_875cv")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/HeaderRow" unique_id=1838760665]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "Your Goal"
 
-[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent"]
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent" unique_id=1219802760]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -454,14 +454,14 @@ bbcode_enabled = true
 text = "Your mission is to [b][color=#FF6467]eliminate all enemy kingdoms[/color][/b] by capturing and destroying their castles."
 fit_content = true
 
-[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent"]
+[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent" unique_id=1001102]
 custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_adjnm")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox" unique_id=1504312021]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -474,33 +474,33 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer" unique_id=1050541009]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer/HBoxContainer" unique_id=1193344742]
 custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 texture = ExtResource("3_875cv")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGoal/MarginContainer/GoalContent/TipBox/MarginContainer/HBoxContainer" unique_id=1156510492]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Capture all enemy castles to win!"
 
-[node name="SectionGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="SectionGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=1287332636]
 custom_minimum_size = Vector2(0, 370)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame" unique_id=1439940766]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -513,31 +513,31 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer"]
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer" unique_id=1254754153]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent" unique_id=1338907111]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/HeaderRow" unique_id=549948297]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("4_adjnm")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/HeaderRow" unique_id=1508660409]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "Game Overview"
 
-[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent" unique_id=734038974]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -548,7 +548,7 @@ text = "Welcome to [b][color=\"#FFFFFF\"]HexWars[/color][/b] - a turn-based stra
 you battle for dominance across hexagonal battlefields."
 fit_content = true
 
-[node name="GoalDescription2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+[node name="GoalDescription2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent" unique_id=137963067]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -560,14 +560,14 @@ competing for territory. Kingdoms take turns one after
 another."
 fit_content = true
 
-[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent"]
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent" unique_id=795675532]
 custom_minimum_size = Vector2(0, 70)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame" unique_id=117888649]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -580,11 +580,11 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer" unique_id=1870001314]
 layout_mode = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=1019860533]
 custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 size_flags_vertical = 0
@@ -592,7 +592,7 @@ texture = ExtResource("5_xfmgg")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionGame/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=228280504]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -600,14 +600,14 @@ theme_override_font_sizes/font_size = 18
 text = "Every level is handcrafted — starting territories and gold vary
 each time. Adapt your strategy!"
 
-[node name="SectionKingdoms" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="SectionKingdoms" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=54522009]
 custom_minimum_size = Vector2(0, 360)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms" unique_id=793086866]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -620,31 +620,31 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer"]
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer" unique_id=819007751]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent" unique_id=158792123]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/HeaderRow" unique_id=1633307437]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("6_dfif3")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/HeaderRow" unique_id=473054688]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "The Four Kingdoms"
 
-[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent" unique_id=601452207]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -654,7 +654,7 @@ bbcode_enabled = true
 text = "Each battle can have up to 4 kingdoms fighting for control:"
 fit_content = true
 
-[node name="GridContainer" type="GridContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+[node name="GridContainer" type="GridContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent" unique_id=847628439]
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
@@ -662,7 +662,7 @@ theme_override_constants/h_separation = 16
 theme_override_constants/v_separation = 16
 columns = 2
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer" unique_id=839350670]
 custom_minimum_size = Vector2(312, 0)
 layout_mode = 2
 size_flags_horizontal = 0
@@ -670,7 +670,7 @@ size_flags_vertical = 0
 texture = ExtResource("7_gbc8u")
 expand_mode = 5
 
-[node name="TextureRect2" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+[node name="TextureRect2" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer" unique_id=1553057590]
 custom_minimum_size = Vector2(312, 0)
 layout_mode = 2
 size_flags_horizontal = 0
@@ -678,7 +678,7 @@ size_flags_vertical = 0
 texture = ExtResource("8_1lvbf")
 expand_mode = 5
 
-[node name="TextureRect3" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+[node name="TextureRect3" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer" unique_id=1371058275]
 custom_minimum_size = Vector2(312, 0)
 layout_mode = 2
 size_flags_horizontal = 0
@@ -686,7 +686,7 @@ size_flags_vertical = 0
 texture = ExtResource("9_yppm4")
 expand_mode = 5
 
-[node name="TextureRect4" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer"]
+[node name="TextureRect4" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent/GridContainer" unique_id=1770902768]
 custom_minimum_size = Vector2(312, 0)
 layout_mode = 2
 size_flags_horizontal = 0
@@ -694,7 +694,7 @@ size_flags_vertical = 0
 texture = ExtResource("10_ad482")
 expand_mode = 5
 
-[node name="GoalDescription2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent"]
+[node name="GoalDescription2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/SectionKingdoms/MarginContainer/GoalContent" unique_id=1414831746]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.415686, 0.447059, 0.509804, 1)
@@ -704,14 +704,14 @@ bbcode_enabled = true
 text = "Each kingdom starts with different territory and [b][color=\"FFB900\"]8 coins.[/color][/b]"
 fit_content = true
 
-[node name="Economy" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="Economy" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=1347606703]
 custom_minimum_size = Vector2(0, 415)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy" unique_id=501180223]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -724,31 +724,31 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer"]
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer" unique_id=1356634463]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent" unique_id=634201292]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/HeaderRow" unique_id=153497109]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("11_ad482")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/HeaderRow" unique_id=279761912]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "Economy & Resources"
 
-[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent" unique_id=396799694]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -759,14 +759,14 @@ text = "Gold is the lifeblood of your kingdom. Every kingdom starts
 with [b][color=\"FFB900\"]8 coins.[/color][/b]"
 fit_content = true
 
-[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent" unique_id=497290480]
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame" unique_id=514556409]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -779,12 +779,12 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer" unique_id=309742615]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=1463939014]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_vertical = 0
@@ -792,33 +792,33 @@ texture = ExtResource("12_k23va")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=2020822264]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=2135286676]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "+1 coins per hex"
 
-[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=684541006]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
 theme_override_font_sizes/font_size = 18
 text = "Each controlled hex generates income every turn"
 
-[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent"]
+[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent" unique_id=177205974]
 custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_ad482")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox" unique_id=834747938]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -830,30 +830,30 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer" unique_id=1023598966]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer" unique_id=935395458]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1779466]
 custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 texture = ExtResource("13_286ss")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1633078118]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Watch your upkeep!"
 
-[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Economy/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer" unique_id=549575533]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -861,14 +861,14 @@ theme_override_font_sizes/font_size = 18
 text = "Units require maintenance costs each turn. If expenses exceed
 income, all your units will rebel and become bandits!"
 
-[node name="Units" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="Units" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=1871296053]
 custom_minimum_size = Vector2(0, 670)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units" unique_id=285550619]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -881,31 +881,31 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer"]
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer" unique_id=1309280630]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent" unique_id=894374567]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/HeaderRow" unique_id=1487663218]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("14_286ss")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/HeaderRow" unique_id=932318826]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "Military Units"
 
-[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent" unique_id=637965329]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -915,14 +915,14 @@ bbcode_enabled = true
 text = "Build your army with these unit types:"
 fit_content = true
 
-[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent" unique_id=803165600]
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame" unique_id=1391084488]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -935,12 +935,12 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer" unique_id=1539320937]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=1168710136]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_vertical = 0
@@ -948,19 +948,19 @@ texture = ExtResource("15_hxv08")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=653894774]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=614656206]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Farmer"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=358230438]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -970,14 +970,14 @@ bbcode_enabled = true
 text = "[color=\"FFB900\"]10[/color] cost   |   [color=\"FF6467\"]2[/color] /turn"
 fit_content = true
 
-[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent" unique_id=587480835]
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2" unique_id=201813823]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -990,12 +990,12 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer" unique_id=1086690233]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer" unique_id=812069066]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_vertical = 0
@@ -1003,19 +1003,19 @@ texture = ExtResource("16_hxv08")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer" unique_id=134458045]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1163413182]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Spearman"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1418907554]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1025,14 +1025,14 @@ bbcode_enabled = true
 text = "[color=\"FFB900\"]20[/color] cost   |   [color=\"FF6467\"]6[/color] /turn"
 fit_content = true
 
-[node name="TipBoxGame3" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+[node name="TipBoxGame3" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent" unique_id=340935144]
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3" unique_id=1401408909]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1045,12 +1045,12 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer" unique_id=720297110]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer" unique_id=221748159]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_vertical = 0
@@ -1058,19 +1058,19 @@ texture = ExtResource("17_oev7c")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer" unique_id=802546970]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer" unique_id=403439307]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Knight"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1047116189]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1080,14 +1080,14 @@ bbcode_enabled = true
 text = "[color=\"FFB900\"]40[/color] cost   |   [color=\"FF6467\"]18[/color] /turn"
 fit_content = true
 
-[node name="TipBoxGame4" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+[node name="TipBoxGame4" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent" unique_id=1860434609]
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4" unique_id=1994305757]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1100,12 +1100,12 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer" unique_id=900990080]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer" unique_id=1236515387]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_vertical = 0
@@ -1113,29 +1113,29 @@ texture = ExtResource("18_qb7ub")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer" unique_id=1175949330]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="HBoxContainer" type="HFlowContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="HBoxContainer" type="HFlowContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1014356321]
 layout_mode = 2
 size_flags_vertical = 3
 mouse_filter = 2
 theme_override_constants/h_separation = 16
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=62660712]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Cavalry"
 
-[node name="Panel" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer"]
+[node name="Panel" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=396982511]
 custom_minimum_size = Vector2(140, 0)
 layout_mode = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_qb7ub")
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer/Panel"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer/HBoxContainer/Panel" unique_id=335618265]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1149,7 +1149,7 @@ text = "2 moves/turn"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1169831924]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1159,14 +1159,14 @@ bbcode_enabled = true
 text = "[color=\"FFB900\"]80[/color] cost   |   [color=\"FF6467\"]50[/color] /turn"
 fit_content = true
 
-[node name="TipBoxGame5" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent"]
+[node name="TipBoxGame5" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent" unique_id=57471594]
 custom_minimum_size = Vector2(0, 90)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_dfif3")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5" unique_id=132279752]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1179,12 +1179,12 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer" unique_id=35347930]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer" unique_id=2089186362]
 custom_minimum_size = Vector2(64, 64)
 layout_mode = 2
 size_flags_vertical = 0
@@ -1192,19 +1192,19 @@ texture = ExtResource("19_8bjk1")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer" unique_id=1955720965]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1136826800]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Walls"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Units/MarginContainer/GoalContent/TipBoxGame5/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1115056568]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1214,14 +1214,14 @@ bbcode_enabled = true
 text = "[color=\"FFB900\"]4[/color] cost   |   [color=\"FF6467\"]1[/color] /turn"
 fit_content = true
 
-[node name="Rules" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="Rules" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=594121724]
 custom_minimum_size = Vector2(0, 870)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules" unique_id=1130078049]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1234,31 +1234,31 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer"]
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer" unique_id=2029127942]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent" unique_id=48876468]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/HeaderRow" unique_id=1934625269]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("20_8k0vu")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/HeaderRow" unique_id=934213241]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "Combat Rules"
 
-[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent" unique_id=1014321964]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -1269,14 +1269,14 @@ text = "[b][color=#FF6467]Capturing the enemy castle[/color][/b] is the key to d
 Each unit has specific rules:"
 fit_content = true
 
-[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent" unique_id=45800938]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_8k0vu")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame" unique_id=1414793127]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1289,24 +1289,24 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer" unique_id=1407244934]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=1656808125]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=12041379]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0, 0.831373, 0.572549, 1)
 theme_override_font_sizes/font_size = 22
 text = "Farmer"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=2029653156]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1316,7 +1316,7 @@ bbcode_enabled = true
 text = "- Cannot attack any enemy units"
 fit_content = true
 
-[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1363737254]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1326,7 +1326,7 @@ bbcode_enabled = true
 text = "- Can only capture neutral or undefended hexes"
 fit_content = true
 
-[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1922900335]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1336,14 +1336,14 @@ bbcode_enabled = true
 text = "- Cannot capture hexes with walls"
 fit_content = true
 
-[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent" unique_id=1022425471]
 custom_minimum_size = Vector2(0, 180)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_rvg7r")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2" unique_id=2083887366]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1356,24 +1356,24 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer" unique_id=322251649]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer" unique_id=330655236]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1858189856]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.317647, 0.635294, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Spearman"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1725333595]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1383,7 +1383,7 @@ bbcode_enabled = true
 text = "- Can attack Farmers and other Spearmen"
 fit_content = true
 
-[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1064458613]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1393,7 +1393,7 @@ bbcode_enabled = true
 text = "- Can attack walled hexes if they contain a Farmer or Spearman"
 fit_content = true
 
-[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1636657109]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1403,7 +1403,7 @@ bbcode_enabled = true
 text = "- Can capture castles and bandit camps"
 fit_content = true
 
-[node name="Label5" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label5" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1357563855]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1413,14 +1413,14 @@ bbcode_enabled = true
 text = "- Cannot attack if hex has Knight+ in walls"
 fit_content = true
 
-[node name="TipBoxGame3" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+[node name="TipBoxGame3" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent" unique_id=1721572469]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_22vny")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3" unique_id=1028176275]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1433,24 +1433,24 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer" unique_id=1326765665]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer" unique_id=436052006]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1283601532]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.760784, 0.478431, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Knight"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1309988171]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1460,7 +1460,7 @@ bbcode_enabled = true
 text = "- Everything Spearman can do"
 fit_content = true
 
-[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1582584605]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1470,7 +1470,7 @@ bbcode_enabled = true
 text = "- Can capture walled hexes with Farmers or Spearmen inside"
 fit_content = true
 
-[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame3/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1298022416]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1480,14 +1480,14 @@ bbcode_enabled = true
 text = "- Cannot attack Cavalry in walls (If Knight in walls = 2 turns)"
 fit_content = true
 
-[node name="TipBoxGame4" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent"]
+[node name="TipBoxGame4" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent" unique_id=1296749238]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_sf7wl")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4" unique_id=1407881270]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1500,24 +1500,24 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer" unique_id=207882163]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer" unique_id=1713748029]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer" unique_id=246949179]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 0.392157, 0.403922, 1)
 theme_override_font_sizes/font_size = 22
 text = "Cavalry"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1151190126]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1527,7 +1527,7 @@ bbcode_enabled = true
 text = "- Can capture any walled hex (Cavalry in walls = 2 moves)"
 fit_content = true
 
-[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer" unique_id=677962089]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1537,7 +1537,7 @@ bbcode_enabled = true
 text = "- Has 2 moves per turn"
 fit_content = true
 
-[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Rules/MarginContainer/GoalContent/TipBoxGame4/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1997739263]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1547,14 +1547,14 @@ bbcode_enabled = true
 text = "- Most powerful offensive unit"
 fit_content = true
 
-[node name="Bandits" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="Bandits" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=1566042262]
 custom_minimum_size = Vector2(0, 650)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wcxuv")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits" unique_id=810103885]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1567,31 +1567,31 @@ theme_override_constants/margin_top = 20
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 20
 
-[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer"]
+[node name="GoalContent" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer" unique_id=1909806097]
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+[node name="HeaderRow" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent" unique_id=745348717]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/HeaderRow"]
+[node name="Icon" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/HeaderRow" unique_id=229225386]
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
 texture = ExtResource("21_rvg7r")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/HeaderRow"]
+[node name="Title" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/HeaderRow" unique_id=1148097416]
 layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 32
 text = "Bandits & Rebels"
 
-[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+[node name="GoalDescription" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent" unique_id=84289780]
 layout_mode = 2
 mouse_filter = 2
 theme_override_colors/default_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -1601,14 +1601,14 @@ bbcode_enabled = true
 text = "Bandits can appear on the map at the start or spawn during gameplay:"
 fit_content = true
 
-[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+[node name="TipBoxGame" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent" unique_id=774922664]
 custom_minimum_size = Vector2(0, 145)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_2nq1u")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame" unique_id=1600116422]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1621,24 +1621,24 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer" unique_id=186841990]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer" unique_id=1209932183]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1706607049]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "How bandits spawn:"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1950999899]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1650,14 +1650,14 @@ their hexes), those units automatically become [color=\"FF8904\"]rebels[/color] 
 [color=\"FF8904\"]bandit camp[/color] appears nearby."
 fit_content = true
 
-[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+[node name="TipBoxGame2" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent" unique_id=808122700]
 custom_minimum_size = Vector2(0, 150)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_2nq1u")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2" unique_id=1595208922]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1670,24 +1670,24 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer" unique_id=12711001]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer" unique_id=872932747]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=903129869]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "Bandit behavior:"
 
-[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label2" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1460980056]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1697,7 +1697,7 @@ bbcode_enabled = true
 text = "- Occupies empty hexes (with or without an owner)."
 fit_content = true
 
-[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label3" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=276615365]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1707,7 +1707,7 @@ bbcode_enabled = true
 text = "- Cannot attack hexes with walls"
 fit_content = true
 
-[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer"]
+[node name="Label4" type="RichTextLabel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBoxGame2/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1221406971]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
@@ -1717,14 +1717,14 @@ bbcode_enabled = true
 text = "- Do not attack any units"
 fit_content = true
 
-[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent"]
+[node name="TipBox" type="Panel" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent" unique_id=1800350394]
 custom_minimum_size = Vector2(0, 130)
 layout_mode = 2
 size_flags_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_rq4q8")
 
-[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox"]
+[node name="MarginContainer" type="MarginContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox" unique_id=803559672]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -1737,30 +1737,30 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer" unique_id=2115452406]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer" unique_id=116042446]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 16
 
-[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="TextureRect" type="TextureRect" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer" unique_id=2059390596]
 custom_minimum_size = Vector2(36, 36)
 layout_mode = 2
 texture = ExtResource("11_ad482")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer"]
+[node name="Label" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1595152430]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 22
 text = "+10 coins reward!"
 
-[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer"]
+[node name="Label2" type="Label" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent/Bandits/MarginContainer/GoalContent/TipBox/MarginContainer/VBoxContainer" unique_id=505904036]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_colors/font_color = Color(0.6, 0.631373, 0.686275, 1)
@@ -1768,7 +1768,7 @@ theme_override_font_sizes/font_size = 18
 text = "Destroy a bandit camp with a Spearman or stronger unit to
 eliminate them and earn bonus gold."
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent"]
+[node name="HBoxContainer" type="HBoxContainer" parent="ContentWrapper/ContentScroll/MarginContainer/MainContent" unique_id=476476453]
 custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 size_flags_vertical = 3

@@ -1769,7 +1769,7 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 			if DEBUG: print("AI %d: Dokupuję %d jednostek do ODCIĘCIA wroga %s!" % [team, missing, opp.enemy.type])
 			
 			# Znajdź najlepsze pozycje do spawnu (blisko celu) dla tego królestwa
-			var spawn_positions = find_best_spawn_positions(state, kingdom_id)
+			var spawn_positions = find_best_spawn_positions(state, kingdom_id, "farmer")
 			var target_fields = []
 			for step in opp.move_sequence:
 				target_fields.append(step.target)
@@ -1784,10 +1784,9 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 				return a_min_dist < b_min_dist
 			)
 			
-			# Kup farmerów do odcięcia - ile złoto pozwala (nie tylko "missing"!)
-			# Gdy wróg atakuje knight/cavalry, każdy farmer na pozycji odcięcia = obrona
+			# Kup farmerów do odcięcia - ile złoto pozwala
 			var bought = 0
-			var max_to_buy = max(missing, int(available_gold / cost_per_unit))  # Kup tyle ile złoto pozwala
+			var max_to_buy = max(missing, int(available_gold / cost_per_unit))
 			for spawn_pos in spawn_positions:
 				if bought >= max_to_buy:
 					break
@@ -1820,8 +1819,14 @@ func buy_units(state: Dictionary, kingdom_id: int = -1):
 	
 	for purchase in units_to_buy:
 		var unit_type = purchase.type
-		var position = purchase.position
 		var cost = purchase.cost
+		
+		# Znajdź pozycję do spawnu dla tego typu jednostki
+		var spawn_positions = find_best_spawn_positions(state, kingdom_id, unit_type)
+		if spawn_positions.is_empty():
+			continue
+		
+		var position = spawn_positions[0]
 		
 		# Sprawdź złoto konkretnego królestwa
 		var check_gold = hex_grid.kingdom_gold.get(kingdom_id, 0) if kingdom_id > 0 else hex_grid.team_gold.get(team, 0)
@@ -1865,12 +1870,6 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	- Nigdy nie trzymaj złota bezczynnie!
 	"""
 	var purchases = []
-	var spawn_positions = find_best_spawn_positions(state, kingdom_id)
-	
-	if spawn_positions.is_empty():
-		if DEBUG: print("AI %d: Brak pozycji spawnu - pomijam zakup" % team)
-		return purchases
-	
 	var remaining_budget = budget
 	var my_hex_count = state.my_connected_hexes.size()
 	var my_farmer_count = 0
@@ -1919,18 +1918,12 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	var has_good_income = net_income >= 18
 	
 	# Pomocnicza funkcja: czy mogę kupić jednostkę o danym koszcie zakupu i utrzymania?
-	# Warunek: po zakupie złoto + dochód*2 >= upkeep_total*2 (przeżyj min 2 tury)
-	# Czyli: złoto_po_zakupie >= (upkeep_total_po_zakupie - income) * 2
-	# Uproszczone: netto po zakupie * 2 + złoto_po_zakupie >= 0
 	var current_gold = hex_grid.kingdom_gold.get(kingdom_id, state.gold) if kingdom_id > 0 else state.gold
 	var can_afford_unit = func(buy_cost: int, upkeep_cost: int) -> bool:
 		var gold_after = current_gold - buy_cost
-		var net_after = net_income - upkeep_cost  # netto po dodaniu kosztu utrzymania
-		# Musi przeżyć 2 tury: złoto po zakupie + 2*netto >= 0
-		# Ale nawet jeśli net < 0, akceptuj jeśli złoto_po wystarczy na 3 tury strat
+		var net_after = net_income - upkeep_cost
 		if net_after >= 0:
-			return true  # Dochód pokrywa - zawsze OK
-		# Net ujemny: sprawdź czy złoto wystarczy na abs(net_after)*3 tur buforu
+			return true
 		return gold_after >= abs(net_after) * 3
 	
 	print("AI %d: plan_purchases: budżet=%d, pola=%d, farmerzy=%d, bojowe=%d, zagrożenie=%d, bogaty=%s, dochód=%d" % 
@@ -1939,12 +1932,6 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	# ============================================================
 	# FAZA 1: SYTUACJE KRYZYSOWE - OBRONA PRZEZ ODCIĘCIE, NIE COFANIE
 	# ============================================================
-	
-	# FILOZOFIA OBRONY:
-	# - vs farmer: odetnij LUB zaatakuj silniejszą jednostką
-	# - vs spearman: postaw mury spowalniające + szukaj odcięcia
-	# - vs knight/cavalry: JEDYNA obrona = odcięcie (kup farmerów na odcięcie!)
-	# NIGDY nie cofaj jednostek z frontu do zamku
 	
 	var enemy_spearman_near = false
 	var enemy_spearman_count_near = 0
@@ -1966,36 +1953,28 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 						enemy_cavalry_near = true
 						castle_under_cutoff_threat = true
 	
-	# Jeśli mamy gotowe odcięcia - priorytet: kup farmerów DO ODCIĘCIA
-	# (ta logika jest już w buy_units PRIORYTET #1, ale wzmacniamy plan)
 	var has_cutoff_opportunities = not state.cutoff_opportunities.is_empty()
 	
-	# Zamek zagrożony przez knight/cavalry a można odciąć → kup farmerów do odcięcia
-	if castle_under_cutoff_threat and has_cutoff_opportunities:
-		# Kup tyle farmerów ile potrzeba do odcięcia (już obsłużone w buy_units PRIORYTET #1)
-		# Tu tylko dodajemy dodatkowych farmerów jeśli budżet pozwala
-		if DEBUG: print("AI %d: Zamek zagrożony - priorytet na odcięcie przez farmerów!" % team)
-	
 	# Zamek zagrożony przez knight/cavalry ale BRAK możliwości odcięcia → kup knight/cavalry jako kontrę
-	elif castle_under_cutoff_threat and not has_cutoff_opportunities:
-		if enemy_cavalry_near and remaining_budget >= hex_grid.CAVALRY_COST and purchases.size() < spawn_positions.size() and can_afford_unit.call(hex_grid.CAVALRY_COST, hex_grid.CAVALRY_UPKEEP):
-			purchases.append({"type": "cavalry", "position": spawn_positions[purchases.size()], "cost": hex_grid.CAVALRY_COST})
+	if castle_under_cutoff_threat and not has_cutoff_opportunities:
+		if enemy_cavalry_near and remaining_budget >= hex_grid.CAVALRY_COST and can_afford_unit.call(hex_grid.CAVALRY_COST, hex_grid.CAVALRY_UPKEEP):
+			purchases.append({"type": "cavalry", "cost": hex_grid.CAVALRY_COST})
 			remaining_budget -= hex_grid.CAVALRY_COST
 			current_gold -= hex_grid.CAVALRY_COST
 			net_income -= hex_grid.CAVALRY_UPKEEP
 			my_combat_count += 1
 			if DEBUG: print("AI %d: Cavalry wroga, brak odcięcia - kupuję cavalry!" % team)
-		elif remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < spawn_positions.size() and can_afford_unit.call(hex_grid.KNIGHT_COST, hex_grid.KNIGHT_UPKEEP):
-			purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
+		elif remaining_budget >= hex_grid.KNIGHT_COST and can_afford_unit.call(hex_grid.KNIGHT_COST, hex_grid.KNIGHT_UPKEEP):
+			purchases.append({"type": "knight", "cost": hex_grid.KNIGHT_COST})
 			remaining_budget -= hex_grid.KNIGHT_COST
 			current_gold -= hex_grid.KNIGHT_COST
 			net_income -= hex_grid.KNIGHT_UPKEEP
 			my_combat_count += 1
 			if DEBUG: print("AI %d: Knight wroga, brak odcięcia - kupuję knight!" % team)
 	
-	# Spearman blisko → kup spearmana jako kontrę (spearmani się nawzajem blokują)
-	elif enemy_spearman_near and my_combat_count == 0 and remaining_budget >= hex_grid.SPEARMAN_COST and purchases.size() < spawn_positions.size():
-		purchases.append({"type": "spearman", "position": spawn_positions[purchases.size()], "cost": hex_grid.SPEARMAN_COST})
+	# Spearman blisko → kup spearmana jako kontrę
+	elif enemy_spearman_near and my_combat_count == 0 and remaining_budget >= hex_grid.SPEARMAN_COST:
+		purchases.append({"type": "spearman", "cost": hex_grid.SPEARMAN_COST})
 		remaining_budget -= hex_grid.SPEARMAN_COST
 		my_combat_count += 1
 		if DEBUG: print("AI %d: Spearman wroga blisko - kupuję spearmana!" % team)
@@ -2007,16 +1986,14 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	# BOGATA GRA (>=30 efektywnego złota) lub DOBRY DOCHÓD (>=18 netto)
 	if is_rich or has_good_income:
 		# Cavalry: kup jeśli mamy >=60 lub wróg ma cavalry
-		if remaining_budget >= hex_grid.CAVALRY_COST and (remaining_budget >= 60 or enemy_cavalry_near) and purchases.size() < spawn_positions.size() and can_afford_unit.call(hex_grid.CAVALRY_COST, hex_grid.CAVALRY_UPKEEP):
-			purchases.append({"type": "cavalry", "position": spawn_positions[purchases.size()], "cost": hex_grid.CAVALRY_COST})
+		if remaining_budget >= hex_grid.CAVALRY_COST and (remaining_budget >= 60 or enemy_cavalry_near) and can_afford_unit.call(hex_grid.CAVALRY_COST, hex_grid.CAVALRY_UPKEEP):
+			purchases.append({"type": "cavalry", "cost": hex_grid.CAVALRY_COST})
 			remaining_budget -= hex_grid.CAVALRY_COST
 			current_gold -= hex_grid.CAVALRY_COST
 			net_income -= hex_grid.CAVALRY_UPKEEP
 			if DEBUG: print("AI %d: Bogata gra - kupuję cavalry!" % team)
 		
 		# Knighci: zawsze gdy mamy kasę i brak wystarczającej siły bojowej
-		# Priorytet: combat_count < 2 (zawsze chcemy mieć minimum 2 units bojowych)
-		# lub mamy dużo farmerów bez ochrony
 		var want_knights = (my_combat_count < 2) or (my_farmer_count >= 3 and my_combat_count < my_farmer_count / 2) or is_rich
 		if want_knights:
 			var knights_to_buy = 0
@@ -2026,8 +2003,8 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 				knights_to_buy = 1
 			
 			var bought_knights = 0
-			while bought_knights < knights_to_buy and remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < spawn_positions.size() and can_afford_unit.call(hex_grid.KNIGHT_COST, hex_grid.KNIGHT_UPKEEP):
-				purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
+			while bought_knights < knights_to_buy and remaining_budget >= hex_grid.KNIGHT_COST and can_afford_unit.call(hex_grid.KNIGHT_COST, hex_grid.KNIGHT_UPKEEP):
+				purchases.append({"type": "knight", "cost": hex_grid.KNIGHT_COST})
 				remaining_budget -= hex_grid.KNIGHT_COST
 				current_gold -= hex_grid.KNIGHT_COST
 				net_income -= hex_grid.KNIGHT_UPKEEP
@@ -2038,8 +2015,8 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	
 	# STRATEGIA AGRESYWNA: zawsze knighty
 	elif current_strategy == Strategy.AGGRESSIVE and my_combat_count < 2:
-		while remaining_budget >= hex_grid.KNIGHT_COST and purchases.size() < 2 and purchases.size() < spawn_positions.size() and can_afford_unit.call(hex_grid.KNIGHT_COST, hex_grid.KNIGHT_UPKEEP):
-			purchases.append({"type": "knight", "position": spawn_positions[purchases.size()], "cost": hex_grid.KNIGHT_COST})
+		while remaining_budget >= hex_grid.KNIGHT_COST and can_afford_unit.call(hex_grid.KNIGHT_COST, hex_grid.KNIGHT_UPKEEP):
+			purchases.append({"type": "knight", "cost": hex_grid.KNIGHT_COST})
 			remaining_budget -= hex_grid.KNIGHT_COST
 			current_gold -= hex_grid.KNIGHT_COST
 			net_income -= hex_grid.KNIGHT_UPKEEP
@@ -2051,7 +2028,6 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 	# ============================================================
 	
 	# Sprawdź czy królestwo jest zamknięte w murach (nie może się rozwijać)
-	# Jeśli tak: farmer bezużyteczny - czekaj na spearmana żeby przebić mury
 	var is_walled_in = false
 	var check_castle = Vector2i.ZERO
 	if kingdom_id > 0:
@@ -2070,7 +2046,6 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 		else:
 			castle_territory = state.my_connected_hexes
 		
-		# Królestwo małe (max 4 pola) - sprawdź czy da się wyjść poza mury
 		if castle_territory.size() <= 4:
 			var territory_set: Dictionary = {}
 			for t in castle_territory:
@@ -2088,15 +2063,13 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 				is_walled_in = true
 				if DEBUG: print("AI %d: Królestwo zamknięte w murach! Oszczędzam na spearmana." % team)
 	
-	var farmer_saturation = float(my_farmer_count) / max(1.0, float(my_hex_count))
-	
 	# Zamknięci w murach + już mamy farmera = skip farmerów, oszczędzaj na spearmana
 	var skip_farmers = is_walled_in and my_farmer_count > 0
 	
 	if is_walled_in and my_farmer_count == 0 and my_spearman_count == 0:
 		# Brak farmerów I brak spearmana - kup spearmana żeby przebić mury
-		if remaining_budget >= hex_grid.SPEARMAN_COST and purchases.size() < spawn_positions.size():
-			purchases.append({"type": "spearman", "position": spawn_positions[purchases.size()], "cost": hex_grid.SPEARMAN_COST})
+		if remaining_budget >= hex_grid.SPEARMAN_COST:
+			purchases.append({"type": "spearman", "cost": hex_grid.SPEARMAN_COST})
 			remaining_budget -= hex_grid.SPEARMAN_COST
 			my_spearman_count += 1
 			my_combat_count += 1
@@ -2104,17 +2077,16 @@ func plan_unit_purchases(state: Dictionary, budget: int, kingdom_id: int = -1) -
 			if DEBUG: print("AI %d: Zamknięty w murach, brak farmerów - kupuję spearmana!" % team)
 	
 	if not skip_farmers:
-		while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 6 and purchases.size() < spawn_positions.size():
-			var next_pos = spawn_positions[purchases.size()]
-			purchases.append({"type": "farmer", "position": next_pos, "cost": hex_grid.FARMER_COST})
+		while remaining_budget >= hex_grid.FARMER_COST and purchases.size() < 6:
+			purchases.append({"type": "farmer", "cost": hex_grid.FARMER_COST})
 			remaining_budget -= hex_grid.FARMER_COST
 			my_farmer_count += 1
 	
 	if DEBUG: print("AI %d: Zaplanowano %d zakupów, zostaje %d złota" % [team, purchases.size(), remaining_budget])
 	return purchases
 
-func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array:
-	"""Znajduje najlepsze pozycje do spawnu jednostek - dla konkretnego królestwa."""
+func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1, unit_type: String = "") -> Array:
+	"""Znajduje najlepsze pozycje do spawnu jednostek - dla konkretnego królestwa i typu jednostki."""
 	var positions = []
 	
 	if state.my_castles.is_empty():
@@ -2131,29 +2103,24 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 	if castle_pos == Vector2i.ZERO:
 		castle_pos = state.my_castles[0]
 	
-	# Terytorium TYLKO tego królestwa (nie flood fill od wszystkich zamków razem)
+	# Terytorium TYLKO tego królestwa
 	var connected_territory: Array
 	if kingdom_id > 0:
 		connected_territory = hex_grid.get_kingdom_connected_territories(kingdom_id)
 	else:
 		connected_territory = state.my_connected_hexes
 	
-	# Szukaj pozycji przy GRANICY terytorium (sąsiedzi własnych pól które nie są nasze)
-	# BFS po własnym terytorium, zbierz wszystkich sąsiadów poza własnym
+	# Zbierz kandydatów
 	var candidates: Dictionary = {}
 	
-	# Dodaj pola przy zamku (na wypadek gdy terytorium jest puste)
 	for nb in hex_grid.get_neighbors(castle_pos):
 		if hex_grid.hex_map.has(nb):
 			candidates[nb] = true
 	
-	# Przejdź przez całe terytorium i zbierz pola graniczne + samo terytorium
 	for hex_pos in connected_territory:
-		# Sąsiedzi własnych pól - to są pola graniczne (neutralne/wrogie) = najlepsze spawny
 		for nb in hex_grid.get_neighbors(hex_pos):
 			if hex_grid.hex_map.has(nb):
 				candidates[nb] = true
-		# Samo pole własne też dodaj (fallback jeśli brak granicy)
 		candidates[hex_pos] = true
 	
 	var scored_positions = []
@@ -2169,11 +2136,7 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 		var owner = hex_grid.territory_map.get(neighbor, 0)
 		
 		# Pole jest ważne jeśli:
-		# 1. Należy do terytorium tego królestwa, LUB
-		# 2. Sąsiaduje bezpośrednio z zamkiem, LUB
-		# 3. Sąsiaduje z połączonym terytorium
 		var is_valid_spawn = false
-		
 		if neighbor in connected_territory:
 			is_valid_spawn = true
 		elif castle_pos in hex_grid.get_neighbors(neighbor):
@@ -2187,42 +2150,74 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 		if not is_valid_spawn:
 			continue
 		
+		var wall_count = hex_grid.count_walls_around(neighbor)
+		var target_unit = hex.occupied_object
+
+		# === FILTRY WEDŁUG TYPU JEDNOSTKI ===
+		if unit_type == "farmer":
+			# Farmer NIE na pole z JAKIMIKOLWIEK murami
+			if wall_count > 0:
+				continue
+			# Farmer może kupić TYLKO na pustym polu lub na wrogim farmerze
+			if target_unit != null:
+				if not (target_unit is Farmer and target_unit.team != team):
+					continue
+		elif unit_type == "spearman":
+			# Spearman NIE na pole z murami
+			if wall_count > 0:
+				continue
+			# Spearman może kupić na farmerze lub spearmanie
+			if target_unit != null:
+				if not (target_unit is Farmer or target_unit is Spearman) or target_unit.team == team:
+					continue
+		elif unit_type == "knight":
+			# Knight może na puste mury
+			# Knight może kupić na farmerze, spearmanie (nawet w murach)
+			# Knight może kupić na knightzie TYLKO bez murów
+			if target_unit is Knight and target_unit.team != team:
+				if wall_count > 0:
+					continue
+		elif unit_type == "cavalry":
+			# Cavalry może na puste mury
+			# Cavalry może kupić na knightzie TYLKO bez murów
+			# Cavalry może kupić na cavalry TYLKO bez murów
+			if target_unit is Knight and target_unit.team != team:
+				if wall_count > 0:
+					continue
+			if target_unit is Cavalry and target_unit.team != team:
+				if wall_count > 0:
+					continue
+		
 		var score = 0
 		
-		# Punktacja bazowa - neutralne/wrogie ZAWSZE lepsze od własnego
-		# Spawn na neutralnym/wrogim = +1 pole dochodu od razu
+		# Punktacja bazowa
 		if owner > 0 and owner != team:
-			score = 500  # WROGIE - najlepsze! Spawn od razu atakuje i przejmuje
+			score = 500
 		elif owner == 0:
-			score = 400  # NEUTRALNE - bardzo dobre, natychmiastowy dochód
+			score = 400
 		elif owner == team:
-			score = 10   # WŁASNE - ostateczność, nie daje nowych pól
+			score = 10
 		else:
 			continue
 		
-		# Kara bezpieczeństwa (tylko dla neutralnych/wrogich - własne i tak mają niski score)
+		# Kara bezpieczeństwa
 		if owner != team:
 			var safety_penalty = calculate_spawn_safety(neighbor, state)
-			score -= safety_penalty  # max kara ~70 nie pokona przewagi 400 nad 10
+			score -= safety_penalty
 		
-		# BONUS: Wąskie gardło - spawn tutaj zabezpiecza połączenie terytorium
-		# Liczymy sąsiadów własnego terytorium wokół tego pola
+		# Bonus za wąskie gardło
 		var own_neighbor_count = 0
-		var neutral_neighbor_count = 0
 		for nb2 in hex_grid.get_neighbors(neighbor):
 			var nb2_owner = hex_grid.territory_map.get(nb2, 0)
 			if nb2_owner == team:
 				own_neighbor_count += 1
-			elif nb2_owner == 0:
-				neutral_neighbor_count += 1
 		
-		# Pole sąsiaduje z własnym terytorium z 2 stron = wąskie gardło = duży bonus
 		if own_neighbor_count >= 2 and owner == 0:
-			score += 60  # Neutralne łączące dwa własne kawałki = priorytet
+			score += 60
 		elif own_neighbor_count >= 1 and owner == 0:
-			score += 30  # Neutralne przy granicy = dobre
+			score += 30
 		
-		# Bonus za bliskość do frontu (spawn bliżej wroga = agresja)
+		# Bonus za bliskość frontu
 		if not state.enemy_units.is_empty():
 			var min_dist_to_enemy = 999999
 			for enemy in state.enemy_units:
@@ -2230,9 +2225,9 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 				min_dist_to_enemy = min(min_dist_to_enemy, dist)
 			
 			if min_dist_to_enemy <= 3:
-				score += 50  # Bardzo blisko frontu
+				score += 50
 			elif min_dist_to_enemy <= 5:
-				score += 20  # Blisko frontu
+				score += 20
 		
 		scored_positions.append({
 			"pos": neighbor,
@@ -2242,7 +2237,6 @@ func find_best_spawn_positions(state: Dictionary, kingdom_id: int = -1) -> Array
 	# Sortuj według wyniku
 	scored_positions.sort_custom(func(a, b): return a.score > b.score)
 	
-	# Weź najlepsze pozycje
 	for item in scored_positions:
 		positions.append(item.pos)
 	
