@@ -53,6 +53,7 @@ var currency_amount: Label
 var nav_container: HBoxContainer
 var nav_buttons: Dictionary = {}
 var active_tab: String = "shop"
+var no_ads_price_button: Button = null  # referencja do przycisku $1.99
 
 var settings_expanded: bool = false
 var sound_enabled: bool = true
@@ -73,6 +74,19 @@ func _ready():
 	
 	_on_viewport_size_changed()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	
+	# NAPRAWKA: podłącz sygnały IAP żeby UI reagowało na zakupy
+	var iap = get_node_or_null("/root/IAPManager")
+	if iap:
+		if not iap.purchase_completed.is_connected(_on_purchase_completed):
+			iap.purchase_completed.connect(_on_purchase_completed)
+		if not iap.purchase_failed.is_connected(_on_purchase_error):
+			iap.purchase_failed.connect(_on_purchase_error)
+		if not iap.purchase_cancelled.is_connected(_on_purchase_cancel):
+			iap.purchase_cancelled.connect(_on_purchase_cancel)
+	
+	# Odśwież stan przycisku no_ads przy wejściu do shopu
+	_refresh_no_ads_button()
 
 func setup_background():
 	"""Creates dark background"""
@@ -919,6 +933,7 @@ func create_remove_ads_box(parent: VBoxContainer):
 	)
 	
 	hbox.add_child(price_button)
+	no_ads_price_button = price_button  # zapamiętaj referencję
 
 func setup_bottom_nav():
 	"""Creates bottom navigation - copied from main_menu"""
@@ -1266,3 +1281,73 @@ func _on_restore_result(restored_count: int):
 		show_toast("Purchases restored! ✓")
 	else:
 		show_toast("Nothing to restore")
+		
+func _on_purchase_completed(product_id: String):
+	"""Wywoływane po udanym zakupie — odśwież UI"""
+	print("Shop: purchase completed - %s" % product_id)
+	# Odśwież wyświetlanie waluty
+	var main = get_node_or_null("/root/Main")
+	if main:
+		set_currency(main.global_time_currency)
+	
+	# Pokaż potwierdzenie użytkownikowi
+	match product_id:
+		"no_ads":
+			show_toast("Ads removed! ✓")
+			_refresh_no_ads_button()
+		"time_pack_small":
+			show_toast("+30 Chrono Relics! ✓")
+		"time_pack_medium":
+			show_toast("+70 Chrono Relics! ✓")
+		"time_pack_large":
+			show_toast("+220 Chrono Relics! ✓")
+		"time_pack_mega":
+			show_toast("+420 Chrono Relics! ✓")
+ 
+func _on_purchase_error(error_message: String):
+	"""Wywoływane gdy zakup się nie powiedzie"""
+	if error_message == "Already owned":
+		show_toast("Already purchased!")
+	else:
+		show_toast("Purchase failed")
+	print("Shop: purchase failed - %s" % error_message)
+ 
+func _on_purchase_cancel():
+	"""Wywoływane gdy użytkownik anuluje zakup"""
+	print("Shop: purchase cancelled by user")
+	# Nie pokazuj błędu — użytkownik sam anulował
+ 
+func _refresh_no_ads_button():
+	"""Ukrywa/pokazuje przycisk Remove Ads w zależności czy już kupiony"""
+	if not no_ads_price_button:
+		return
+	var main = get_node_or_null("/root/Main")
+	var already_owned = false
+	if main and main.has_method("get_ads_disabled"):
+		already_owned = main.get_ads_disabled()
+	elif main:
+		already_owned = main.ads_disabled
+	# Sprawdź też w IAPManager
+	var iap = get_node_or_null("/root/IAPManager")
+	if iap and iap.has_method("owns_product"):
+		already_owned = already_owned or iap.owns_product("no_ads")
+	
+	if already_owned:
+		no_ads_price_button.text = "✓ Owned"
+		no_ads_price_button.disabled = true
+		var owned_style = StyleBoxFlat.new()
+		owned_style.bg_color = Color("2A2A40")
+		owned_style.border_width_bottom = 2
+		owned_style.border_color = Color("3A3A50")
+		owned_style.corner_radius_top_left = 24
+		owned_style.corner_radius_top_right = 24
+		owned_style.corner_radius_bottom_left = 24
+		owned_style.corner_radius_bottom_right = 24
+		owned_style.content_margin_left = 16
+		owned_style.content_margin_right = 16
+		owned_style.content_margin_top = 8
+		owned_style.content_margin_bottom = 8
+		no_ads_price_button.add_theme_stylebox_override("normal", owned_style)
+		no_ads_price_button.add_theme_stylebox_override("disabled", owned_style)
+		no_ads_price_button.add_theme_color_override("font_color", Color("6A7282"))
+		no_ads_price_button.add_theme_color_override("font_disabled_color", Color("6A7282"))
